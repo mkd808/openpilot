@@ -1,0 +1,32 @@
+name: Merge FrogPilot into MAKE-PRS-HERE
+
+on:
+  push:
+    branches:
+      - FrogPilot
+
+jobs:
+  merge-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Apply changes from FrogPilot to MAKE-PRS-HERE
+        run: |
+          git config user.name "FrogAi"
+          git config user.email "91348155+FrogAi@users.noreply.github.com"
+          git fetch origin
+          git checkout MAKE-PRS-HERE
+          git checkout FrogPilot -- .
+          DATE_STR=$(TZ="America/Phoenix" date +"%B %d, %Y Update")
+          git commit -am "${DATE_STR}"
+          git push origin MAKE-PRS-HERE
+        env:
+          GIT_AUTHOR_NAME: FrogAi
+          GIT_AUTHOR_EMAIL: 91348155+FrogAi@users.noreply.github.com
+          GIT_COMMITTER_NAME: FrogAi
+          GIT_COMMITTER_EMAIL: 91348155+FrogAi@users.noreply.github.com
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
