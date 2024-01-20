@@ -242,7 +242,8 @@ def gen_long_ocp():
 class LongitudinalMpc:
   def __init__(self, mode='acc'):
     # FrogPilot variables
-    self.t_follow_offset = 1
+    self.acceleration_offset = 1
+    self.braking_offset = 1
 
     self.mode = mode
     self.solver = AcadosOcpSolverCython(MODEL_NAME, ACADOS_SOLVER_TYPE, N)
@@ -297,7 +298,9 @@ class LongitudinalMpc:
 
   def set_weights(self, custom_personalities=False, aggressive_jerk=0.5, standard_jerk=1.0, relaxed_jerk=1.0, prev_accel_constraint=True, personality=log.LongitudinalPersonality.standard):
     jerk_factor = get_jerk_factor(custom_personalities, aggressive_jerk, standard_jerk, relaxed_jerk, personality)
-    jerk_factor /= np.mean(self.t_follow_offset)
+    jerk_factor /= np.mean(self.acceleration_offset)
+    jerk_factor /= np.mean(self.braking_offset)
+
     if self.mode == 'acc':
       a_change_cost = A_CHANGE_COST if prev_accel_constraint else 0
       cost_weights = [X_EGO_OBSTACLE_COST, X_EGO_COST, V_EGO_COST, A_EGO_COST, jerk_factor * a_change_cost, jerk_factor * J_EGO_COST]
@@ -368,14 +371,18 @@ class LongitudinalMpc:
     if aggressive_acceleration:
       distance_factor = np.maximum(1, lead_xv_0[:,0] - (lead_xv_0[:,1] * t_follow))
       standstill_offset = max(STOP_DISTANCE + increased_stopping_distance - (v_ego**COMFORT_BRAKE), 0)
-      self.t_follow_offset = np.clip((lead_xv_0[:,1] - v_ego) + standstill_offset, 1, distance_factor)
-      t_follow = t_follow / self.t_follow_offset
+      self.acceleration_offset = np.clip((lead_xv_0[:,1] - v_ego) + standstill_offset, 1, distance_factor)
+      t_follow = t_follow / self.acceleration_offset
+    else:
+      self.acceleration_offset = 1
 
     # Offset by FrogAi for FrogPilot for a more natural approach to a slower lead
     if smoother_braking:
       distance_factor = np.maximum(1, lead_xv_0[:,0] - (lead_xv_0[:,1] * t_follow))
-      t_follow_offset = np.clip((v_ego - lead_xv_0[:,1]) - COMFORT_BRAKE, 1, distance_factor)
-      t_follow = t_follow / t_follow_offset
+      self.braking_offset = np.clip((v_ego - lead_xv_0[:,1]) - COMFORT_BRAKE, 1, distance_factor)
+      t_follow = t_follow / self.braking_offset
+    else:
+      self.braking_offset = 1
 
     # LongitudinalPlan variables for onroad driving insights
     if self.status:
