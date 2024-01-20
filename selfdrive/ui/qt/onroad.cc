@@ -111,8 +111,19 @@ void OnroadWindow::mousePressEvent(QMouseEvent* e) {
   // FrogPilot clickable widgets
   bool widgetClicked = false;
 
+  // Hide speed button
+  QRect hideSpeedRect(rect().center().x() - 175, 50, 350, 350);
+  bool isSpeedClicked = hideSpeedRect.contains(e->pos());
+
+  if (isSpeedClicked && scene.hide_speed_ui) {
+    bool currentHideSpeed = scene.hide_speed;
+
+    uiState()->scene.hide_speed = !currentHideSpeed;
+    params.putBoolNonBlocking("HideSpeed", !currentHideSpeed);
+
+    widgetClicked = true;
   // If the click wasn't for anything specific, change the value of "ExperimentalMode"
-  if (scene.experimental_mode_via_screen && e->pos() != timeoutPoint) {
+  } else if (scene.experimental_mode_via_screen && e->pos() != timeoutPoint) {
     if (clickTimer.isActive()) {
       clickTimer.stop();
 
@@ -530,10 +541,12 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
   }
 
   // current speed
-  p.setFont(InterFont(176, QFont::Bold));
-  drawText(p, rect().center().x(), 210, speedStr);
-  p.setFont(InterFont(66));
-  drawText(p, rect().center().x(), 290, speedUnit, 200);
+  if (!scene.hide_speed) {
+    p.setFont(InterFont(176, QFont::Bold));
+    drawText(p, rect().center().x(), 210, speedStr);
+    p.setFont(InterFont(66));
+    drawText(p, rect().center().x(), 290, speedUnit, 200);
+  }
 
   p.restore();
 }
