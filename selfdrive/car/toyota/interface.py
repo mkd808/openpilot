@@ -152,7 +152,7 @@ class CarInterface(CarInterfaceBase):
       if candidate not in (CAR.LEXUS_ES,):  # TODO: LEXUS_ES may have sng
         stop_and_go = True
       ret.wheelbase = 2.8702
-      ret.steerRatio = 16.0  # not optimized
+      ret.steerRatio = 15.55  # not optimized
       ret.tireStiffnessFactor = 0.444  # not optimized yet
       ret.mass = 3677. * CV.LB_TO_KG  # mean between min and max
 
