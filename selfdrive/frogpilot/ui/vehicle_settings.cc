@@ -99,6 +99,7 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(SettingsWindow *parent) : FrogPil
   selectModelButton->setVisible(false);
 
   std::vector<std::tuple<QString, QString, QString, QString>> vehicleToggles {
+    {"GasRegenCmd", "GM Truck Gas Tune", "Increase acceleration and smoothen brake to stop. For use on Silverado/Sierra only.", ""},
     {"LongPitch", "Long Pitch Compensation", "Reduce speed and acceleration error for greater passenger comfort and improved vehicle efficiency.", ""},
   };
 
@@ -114,10 +115,10 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(SettingsWindow *parent) : FrogPil
     });
   }
 
-  gmKeys = {"LongPitch"};
+  gmKeys = {"GasRegenCmd", "LongPitch"};
   toyotaKeys = {};
 
-  std::set<std::string> rebootKeys = {"LongPitch"};
+  std::set<std::string> rebootKeys = {"GasRegenCmd", "LongPitch"};
   for (const std::string &key : rebootKeys) {
     QObject::connect(toggles[key], &ToggleControl::toggleFlipped, [this]() {
       if (FrogPilotConfirmationDialog::toggle("Reboot required to take effect.", "Reboot Now", this)) {
