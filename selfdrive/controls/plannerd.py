@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import numpy as np
+import threading
 from cereal import car
 from openpilot.common.params import Params
 from openpilot.common.realtime import Priority, config_realtime_process
@@ -9,6 +10,8 @@ from openpilot.selfdrive.modeld.constants import ModelConstants
 from openpilot.selfdrive.controls.lib.longitudinal_planner import LongitudinalPlanner
 from openpilot.selfdrive.controls.lib.lateral_planner import LateralPlanner
 import cereal.messaging as messaging
+
+from openpilot.selfdrive.frogpilot.functions.frogpilot_planner import FrogPilotPlanner
 
 def cumtrapz(x, t):
   return np.concatenate([[0], np.cumsum(((x[0:-1] + x[1:])/2) * np.diff(t))])
@@ -32,28 +35,34 @@ def plannerd_thread():
 
   cloudlog.info("plannerd is waiting for CarParams")
   params = Params()
+  params_memory = Params("/dev/shm/params")
   with car.CarParams.from_bytes(params.get("CarParams", block=True)) as msg:
     CP = msg
   cloudlog.info("plannerd got CarParams: %s", CP.carName)
 
   debug_mode = bool(int(os.getenv("DEBUG", "0")))
 
+  frogpilot_planner = FrogPilotPlanner(params, params_memory)
   longitudinal_planner = LongitudinalPlanner(CP)
   lateral_planner = LateralPlanner(CP, debug=debug_mode)
 
-  pm = messaging.PubMaster(['longitudinalPlan', 'lateralPlan', 'uiPlan'])
-  sm = messaging.SubMaster(['carControl', 'carState', 'controlsState', 'radarState', 'modelV2'],
+  pm = messaging.PubMaster(['longitudinalPlan', 'lateralPlan', 'uiPlan', 'frogpilotLateralPlan', 'frogpilotLongitudinalPlan'])
+  sm = messaging.SubMaster(['carControl', 'carState', 'controlsState', 'radarState', 'modelV2', 'frogpilotNavigation'],
                            poll=['radarState', 'modelV2'], ignore_avg_freq=['radarState'])
 
   while True:
     sm.update()
 
     if sm.updated['modelV2']:
-      lateral_planner.update(sm)
-      lateral_planner.publish(sm, pm)
-      longitudinal_planner.update(sm)
-      longitudinal_planner.publish(sm, pm)
+      lateral_planner.update(sm, frogpilot_planner)
+      lateral_planner.publish(sm, pm, frogpilot_planner)
+      longitudinal_planner.update(sm, frogpilot_planner, params_memory)
+      longitudinal_planner.publish(sm, pm, frogpilot_planner)
       publish_ui_plan(sm, pm, lateral_planner, longitudinal_planner)
+
+    if params_memory.get_bool("FrogPilotTogglesUpdated"):
+      updateFrogPilotToggles = threading.Thread(target=frogpilot_planner.update_frogpilot_params, args=(params, params_memory))
+      updateFrogPilotToggles.start()
 
 def main():
   plannerd_thread()
