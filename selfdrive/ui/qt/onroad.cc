@@ -875,9 +875,10 @@ void AnnotatedCameraWidget::updateFrogPilotWidgets() {
     bottom_layout->setAlignment(map_settings_btn_bottom, rightHandDM ? Qt::AlignLeft : Qt::AlignRight);
   }
 
-  if (conditionalSpeed != scene.conditional_speed || conditionalSpeedLead != scene.conditional_speed_lead || is_metric != scene.is_metric) {
+  if (conditionalSpeed != scene.conditional_speed || conditionalSpeedLead != scene.conditional_speed_lead || is_metric != scene.is_metric || mapOpen != scene.map_open) {
     conditionalSpeed = scene.conditional_speed;
     conditionalSpeedLead = scene.conditional_speed_lead;
+    mapOpen = scene.map_open;
 
     conditionalStatusMap = {
       {0, "Conditional Experimental Mode ready"},
@@ -885,14 +886,14 @@ void AnnotatedCameraWidget::updateFrogPilotWidgets() {
       {2, "Experimental Mode manually activated"},
       {3, "Conditional Experimental overridden"},
       {4, "Experimental Mode manually activated"},
-      {5, "Experimental Mode activated for navigation" + (QString(" instructions input"))},
-      {6, "Experimental Mode activated due to" + (QString(" no speed limit set"))},
-      {7, "Experimental Mode activated due to" + (" speed being less than " + QString::number(conditionalSpeedLead) + (is_metric ? " kph" : " mph"))},
-      {8, "Experimental Mode activated due to" + (" speed being less than " + QString::number(conditionalSpeed) + (is_metric ? " kph" : " mph"))},
+      {5, "Experimental Mode activated for navigation" + (mapOpen ? "" : QString(" instructions input"))},
+      {6, "Experimental Mode activated due to" + (mapOpen ? "SLC" : QString(" no speed limit set"))},
+      {7, "Experimental Mode activated due to" + (mapOpen ? " speed" : " speed being less than " + QString::number(conditionalSpeedLead) + (is_metric ? " kph" : " mph"))},
+      {8, "Experimental Mode activated due to" + (mapOpen ? " speed" : " speed being less than " + QString::number(conditionalSpeed) + (is_metric ? " kph" : " mph"))},
       {9, "Experimental Mode activated for slower lead"},
-      {10, "Experimental Mode activated for turn" + (QString(" / lane change"))},
+      {10, "Experimental Mode activated for turn" + (mapOpen ? "" : QString(" / lane change"))},
       {11, "Experimental Mode activated for curve"},
-      {12, "Experimental Mode activated for stop" + (QString(" sign / stop light"))}
+      {12, "Experimental Mode activated for stop" + (mapOpen ? "" : QString(" sign / stop light"))},
     };
   }
 
@@ -948,7 +949,7 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
 
   // Update status text
   if (alwaysOnLateralActive) {
-    newStatus = QString("Always On Lateral active. Press the \"Cruise Control\" button to disable");
+    newStatus = QString("Always On Lateral active") + (mapOpen ? "" : ". Press the \"Cruise Control\" button to disable");
   } else if (conditionalExperimental) {
     newStatus = status != STATUS_DISENGAGED ? conditionalStatusMap.value(conditionalStatus, conditionalStatusMap.value(0)) : conditionalStatusMap.value(0);
   }

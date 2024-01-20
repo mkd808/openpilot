@@ -40,4 +40,6 @@ void MapPanel::toggleMapSettings() {
   content_stack->setCurrentIndex(new_index);
   emit mapPanelRequested();
   show();
+
+  uiState()->scene.map_open = isVisible();
 }
