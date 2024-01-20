@@ -218,6 +218,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"AlwaysOnLateral", PERSISTENT},
     {"AlwaysOnLateralMain", PERSISTENT},
     {"ApiCache_DriveStats", PERSISTENT},
+    {"BlindSpotPath", PERSISTENT},
     {"CustomUI", PERSISTENT},
     {"DriveStats", PERSISTENT},
     {"FrogPilotTogglesUpdated", PERSISTENT},

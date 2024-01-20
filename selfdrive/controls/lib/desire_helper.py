@@ -47,6 +47,17 @@ class DesireHelper:
     one_blinker = carstate.leftBlinker != carstate.rightBlinker
     below_lane_change_speed = v_ego < LANE_CHANGE_SPEED_MIN
 
+    # Calculate the left and right lane widths
+    check_lane_width = frogpilot_planner.blind_spot_path
+    turning = abs(carstate.steeringAngleDeg) >= 60
+    if check_lane_width and not turning:
+      # Calculate left and right lane widths
+      self.lane_width_left = calculate_lane_width(modeldata.laneLines[0], modeldata.laneLines[1], modeldata.roadEdges[0])
+      self.lane_width_right = calculate_lane_width(modeldata.laneLines[3], modeldata.laneLines[2], modeldata.roadEdges[1])
+    else:
+      self.lane_width_left = 0
+      self.lane_width_right = 0
+
     if not lateral_active or self.lane_change_timer > LANE_CHANGE_TIME_MAX:
       self.lane_change_state = LaneChangeState.off
       self.lane_change_direction = LaneChangeDirection.none

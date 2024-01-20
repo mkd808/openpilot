@@ -53,6 +53,7 @@ class FrogPilotPlanner:
     self.is_metric = params.get_bool("IsMetric")
 
     custom_ui = params.get_bool("CustomUI")
+    self.blind_spot_path = params.get_bool("BlindSpotPath") and custom_ui
 
     lateral_tune = params.get_bool("LateralTune")
 
