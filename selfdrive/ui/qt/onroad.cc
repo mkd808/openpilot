@@ -281,6 +281,8 @@ void OnroadWindow::updateFPSCounter() {
     }
     avgFPS = totalFPS / fpsQueue.size();
   }
+
+  update();
 }
 
 // ***** onroad widgets *****
