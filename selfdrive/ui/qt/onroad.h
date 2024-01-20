@@ -122,9 +122,15 @@ private:
   bool alwaysOnLateralActive;
   bool blindSpotLeft;
   bool blindSpotRight;
+  bool conditionalExperimental;
   bool experimentalMode;
 
   int cameraView;
+  int conditionalSpeed;
+  int conditionalSpeedLead;
+  int conditionalStatus;
+
+  QMap<int, QString> conditionalStatusMap;
 
   QElapsedTimer timer;
 

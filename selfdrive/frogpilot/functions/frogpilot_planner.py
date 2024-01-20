@@ -10,8 +10,12 @@ from openpilot.selfdrive.modeld.constants import ModelConstants
 
 from openpilot.selfdrive.frogpilot.functions.frogpilot_functions import get_min_accel_eco, get_max_accel_eco, get_min_accel_sport, get_max_accel_sport
 
+from openpilot.selfdrive.frogpilot.functions.conditional_experimental_mode import ConditionalExperimentalMode
+
 class FrogPilotPlanner:
   def __init__(self, params, params_memory):
+    self.cem = ConditionalExperimentalMode()
+
     self.v_cruise = 0
 
     self.x_desired_trajectory = np.zeros(CONTROL_N)
@@ -35,6 +39,10 @@ class FrogPilotPlanner:
     else:
       self.accel_limits = [A_CRUISE_MIN, get_max_accel(v_ego)]
 
+    # Conditional Experimental Mode
+    if self.conditional_experimental_mode and enabled:
+      self.cem.update(carState, sm['frogpilotNavigation'], modelData, mpc, sm['radarState'], carState.standstill, v_ego)
+
     self.v_cruise = self.update_v_cruise(carState, controlsState, modelData, enabled, v_cruise, v_ego)
 
     self.x_desired_trajectory_full = np.interp(ModelConstants.T_IDXS, T_IDXS_MPC, mpc.x_solution)
@@ -56,12 +64,18 @@ class FrogPilotPlanner:
     frogpilot_longitudinal_plan_send.valid = sm.all_checks(service_list=['carState', 'controlsState'])
     frogpilotLongitudinalPlan = frogpilot_longitudinal_plan_send.frogpilotLongitudinalPlan
 
+    frogpilotLongitudinalPlan.conditionalExperimental = self.cem.experimental_mode
     frogpilotLongitudinalPlan.distances = self.x_desired_trajectory.tolist()
 
     pm.send('frogpilotLongitudinalPlan', frogpilot_longitudinal_plan_send)
 
   def update_frogpilot_params(self, params, params_memory):
     self.is_metric = params.get_bool("IsMetric")
+
+    self.conditional_experimental_mode = params.get_bool("ConditionalExperimental")
+    if self.conditional_experimental_mode:
+      self.cem.update_frogpilot_params(self.is_metric, params)
+      params.put_bool("ExperimentalMode", True)
 
     custom_ui = params.get_bool("CustomUI")
     self.blind_spot_path = params.get_bool("BlindSpotPath") and custom_ui
