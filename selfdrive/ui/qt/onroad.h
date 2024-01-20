@@ -161,11 +161,16 @@ private:
   bool mapOpen;
   bool roadNameUI;
   bool showDriverCamera;
+  bool showSLCOffset;
+  bool slcOverridden;
   bool turnSignalLeft;
   bool turnSignalRight;
+  bool useViennaSLCSign;
 
   float cruiseAdjustment;
   float distanceConversion;
+  float slcSpeedLimit;
+  float slcSpeedLimitOffset;
   float speedConversion;
 
   int bearingDeg;

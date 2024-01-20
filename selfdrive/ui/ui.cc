@@ -255,6 +255,12 @@ static void update_state(UIState *s) {
       scene.obstacle_distance_stock = frogpilotLongitudinalPlan.getSafeObstacleDistanceStock();
       scene.stopped_equivalence = frogpilotLongitudinalPlan.getStoppedEquivalenceFactor();
     }
+    if (scene.speed_limit_controller) {
+      scene.speed_limit = frogpilotLongitudinalPlan.getSlcSpeedLimit();
+      scene.speed_limit_offset = frogpilotLongitudinalPlan.getSlcSpeedLimitOffset();
+      scene.speed_limit_overridden = frogpilotLongitudinalPlan.getSlcOverridden();
+      scene.speed_limit_overridden_speed = frogpilotLongitudinalPlan.getSlcOverriddenSpeed();
+    }
     scene.adjusted_cruise = frogpilotLongitudinalPlan.getAdjustedCruise();
   }
   if (sm.updated("liveLocationKalman")) {
@@ -307,6 +313,7 @@ void ui_update_frogpilot_params(UIState *s) {
   scene.lead_info = params.getBool("LeadInfo") && scene.custom_onroad_ui;
   scene.road_name_ui = params.getBool("RoadNameUI") && scene.custom_onroad_ui;
   scene.use_si = params.getBool("UseSI") && scene.custom_onroad_ui;
+  scene.use_vienna_slc_sign = params.getBool("UseVienna") && scene.custom_onroad_ui;
 
   scene.custom_theme = params.getBool("CustomTheme");
   scene.custom_colors = scene.custom_theme ? params.getInt("CustomColors") : 0;
@@ -330,6 +337,8 @@ void ui_update_frogpilot_params(UIState *s) {
   scene.quality_of_life_controls = params.getBool("QOLControls");
   scene.reverse_cruise = params.getBool("ReverseCruise") && scene.quality_of_life_controls;
   scene.reverse_cruise_ui = params.getBool("ReverseCruiseUI") && scene.reverse_cruise;
+  scene.show_slc_offset = params.getBool("ShowSLCOffset") && scene.quality_of_life_controls;
+  scene.show_slc_offset_ui = params.getBool("ShowSLCOffsetUI") && scene.quality_of_life_controls;
 
   scene.quality_of_life_visuals = params.getBool("QOLVisuals");
   scene.full_map = params.getBool("FullMap") && scene.quality_of_life_visuals;
@@ -338,6 +347,7 @@ void ui_update_frogpilot_params(UIState *s) {
 
   scene.rotating_wheel = params.getBool("RotatingWheel");
   scene.screen_brightness = params.getInt("ScreenBrightness");
+  scene.speed_limit_controller = params.getBool("SpeedLimitController");
 }
 
 void UIState::updateStatus() {
