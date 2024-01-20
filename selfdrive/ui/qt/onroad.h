@@ -162,7 +162,7 @@ private:
 
   // FrogPilot widgets
   void initializeFrogPilotWidgets();
-  void updateFrogPilotWidgets();
+  void updateFrogPilotWidgets(QPainter &p);
 
   void drawLeadInfo(QPainter &p);
   void drawStatusBar(QPainter &p);
@@ -223,7 +223,6 @@ private:
   std::unordered_map<int, std::pair<QString, std::pair<QColor, std::map<double, QBrush>>>> themeConfiguration;
   std::vector<QPixmap> signalImgVector;
 
-  QElapsedTimer timer;
   QTimer *animationTimer;
 
   inline QColor greenColor(int alpha = 242) { return QColor(23, 134, 68, alpha); }

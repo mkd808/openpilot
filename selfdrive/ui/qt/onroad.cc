@@ -486,9 +486,6 @@ AnnotatedCameraWidget::AnnotatedCameraWidget(VisionStreamType type, QWidget* par
 }
 
 void AnnotatedCameraWidget::updateState(const UIState &s) {
-  // Update FrogPilot widgets
-  updateFrogPilotWidgets();
-
   const int SET_SPEED_NA = 255;
   const SubMaster &sm = *(s.sm);
 
@@ -981,10 +978,10 @@ void AnnotatedCameraWidget::drawLead(QPainter &painter, const cereal::RadarState
     painter.setFont(InterFont(35, QFont::Bold));
 
     QString text = QString("%1 %2 | %3 %4")
-                      .arg(d_rel * distanceConversion, 0, 'f', 2, '0')
-                      .arg(leadDistanceUnit)
-                      .arg(lead_speed * speedConversion, 0, 'f', 2, '0')
-                      .arg(leadSpeedUnit);
+                   .arg(d_rel * distanceConversion, 0, 'f', 2, '0')
+                   .arg(leadDistanceUnit)
+                   .arg(lead_speed * speedConversion, 0, 'f', 2, '0')
+                   .arg(leadSpeedUnit);
 
     // Calculate the text starting position
     QFontMetrics metrics(painter.font());
@@ -1095,6 +1092,9 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
   auto m = msg.initEvent().initUiDebug();
   m.setDrawTimeMillis(cur_draw_t - start_draw_t);
   pm->send("uiDebug", msg);
+
+  // Update FrogPilot widgets
+  updateFrogPilotWidgets(painter);
 }
 
 void AnnotatedCameraWidget::showEvent(QShowEvent *event) {
@@ -1151,9 +1151,7 @@ void AnnotatedCameraWidget::initializeFrogPilotWidgets() {
   record_timer->start(1000 / UI_FREQ);
 }
 
-void AnnotatedCameraWidget::updateFrogPilotWidgets() {
-  QPainter p(this);
-
+void AnnotatedCameraWidget::updateFrogPilotWidgets(QPainter &p) {
   alwaysOnLateral = scene.always_on_lateral;
   alwaysOnLateralActive = scene.always_on_lateral_active;
   blindSpotLeft = scene.blind_spot_left;
@@ -1393,6 +1391,7 @@ void AnnotatedCameraWidget::drawLeadInfo(QPainter &p) {
   // Declare the variables
   static QElapsedTimer timer;
   static bool isFiveSecondsPassed = false;
+  constexpr int maxAccelDuration = 5000;
 
   // Constants for units and conversions
   QString accelerationUnit = " m/s²";
@@ -1427,7 +1426,7 @@ void AnnotatedCameraWidget::drawLeadInfo(QPainter &p) {
     isFiveSecondsPassed = false;
     timer.start();
   } else {
-    isFiveSecondsPassed = timer.hasExpired(5000);
+    isFiveSecondsPassed = timer.hasExpired(maxAccelDuration);
   }
 
   // Construct text segments
@@ -1566,21 +1565,15 @@ void PersonalityButton::paintEvent(QPaintEvent *) {
 void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
   p.save();
 
-  // Constants
-  constexpr qreal fadeDuration = 1500;
-  constexpr qreal textDuration = 5000;
-
-  static bool displayStatusText;
+  // Variable declarations
+  QElapsedTimer timer;
   static QString lastShownStatus;
   static QString newStatus;
 
-  QString screenSuffix = ". Double tap the screen to revert";
-  QString wheelSuffix = ". Double press the \"LKAS\" button to revert";
+  static bool displayStatusText = false;
 
-  // Configure the text
-  p.setFont(InterFont(40, QFont::Bold));
-  p.setPen(Qt::white);
-  p.setRenderHint(QPainter::TextAntialiasing);
+  constexpr qreal fadeDuration = 1500.0;
+  constexpr qreal textDuration = 5000.0;
 
   // Draw status bar
   QRect currentRect = rect();
@@ -1589,18 +1582,16 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
   p.setOpacity(1.0);
   p.drawRoundedRect(statusBarRect, 30, 30);
 
-  // Update status text
+  QString roadName = roadNameUI ? QString::fromStdString(paramsMemory.get("RoadName")) : QString();
+
+  QString screenSuffix = ". Double tap the screen to revert";
+  QString wheelSuffix = ". Double press the \"LKAS\" button to revert";
+
   if (alwaysOnLateralActive) {
     newStatus = QString("Always On Lateral active") + (mapOpen ? "" : ". Press the \"Cruise Control\" button to disable");
   } else if (conditionalExperimental) {
-    newStatus = status != STATUS_DISENGAGED ? conditionalStatusMap.value(conditionalStatus, conditionalStatusMap.value(0)) : conditionalStatusMap.value(0);
+    newStatus = conditionalStatusMap.contains(conditionalStatus) && status != STATUS_DISENGAGED ? conditionalStatusMap[conditionalStatus] : conditionalStatusMap[0];
   }
-
-  if (!alwaysOnLateral && !mapOpen && status != STATUS_DISENGAGED && !newStatus.isEmpty()) {
-    newStatus += (conditionalStatus == 3 || conditionalStatus == 4) ? screenSuffix : (conditionalStatus == 1 || conditionalStatus == 2) ? wheelSuffix : "";
-  }
-
-  QString roadName = roadNameUI ? QString::fromStdString(paramsMemory.get("RoadName")) : QString();
 
   // Check if status has changed or if the road name is empty
   if (newStatus != lastShownStatus || roadName.isEmpty()) {
@@ -1610,8 +1601,16 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
   } else if (displayStatusText && timer.hasExpired(textDuration + fadeDuration)) {
     displayStatusText = false;
   }
+  if (!alwaysOnLateralActive && !mapOpen && status != STATUS_DISENGAGED && !newStatus.isEmpty()) {
+    newStatus += (conditionalStatus == 3 || conditionalStatus == 4) ? screenSuffix : (conditionalStatus == 1 || conditionalStatus == 2) ? wheelSuffix : "";
+  }
 
-  // Calculate text opacity and draw the status text
+  // Configure the text
+  p.setFont(InterFont(40, QFont::Bold));
+  p.setPen(Qt::white);
+  p.setRenderHint(QPainter::TextAntialiasing);
+
+  // Calculate text opacity
   static qreal roadNameOpacity;
   static qreal statusTextOpacity;
   int elapsed = timer.elapsed();
@@ -1621,9 +1620,10 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
   } else {
     roadNameOpacity = qBound(0.0, elapsed / fadeDuration, 1.0);
     statusTextOpacity = 1.0 - roadNameOpacity;
-    p.setOpacity(statusTextOpacity);
   }
 
+  // Draw the status text
+  p.setOpacity(statusTextOpacity);
   QRect textRect = p.fontMetrics().boundingRect(statusBarRect, Qt::AlignCenter | Qt::TextWordWrap, newStatus);
   textRect.moveBottom(statusBarRect.bottom() - 50);
   p.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap, newStatus);
