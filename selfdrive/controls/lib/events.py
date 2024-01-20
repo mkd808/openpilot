@@ -1012,6 +1012,14 @@ EVENTS: Dict[int, Dict[str, Union[Alert, AlertCallbackType]]] = {
     ET.PERMANENT: torque_nn_load_alert,
   },
 
+  # Random Events
+  FrogPilotEventName.firefoxSteerSaturated: {
+    ET.WARNING: Alert(
+      "Turn Exceeds Steering Limit",
+      "IE Has Stopped Responding...",
+      AlertStatus.userPrompt, AlertSize.mid,
+      Priority.LOW, VisualAlert.steerRequired, AudibleAlert.firefox, 4.),
+  },
 }
 
 
