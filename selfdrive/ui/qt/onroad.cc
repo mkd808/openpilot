@@ -280,7 +280,7 @@ void OnroadAlerts::paintEvent(QPaintEvent *event) {
 
   int margin = 40;
   int radius = 30;
-  int offset = scene.always_on_lateral || scene.conditional_experimental ? 25 : 0;
+  int offset = scene.always_on_lateral || scene.conditional_experimental || scene.road_name_ui ? 25 : 0;
   if (alert.size == cereal::ControlsState::AlertSize::FULL) {
     margin = 0;
     radius = 0;
@@ -805,7 +805,7 @@ void AnnotatedCameraWidget::drawDriverState(QPainter &painter, const UIState *s)
 
   // base icon
   int offset = UI_BORDER_SIZE + btn_size / 2;
-  offset += alwaysOnLateral || conditionalExperimental ? 25 : 0;
+  offset += alwaysOnLateral || conditionalExperimental || roadNameUI ? 25 : 0;
   int x = rightHandDM ? width() - offset : offset;
   int y = height() - offset;
   float opacity = dmActive ? 0.65 : 0.2;
@@ -1057,6 +1057,7 @@ void AnnotatedCameraWidget::updateFrogPilotWidgets() {
   leadInfo = scene.lead_info;
   obstacleDistance = scene.obstacle_distance;
   obstacleDistanceStock = scene.obstacle_distance_stock;
+  roadNameUI = scene.road_name_ui;
   showDriverCamera = scene.show_driver_camera;
   turnSignalLeft = scene.turn_signal_left;
   turnSignalRight = scene.turn_signal_right;
@@ -1066,7 +1067,7 @@ void AnnotatedCameraWidget::updateFrogPilotWidgets() {
       drawLeadInfo(p);
     }
 
-    if (alwaysOnLateral || conditionalExperimental) {
+    if (alwaysOnLateral || conditionalExperimental || roadNameUI) {
       drawStatusBar(p);
     }
 
@@ -1403,8 +1404,10 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
     newStatus += (conditionalStatus == 3 || conditionalStatus == 4) ? screenSuffix : (conditionalStatus == 1 || conditionalStatus == 2) ? wheelSuffix : "";
   }
 
-  // Check if status has changed
-  if (newStatus != lastShownStatus) {
+  QString roadName = roadNameUI ? QString::fromStdString(paramsMemory.get("RoadName")) : QString();
+
+  // Check if status has changed or if the road name is empty
+  if (newStatus != lastShownStatus || roadName.isEmpty()) {
     displayStatusText = true;
     lastShownStatus = newStatus;
     timer.restart();
@@ -1413,13 +1416,29 @@ void AnnotatedCameraWidget::drawStatusBar(QPainter &p) {
   }
 
   // Calculate text opacity and draw the status text
+  static qreal roadNameOpacity;
+  static qreal statusTextOpacity;
+  int elapsed = timer.elapsed();
   if (displayStatusText) {
-    qreal statusTextOpacity = qBound(0.0, 1.0 - (timer.elapsed() - textDuration) / fadeDuration, 1.0);
+    statusTextOpacity = qBound(0.0, 1.0 - (elapsed - textDuration) / fadeDuration, 1.0);
+    roadNameOpacity = 1.0 - statusTextOpacity;
+  } else {
+    roadNameOpacity = qBound(0.0, elapsed / fadeDuration, 1.0);
+    statusTextOpacity = 1.0 - roadNameOpacity;
     p.setOpacity(statusTextOpacity);
+  }
 
   QRect textRect = p.fontMetrics().boundingRect(statusBarRect, Qt::AlignCenter | Qt::TextWordWrap, newStatus);
   textRect.moveBottom(statusBarRect.bottom() - 50);
   p.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap, newStatus);
+
+  // Draw the road name with the calculated opacity
+  if (!roadName.isEmpty()) {
+    p.setOpacity(roadNameOpacity);
+    textRect = p.fontMetrics().boundingRect(statusBarRect, Qt::AlignCenter | Qt::TextWordWrap, roadName);
+    textRect.moveBottom(statusBarRect.bottom() - 50);
+    p.drawText(textRect, Qt::AlignCenter | Qt::TextWordWrap, roadName);
+  }
 
   p.restore();
 }
