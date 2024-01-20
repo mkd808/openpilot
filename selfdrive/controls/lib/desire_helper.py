@@ -48,7 +48,7 @@ class DesireHelper:
     below_lane_change_speed = v_ego < LANE_CHANGE_SPEED_MIN
 
     # Calculate the left and right lane widths
-    check_lane_width = frogpilot_planner.blind_spot_path
+    check_lane_width = frogpilot_planner.adjacent_lanes or frogpilot_planner.blind_spot_path
     turning = abs(carstate.steeringAngleDeg) >= 60
     if check_lane_width and not turning:
       # Calculate left and right lane widths
