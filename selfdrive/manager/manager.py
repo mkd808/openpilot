@@ -205,6 +205,9 @@ def main() -> None:
   if os.path.exists("/data/openpilot/prebuilt"):
     os.remove("/data/openpilot/prebuilt")
 
+  # Set the desired model on boot
+  subprocess.run(["python3", "/data/openpilot/selfdrive/frogpilot/functions/model_switcher.py"])
+
   # SystemExit on sigterm
   signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(1))
 
