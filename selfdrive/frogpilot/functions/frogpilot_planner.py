@@ -2,7 +2,9 @@ import cereal.messaging as messaging
 
 from openpilot.common.conversions import Conversions as CV
 from openpilot.selfdrive.controls.lib.drive_helpers import V_CRUISE_MAX
+from openpilot.selfdrive.controls.lib.longitudinal_planner import A_CRUISE_MIN, A_CRUISE_MAX_BP, get_max_accel
 
+from openpilot.selfdrive.frogpilot.functions.frogpilot_functions import get_min_accel_eco, get_max_accel_eco, get_min_accel_sport, get_max_accel_sport
 
 class FrogPilotPlanner:
   def __init__(self, params, params_memory):
@@ -18,6 +20,14 @@ class FrogPilotPlanner:
     v_cruise_kph = min(controlsState.vCruise, V_CRUISE_MAX)
     v_cruise = v_cruise_kph * CV.KPH_TO_MS
     v_ego = carState.vEgo
+
+    # Acceleration profiles
+    if self.acceleration_profile == 1:
+      self.accel_limits = [get_min_accel_eco(v_ego), get_max_accel_eco(v_ego)]
+    elif self.acceleration_profile in (2, 3):
+      self.accel_limits = [get_min_accel_sport(v_ego), get_max_accel_sport(v_ego)]
+    else:
+      self.accel_limits = [A_CRUISE_MIN, get_max_accel(v_ego)]
 
     self.v_cruise = self.update_v_cruise(carState, controlsState, modelData, enabled, v_cruise, v_ego)
 
@@ -47,3 +57,4 @@ class FrogPilotPlanner:
     lateral_tune = params.get_bool("LateralTune")
 
     longitudinal_tune = params.get_bool("LongitudinalTune")
+    self.acceleration_profile = params.get_int("AccelerationProfile") if longitudinal_tune else 0
