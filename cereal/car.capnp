@@ -408,8 +408,7 @@ struct CarControl {
       promptRepeat @7;
       promptDistracted @8;
 
-      fart @9;
-      firefox @10;
+      firefox @9;
     }
   }
 
