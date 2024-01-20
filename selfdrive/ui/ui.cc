@@ -243,6 +243,12 @@ static void update_state(UIState *s) {
   }
   if (sm.updated("frogpilotLongitudinalPlan")) {
     auto frogpilotLongitudinalPlan = sm["frogpilotLongitudinalPlan"].getFrogpilotLongitudinalPlan();
+    if (scene.lead_info) {
+      scene.desired_follow = frogpilotLongitudinalPlan.getDesiredFollowDistance();
+      scene.obstacle_distance = frogpilotLongitudinalPlan.getSafeObstacleDistance();
+      scene.obstacle_distance_stock = frogpilotLongitudinalPlan.getSafeObstacleDistanceStock();
+      scene.stopped_equivalence = frogpilotLongitudinalPlan.getStoppedEquivalenceFactor();
+    }
   }
   if (sm.updated("liveLocationKalman")) {
     auto liveLocationKalman = sm["liveLocationKalman"].getLiveLocationKalman();
@@ -281,6 +287,8 @@ void ui_update_frogpilot_params(UIState *s) {
   scene.custom_onroad_ui = params.getBool("CustomUI");
   scene.acceleration_path = params.getBool("AccelerationPath") && scene.custom_onroad_ui;
   scene.blind_spot_path = params.getBool("BlindSpotPath") && scene.custom_onroad_ui;
+  scene.lead_info = params.getBool("LeadInfo") && scene.custom_onroad_ui;
+  scene.use_si = params.getBool("UseSI") && scene.custom_onroad_ui;
 
   scene.custom_theme = params.getBool("CustomTheme");
   scene.custom_colors = scene.custom_theme ? params.getInt("CustomColors") : 0;

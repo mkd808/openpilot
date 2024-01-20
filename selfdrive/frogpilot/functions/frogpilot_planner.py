@@ -67,6 +67,11 @@ class FrogPilotPlanner:
     frogpilotLongitudinalPlan.conditionalExperimental = self.cem.experimental_mode
     frogpilotLongitudinalPlan.distances = self.x_desired_trajectory.tolist()
 
+    frogpilotLongitudinalPlan.desiredFollowDistance = mpc.safe_obstacle_distance - mpc.stopped_equivalence_factor
+    frogpilotLongitudinalPlan.safeObstacleDistance = mpc.safe_obstacle_distance
+    frogpilotLongitudinalPlan.safeObstacleDistanceStock = mpc.safe_obstacle_distance_stock
+    frogpilotLongitudinalPlan.stoppedEquivalenceFactor = mpc.stopped_equivalence_factor
+
     pm.send('frogpilotLongitudinalPlan', frogpilot_longitudinal_plan_send)
 
   def update_frogpilot_params(self, params, params_memory):
