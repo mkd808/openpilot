@@ -7,6 +7,8 @@ from opendbc.can.parser import CANParser
 from openpilot.selfdrive.car.interfaces import CarStateBase
 from openpilot.selfdrive.car.gm.values import DBC, AccState, CanBus, STEER_THRESHOLD, GMFlags, CC_ONLY_CAR, CAMERA_ACC_CAR, SDGM_CAR
 
+from openpilot.selfdrive.frogpilot.functions.frogpilot_functions import lkas_button_function
+
 TransmissionType = car.CarParams.TransmissionType
 NetworkLocation = car.CarParams.NetworkLocation
 GearShifter = car.CarState.GearShifter
@@ -29,7 +31,7 @@ class CarState(CarStateBase):
 
     self.single_pedal_mode = False
 
-  def update(self, pt_cp, cam_cp, loopback_cp):
+  def update(self, pt_cp, cam_cp, loopback_cp, conditional_experimental_mode, experimental_mode_via_lkas, personalities_via_wheel):
     ret = car.CarState.new_message()
 
     self.prev_cruise_buttons = self.cruise_buttons
@@ -161,7 +163,7 @@ class CarState(CarStateBase):
       ret.cruiseState.enabled = pt_cp.vl["ECMCruiseControl"]["CruiseActive"] != 0
 
     # Driving personalities function - Credit goes to Mangomoose!
-    if self.personalities_via_wheel and ret.cruiseState.available:
+    if personalities_via_wheel and ret.cruiseState.available:
       # Sync with the onroad UI button
       if self.param_memory.get_bool("PersonalityChangedViaUI"):
         self.personality_profile = self.param.get_int("LongitudinalPersonality")
@@ -199,21 +201,15 @@ class CarState(CarStateBase):
         self.previous_personality_profile = self.personality_profile
 
     # Toggle Experimental Mode from steering wheel function
-    if self.experimental_mode_via_lkas and ret.cruiseState.available:
+    if experimental_mode_via_lkas and ret.cruiseState.available:
       if self.CP.carFingerprint in SDGM_CAR:
         lkas_pressed = cam_cp.vl["ASCMSteeringButton"]["LKAButton"]
       else:
         lkas_pressed = pt_cp.vl["ASCMSteeringButton"]["LKAButton"]
+
       if lkas_pressed and not self.lkas_previously_pressed:
-        if self.conditional_experimental_mode:
-          # Set "CEStatus" to work with "Conditional Experimental Mode"
-          conditional_status = self.param_memory.get_int("CEStatus")
-          override_value = 0 if conditional_status in (1, 2, 3, 4) else 1 if conditional_status >= 5 else 2
-          self.param_memory.put_int("CEStatus", override_value)
-        else:
-          experimental_mode = self.param.get_bool("ExperimentalMode")
-          # Invert the value of "ExperimentalMode"
-          put_bool_nonblocking("ExperimentalMode", not experimental_mode)
+        lkas_button_function(conditional_experimental_mode)
+
       self.lkas_previously_pressed = lkas_pressed
 
     return ret

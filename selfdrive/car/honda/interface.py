@@ -338,8 +338,8 @@ class CarInterface(CarInterfaceBase):
       disable_ecu(logcan, sendcan, bus=1, addr=0x18DAB0F1, com_cont_req=b'\x28\x83\x03')
 
   # returns a car.CarState
-  def _update(self, c):
-    ret = self.CS.update(self.cp, self.cp_cam, self.cp_body)
+  def _update(self, c, conditional_experimental_mode, experimental_mode_via_lkas, mute_door, mute_seatbelt, personalities_via_wheel):
+    ret = self.CS.update(self.cp, self.cp_cam, self.cp_body, conditional_experimental_mode, experimental_mode_via_lkas, personalities_via_wheel)
 
     ret.buttonEvents = [
       *create_button_events(self.CS.cruise_buttons, self.CS.prev_cruise_buttons, BUTTONS_DICT),
@@ -347,7 +347,7 @@ class CarInterface(CarInterfaceBase):
     ]
 
     # events
-    events = self.create_common_events(ret, pcm_enable=False)
+    events = self.create_common_events(ret, mute_door, mute_seatbelt, pcm_enable=False)
     if self.CP.pcmCruise and ret.vEgo < self.CP.minEnableSpeed:
       events.add(EventName.belowEngageSpeed)
 

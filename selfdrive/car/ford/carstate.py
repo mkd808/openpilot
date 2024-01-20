@@ -6,6 +6,8 @@ from openpilot.selfdrive.car.interfaces import CarStateBase
 from openpilot.selfdrive.car.ford.fordcan import CanBus
 from openpilot.selfdrive.car.ford.values import CANFD_CAR, CarControllerParams, DBC
 
+from openpilot.selfdrive.frogpilot.functions.frogpilot_functions import lkas_button_function
+
 GearShifter = car.CarState.GearShifter
 TransmissionType = car.CarParams.TransmissionType
 
@@ -20,7 +22,7 @@ class CarState(CarStateBase):
     self.vehicle_sensors_valid = False
     self.unsupported_platform = False
 
-  def update(self, cp, cp_cam):
+  def update(self, cp, cp_cam, conditional_experimental_mode, experimental_mode_via_lkas, personalities_via_wheel):
     ret = car.CarState.new_message()
 
     # Ford Q3 hybrid variants experience a bug where a message from the PCM sends invalid checksums,

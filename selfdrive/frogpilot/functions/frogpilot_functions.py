@@ -1,6 +1,10 @@
 import numpy as np
 
 from openpilot.common.numpy_fast import interp
+from openpilot.common.params import Params
+
+params = Params()
+params_memory = Params("/dev/shm/params")
 
 # Acceleration profiles - Credit goes to the DragonPilot team!
                  # MPH = [0.,  35,   35,  40,    40,  45,    45,  67,    67,   67, 123]
@@ -38,3 +42,14 @@ def calculate_lane_width(lane, current_lane, road_edge):
   distance_to_road_edge = np.mean(np.abs(current_y - road_edge_y_interp))
 
   return min(distance_to_lane, distance_to_road_edge)
+
+def lkas_button_function(conditional_experimental_mode):
+  if conditional_experimental_mode:
+    # Set "CEStatus" to work with "Conditional Experimental Mode"
+    conditional_status = params_memory.get_int("CEStatus")
+    override_value = 0 if conditional_status in (1, 2, 3, 4) else 1 if conditional_status >= 5 else 2
+    params_memory.put_int("CEStatus", override_value)
+  else:
+    experimental_mode = params.get_bool("ExperimentalMode")
+    # Invert the value of "ExperimentalMode"
+    params.put_bool("ExperimentalMode", not experimental_mode)

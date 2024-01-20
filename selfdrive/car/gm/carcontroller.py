@@ -50,15 +50,8 @@ class CarController:
     self.packer_ch = CANPacker(DBC[self.CP.carFingerprint]['chassis'])
 
     # FrogPilot variables
-    self.long_pitch = False
-    self.use_ev_tables = False
-
     self.pitch = FirstOrderFilter(0., 0.09 * 4, DT_CTRL * 4)  # runs at 25 Hz
     self.accel_g = 0.0
-
-  def update_frogpilot_variables(self, params):
-    self.long_pitch = params.get_bool("LongPitch")
-    self.use_ev_tables = params.get_bool("EVTable")
 
   @staticmethod
   def calc_pedal_command(accel: float, long_active: bool) -> float:
@@ -75,7 +68,7 @@ class CarController:
     return pedal_gas
 
 
-  def update(self, CC, CS, now_nanos):
+  def update(self, CC, CS, now_nanos, long_pitch, use_ev_tables):
     actuators = CC.actuators
     accel = actuators.accel
     hud_control = CC.hudControl
@@ -143,13 +136,13 @@ class CarController:
         else:
           # Normal operation
           brake_accel = actuators.accel + self.accel_g * interp(CS.out.vEgo, BRAKE_PITCH_FACTOR_BP, BRAKE_PITCH_FACTOR_V)
-          if self.CP.carFingerprint in EV_CAR and self.use_ev_tables:
+          if self.CP.carFingerprint in EV_CAR and use_ev_tables:
             self.params.update_ev_gas_brake_threshold(CS.out.vEgo)
-            self.apply_gas = int(round(interp(accel if self.long_pitch else actuators.accel, self.params.EV_GAS_LOOKUP_BP, self.params.GAS_LOOKUP_V)))
-            self.apply_brake = int(round(interp(brake_accel if self.long_pitch else actuators.accel, self.params.EV_BRAKE_LOOKUP_BP, self.params.BRAKE_LOOKUP_V)))
+            self.apply_gas = int(round(interp(accel if long_pitch else actuators.accel, self.params.EV_GAS_LOOKUP_BP, self.params.GAS_LOOKUP_V)))
+            self.apply_brake = int(round(interp(brake_accel if long_pitch else actuators.accel, self.params.EV_BRAKE_LOOKUP_BP, self.params.BRAKE_LOOKUP_V)))
           else:
-            self.apply_gas = int(round(interp(accel if self.long_pitch else actuators.accel, self.params.GAS_LOOKUP_BP, self.params.GAS_LOOKUP_V)))
-            self.apply_brake = int(round(interp(brake_accel if self.long_pitch else actuators.accel, self.params.BRAKE_LOOKUP_BP, self.params.BRAKE_LOOKUP_V)))
+            self.apply_gas = int(round(interp(accel if long_pitch else actuators.accel, self.params.GAS_LOOKUP_BP, self.params.GAS_LOOKUP_V)))
+            self.apply_brake = int(round(interp(brake_accel if long_pitch else actuators.accel, self.params.BRAKE_LOOKUP_BP, self.params.BRAKE_LOOKUP_V)))
           # Don't allow any gas above inactive regen while stopping
           # FIXME: brakes aren't applied immediately when enabling at a stop
           if stopping:

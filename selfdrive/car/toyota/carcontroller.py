@@ -47,19 +47,10 @@ class CarController:
     self.accel = 0
 
     # FrogPilot variables
-    self.lock_doors = False
-    self.reverse_cruise_increase = False
-    self.sng_hack = False
-
     self.doors_locked = False
     self.doors_unlocked = True
 
-  def update_frogpilot_variables(self, params):
-    self.lock_doors = params.get_bool("LockDoors")
-    self.reverse_cruise_increase = params.get_bool("ReverseCruise")
-    self.sng_hack = params.get_bool("SNGHack")
-
-  def update(self, CC, CS, now_nanos, sport_plus):
+  def update(self, CC, CS, now_nanos, lock_doors, reverse_cruise_increase, sng_hack, sport_plus):
     actuators = CC.actuators
     hud_control = CC.hudControl
     pcm_cancel_cmd = CC.cruiseControl.cancel
@@ -143,7 +134,7 @@ class CarController:
       pcm_cancel_cmd = 1
 
     # on entering standstill, send standstill request
-    if CS.out.standstill and not self.last_standstill and (self.CP.carFingerprint not in NO_STOP_TIMER_CAR or self.CP.enableGasInterceptor) and not self.sng_hack:
+    if CS.out.standstill and not self.last_standstill and (self.CP.carFingerprint not in NO_STOP_TIMER_CAR or self.CP.enableGasInterceptor) and not sng_hack:
       self.standstill_req = True
     if CS.pcm_acc_status != 8:
       # pcm entered standstill or it's disabled
@@ -163,10 +154,10 @@ class CarController:
       if pcm_cancel_cmd and self.CP.carFingerprint in UNSUPPORTED_DSU_CAR:
         can_sends.append(toyotacan.create_acc_cancel_command(self.packer))
       elif self.CP.openpilotLongitudinalControl:
-        can_sends.append(toyotacan.create_accel_command(self.packer, pcm_accel_cmd, pcm_cancel_cmd, self.standstill_req, lead, CS.acc_type, fcw_alert, self.reverse_cruise_increase, CS.distance_button))
+        can_sends.append(toyotacan.create_accel_command(self.packer, pcm_accel_cmd, pcm_cancel_cmd, self.standstill_req, lead, CS.acc_type, fcw_alert, reverse_cruise_increase, CS.distance_button))
         self.accel = pcm_accel_cmd
       else:
-        can_sends.append(toyotacan.create_accel_command(self.packer, 0, pcm_cancel_cmd, False, lead, CS.acc_type, False, self.reverse_cruise_increase, CS.distance_button))
+        can_sends.append(toyotacan.create_accel_command(self.packer, 0, pcm_cancel_cmd, False, lead, CS.acc_type, False, reverse_cruise_increase, CS.distance_button))
 
     if self.frame % 2 == 0 and self.CP.enableGasInterceptor and self.CP.openpilotLongitudinalControl:
       # send exactly zero if gas cmd is zero. Interceptor will send the max between read value and gas cmd.
@@ -213,7 +204,7 @@ class CarController:
     new_actuators.gas = self.gas
 
     # Lock doors when in drive / unlock doors when in park
-    if self.lock_doors:
+    if lock_doors:
       if self.doors_unlocked and CS.out.gearShifter != PARK:
         can_sends.append(make_can_msg(0x750, LOCK_CMD, 0))
         self.doors_locked = True

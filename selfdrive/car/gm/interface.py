@@ -393,8 +393,8 @@ class CarInterface(CarInterfaceBase):
     return ret
 
   # returns a car.CarState
-  def _update(self, c):
-    ret = self.CS.update(self.cp, self.cp_cam, self.cp_loopback)
+  def _update(self, c, conditional_experimental_mode, experimental_mode_via_lkas, mute_door, mute_seatbelt, personalities_via_wheel):
+    ret = self.CS.update(self.cp, self.cp_cam, self.cp_loopback, conditional_experimental_mode, experimental_mode_via_lkas, personalities_via_wheel)
 
     # Don't add event if transitioning from INIT, unless it's to an actual button
     if self.CS.cruise_buttons != CruiseButtons.UNPRESS or self.CS.prev_cruise_buttons != CruiseButtons.INIT:
@@ -402,7 +402,7 @@ class CarInterface(CarInterfaceBase):
                                               unpressed_btn=CruiseButtons.UNPRESS)
 
     # The ECM allows enabling on falling edge of set, but only rising edge of resume
-    events = self.create_common_events(ret, extra_gears=[GearShifter.sport, GearShifter.low,
+    events = self.create_common_events(ret, mute_door, mute_seatbelt, extra_gears=[GearShifter.sport, GearShifter.low,
                                                          GearShifter.eco, GearShifter.manumatic],
                                        pcm_enable=self.CP.pcmCruise, enable_buttons=(ButtonType.decelCruise,))
     if not self.CP.pcmCruise:
@@ -444,5 +444,5 @@ class CarInterface(CarInterfaceBase):
 
     return ret
 
-  def apply(self, c, now_nanos, sport_plus):
-    return self.CC.update(c, self.CS, now_nanos)
+  def apply(self, c, now_nanos, long_pitch, sport_plus, use_ev_tables):
+    return self.CC.update(c, self.CS, now_nanos, long_pitch, use_ev_tables)

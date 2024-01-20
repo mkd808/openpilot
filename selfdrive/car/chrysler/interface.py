@@ -87,11 +87,11 @@ class CarInterface(CarInterfaceBase):
 
     return ret
 
-  def _update(self, c):
-    ret = self.CS.update(self.cp, self.cp_cam)
+  def _update(self, c, conditional_experimental_mode, experimental_mode_via_lkas, mute_door, mute_seatbelt, personalities_via_wheel):
+    ret = self.CS.update(self.cp, self.cp_cam, conditional_experimental_mode, experimental_mode_via_lkas, personalities_via_wheel)
 
     # events
-    events = self.create_common_events(ret, extra_gears=[car.CarState.GearShifter.low])
+    events = self.create_common_events(ret, mute_door, mute_seatbelt, extra_gears=[car.CarState.GearShifter.low])
 
     # Low speed steer alert hysteresis logic
     if self.CP.minSteerSpeed > 0. and ret.vEgo < (self.CP.minSteerSpeed + 0.5):

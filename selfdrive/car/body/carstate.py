@@ -3,10 +3,12 @@ from opendbc.can.parser import CANParser
 from openpilot.selfdrive.car.interfaces import CarStateBase
 from openpilot.selfdrive.car.body.values import DBC
 
+from openpilot.selfdrive.frogpilot.functions.frogpilot_functions import lkas_button_function
+
 STARTUP_TICKS = 100
 
 class CarState(CarStateBase):
-  def update(self, cp):
+  def update(self, cp, conditional_experimental_mode, experimental_mode_via_lkas, personalities_via_wheel):
     ret = car.CarState.new_message()
 
     ret.wheelSpeeds.fl = cp.vl['MOTORS_DATA']['SPEED_L']

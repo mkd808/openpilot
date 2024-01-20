@@ -136,11 +136,11 @@ class CarInterface(CarInterfaceBase):
     return ret
 
   # returns a car.CarState
-  def _update(self, c):
+  def _update(self, c, conditional_experimental_mode, experimental_mode_via_lkas, mute_door, mute_seatbelt, personalities_via_wheel):
 
-    ret = self.CS.update(self.cp, self.cp_cam, self.cp_body)
+    ret = self.CS.update(self.cp, self.cp_cam, self.cp_body, conditional_experimental_mode, experimental_mode_via_lkas, personalities_via_wheel)
 
-    ret.events = self.create_common_events(ret).to_msg()
+    ret.events = self.create_common_events(ret, mute_door, mute_seatbelt).to_msg()
 
     return ret
 

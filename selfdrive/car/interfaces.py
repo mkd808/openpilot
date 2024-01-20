@@ -335,14 +335,14 @@ class CarInterfaceBase(ABC):
   def _update(self, c: car.CarControl) -> car.CarState:
     pass
 
-  def update(self, c: car.CarControl, can_strings: List[bytes]) -> car.CarState:
+  def update(self, c: car.CarControl, can_strings: List[bytes], conditional_experimental_mode, experimental_mode_via_lkas, mute_door, mute_seatbelt, personalities_via_wheel) -> car.CarState:
     # parse can
     for cp in self.can_parsers:
       if cp is not None:
         cp.update_strings(can_strings)
 
     # get CarState
-    ret = self._update(c)
+    ret = self._update(c, conditional_experimental_mode, experimental_mode_via_lkas, mute_door, mute_seatbelt, personalities_via_wheel)
 
     ret.canValid = all(cp.can_valid for cp in self.can_parsers if cp is not None)
     ret.canTimeout = any(cp.bus_timeout for cp in self.can_parsers if cp is not None)
@@ -372,13 +372,13 @@ class CarInterfaceBase(ABC):
   def apply(self, c: car.CarControl, now_nanos: int) -> Tuple[car.CarControl.Actuators, List[bytes]]:
     pass
 
-  def create_common_events(self, cs_out, extra_gears=None, pcm_enable=True, allow_enable=True,
+  def create_common_events(self, cs_out, mute_door, mute_seatbelt, extra_gears=None, pcm_enable=True, allow_enable=True,
                            enable_buttons=(ButtonType.accelCruise, ButtonType.decelCruise)):
     events = Events()
 
-    if cs_out.doorOpen and not self.mute_door:
+    if cs_out.doorOpen and not mute_door:
       events.add(EventName.doorOpen)
-    if cs_out.seatbeltUnlatched and not self.mute_seatbelt:
+    if cs_out.seatbeltUnlatched and not mute_seatbelt:
       events.add(EventName.seatbeltNotLatched)
     if cs_out.gearShifter != GearShifter.drive and (extra_gears is None or
        cs_out.gearShifter not in extra_gears):
@@ -444,14 +444,6 @@ class CarInterfaceBase(ABC):
         events.add(EventName.pcmDisable)
 
     return events
-
-  def update_frogpilot_params(self, params):
-    if hasattr(self.CC, 'update_frogpilot_variables'):
-      self.CC.update_frogpilot_variables(params)
-
-    fire_the_babysitter = params.get_bool("FireTheBabysitter")
-    self.mute_door = fire_the_babysitter and params.get_bool("MuteDoor")
-    self.mute_seatbelt = fire_the_babysitter and params.get_bool("MuteSeatbelt")
 
 class RadarInterfaceBase(ABC):
   def __init__(self, CP):
@@ -593,11 +585,6 @@ class CarStateBase(ABC):
   @staticmethod
   def get_loopback_can_parser(CP):
     return None
-
-  def update_frogpilot_params(self, params):
-    self.conditional_experimental_mode = params.get_bool("ConditionalExperimental")
-    self.experimental_mode_via_lkas = params.get_bool("ExperimentalModeViaLKAS") and params.get_bool("ExperimentalModeActivation");
-    self.personalities_via_wheel = params.get_bool("PersonalitiesViaWheel") and params.get_bool("AdjustablePersonalities");
 
 INTERFACE_ATTR_FILE = {
   "FINGERPRINTS": "fingerprints",

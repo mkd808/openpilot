@@ -303,11 +303,11 @@ class CarInterface(CarInterfaceBase):
       disable_ecu(logcan, sendcan, bus=0, addr=0x750, sub_addr=0xf, com_cont_req=communication_control)
 
   # returns a car.CarState
-  def _update(self, c):
-    ret = self.CS.update(self.cp, self.cp_cam)
+  def _update(self, c, conditional_experimental_mode, experimental_mode_via_lkas, mute_door, mute_seatbelt, personalities_via_wheel):
+    ret = self.CS.update(self.cp, self.cp_cam, conditional_experimental_mode, experimental_mode_via_lkas, personalities_via_wheel)
 
     # events
-    events = self.create_common_events(ret)
+    events = self.create_common_events(ret, mute_door, mute_seatbelt)
 
     # Lane Tracing Assist control is unavailable (EPS_STATUS->LTA_STATE=0) until
     # the more accurate angle sensor signal is initialized
@@ -334,5 +334,5 @@ class CarInterface(CarInterfaceBase):
 
   # pass in a car.CarControl
   # to be called @ 100hz
-  def apply(self, c, now_nanos, sport_plus):
-    return self.CC.update(c, self.CS, now_nanos, sport_plus)
+  def apply(self, c, now_nanos, lock_doors, reverse_cruise_increase, sng_hack, sport_plus):
+    return self.CC.update(c, self.CS, now_nanos, lock_doors, reverse_cruise_increase, sng_hack, sport_plus)

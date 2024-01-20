@@ -107,9 +107,8 @@ class Controls:
       num_pandas = len(messaging.recv_one_retry(self.sm.sock['pandaStates']).pandaStates)
       experimental_long_allowed = self.params.get_bool("ExperimentalLongitudinalEnabled")
       self.CI, self.CP = get_car(self.can_sock, self.pm.sock['sendcan'], experimental_long_allowed, num_pandas)
-      self.CS = self.CI.CS
     else:
-      self.CI, self.CP, self.CS = CI, CI.CP, CI.CS
+      self.CI, self.CP = CI, CI.CP
 
     self.joystick_mode = self.params.get_bool("JoystickDebugMode")
 
@@ -480,7 +479,7 @@ class Controls:
 
     # Update carState from CAN
     can_strs = messaging.drain_sock_raw(self.can_sock, wait_for_one=True)
-    CS = self.CI.update(self.CC, can_strs)
+    CS = self.CI.update(self.CC, can_strs, self.conditional_experimental_mode, self.experimental_mode_via_lkas, self.mute_door, self.mute_seatbelt, self.personalities_via_wheel)
     if len(can_strs) and REPLAY:
       self.can_log_mono_time = messaging.log_from_bytes(can_strs[0]).logMonoTime
 
@@ -843,7 +842,14 @@ class Controls:
     if not self.CP.passive and self.initialized:
       # send car controls over can
       now_nanos = self.can_log_mono_time if REPLAY else int(time.monotonic() * 1e9)
-      self.last_actuators, can_sends = self.CI.apply(CC, now_nanos, self.sport_plus)
+
+      if self.CP.carName == "gm":
+        self.last_actuators, can_sends = self.CI.apply(CC, now_nanos, self.long_pitch, self.sport_plus, self.use_ev_tables)
+      elif self.CP.carName == "toyota":
+        self.last_actuators, can_sends = self.CI.apply(CC, now_nanos, self.lock_doors, self.reverse_cruise_increase, self.sng_hack, self.sport_plus)
+      else:
+        self.last_actuators, can_sends = self.CI.apply(CC, now_nanos, self.sport_plus)
+
       self.pm.send('sendcan', can_list_to_can_capnp(can_sends, msgtype='sendcan', valid=CS.canValid))
       CC.actuatorsOutput = self.last_actuators
       if self.CP.steerControlType == car.CarParams.SteerControlType.angle:
@@ -995,10 +1001,6 @@ class Controls:
       t.join()
 
   def update_frogpilot_params(self):
-    for obj in [self.CI, self.CS]:
-      if hasattr(obj, 'update_frogpilot_params'):
-        obj.update_frogpilot_params(self.params)
-
     self.average_desired_curvature = self.params.get_bool("AverageCurvature")
     self.conditional_experimental_mode = self.params.get_bool("ConditionalExperimental")
 
@@ -1007,13 +1009,24 @@ class Controls:
     frog_sounds = custom_sounds == 1
     self.goat_scream = self.params.get_bool("GoatScream") and frog_sounds
 
+    self.experimental_mode_via_lkas = self.params.get_bool("ExperimentalModeViaLKAS") and self.params.get_bool("ExperimentalModeActivation");
+
+    fire_the_babysitter = self.params.get_bool("FireTheBabysitter")
+    self.mute_door = fire_the_babysitter and self.params.get_bool("MuteDoor")
+    self.mute_seatbelt = fire_the_babysitter and self.params.get_bool("MuteSeatbelt")
+
     self.green_light_alert = self.params.get_bool("GreenLightAlert")
 
     lateral_tune = self.params.get_bool("LateralTune")
     self.steer_ratio = self.params.get_int("SteerRatio") / 100 if lateral_tune else self.params.get_int("SteerRatioStock") / 100
 
+    self.lock_doors = self.params.get_bool("LockDoors")
+    self.long_pitch = self.params.get_bool("LongPitch")
+
     longitudinal_tune = self.params.get_bool("LongitudinalTune")
     self.sport_plus = self.params.get_int("AccelerationProfile") == 3 and longitudinal_tune
+
+    self.personalities_via_wheel = self.params.get_bool("PersonalitiesViaWheel") and self.params.get_bool("AdjustablePersonalities");
 
     quality_of_life = self.params.get_bool("QOLControls")
     self.pause_lateral_on_signal = self.params.get_int("PauseLateralOnSignal") * (CV.KPH_TO_MS if self.is_metric else CV.MPH_TO_MS) if quality_of_life else 0
@@ -1021,6 +1034,8 @@ class Controls:
     self.set_speed_offset = self.params.get_int("SetSpeedOffset") * (1 if self.is_metric else CV.MPH_TO_KPH) if quality_of_life else 0
 
     self.random_events = self.params.get_bool("RandomEvents")
+    self.sng_hack = self.params.get_bool("SNGHack")
+    self.use_ev_tables = self.params.get_bool("EVTable")
 
 def main():
   controls = Controls()

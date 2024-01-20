@@ -338,8 +338,8 @@ class CarInterface(CarInterfaceBase):
     if CP.flags & HyundaiFlags.ENABLE_BLINKERS:
       disable_ecu(logcan, sendcan, bus=CanBus(CP).ECAN, addr=0x7B1, com_cont_req=b'\x28\x83\x01')
 
-  def _update(self, c):
-    ret = self.CS.update(self.cp, self.cp_cam)
+  def _update(self, c, conditional_experimental_mode, experimental_mode_via_lkas, mute_door, mute_seatbelt, personalities_via_wheel):
+    ret = self.CS.update(self.cp, self.cp_cam, conditional_experimental_mode, experimental_mode_via_lkas, personalities_via_wheel)
 
     if self.CS.CP.openpilotLongitudinalControl:
       ret.buttonEvents = create_button_events(self.CS.cruise_buttons[-1], self.CS.prev_cruise_buttons, BUTTONS_DICT)
@@ -348,7 +348,7 @@ class CarInterface(CarInterfaceBase):
     # To avoid re-engaging when openpilot cancels, check user engagement intention via buttons
     # Main button also can trigger an engagement on these cars
     allow_enable = any(btn in ENABLE_BUTTONS for btn in self.CS.cruise_buttons) or any(self.CS.main_buttons)
-    events = self.create_common_events(ret, pcm_enable=self.CS.CP.pcmCruise, allow_enable=allow_enable)
+    events = self.create_common_events(ret, mute_door, mute_seatbelt, pcm_enable=self.CS.CP.pcmCruise, allow_enable=allow_enable)
 
     # low speed steer alert hysteresis logic (only for cars with steer cut off above 10 m/s)
     if ret.vEgo < (self.CP.minSteerSpeed + 2.) and self.CP.minSteerSpeed > 10.:

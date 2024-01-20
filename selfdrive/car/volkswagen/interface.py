@@ -225,10 +225,10 @@ class CarInterface(CarInterfaceBase):
     return ret
 
   # returns a car.CarState
-  def _update(self, c):
-    ret = self.CS.update(self.cp, self.cp_cam, self.cp_ext, self.CP.transmissionType)
+  def _update(self, c, conditional_experimental_mode, experimental_mode_via_lkas, mute_door, mute_seatbelt, personalities_via_wheel):
+    ret = self.CS.update(self.cp, self.cp_cam, self.cp_ext, self.CP.transmissionType, conditional_experimental_mode, experimental_mode_via_lkas, personalities_via_wheel)
 
-    events = self.create_common_events(ret, extra_gears=[GearShifter.eco, GearShifter.sport, GearShifter.manumatic],
+    events = self.create_common_events(ret, mute_door, mute_seatbelt, extra_gears=[GearShifter.eco, GearShifter.sport, GearShifter.manumatic],
                                        pcm_enable=not self.CS.CP.openpilotLongitudinalControl,
                                        enable_buttons=(ButtonType.setCruise, ButtonType.resumeCruise))
 

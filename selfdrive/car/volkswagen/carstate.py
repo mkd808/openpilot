@@ -6,6 +6,8 @@ from opendbc.can.parser import CANParser
 from openpilot.selfdrive.car.volkswagen.values import DBC, CANBUS, PQ_CARS, NetworkLocation, TransmissionType, GearShifter, \
                                             CarControllerParams, VolkswagenFlags
 
+from openpilot.selfdrive.frogpilot.functions.frogpilot_functions import lkas_button_function
+
 
 class CarState(CarStateBase):
   def __init__(self, CP):
@@ -30,9 +32,9 @@ class CarState(CarStateBase):
 
     return button_events
 
-  def update(self, pt_cp, cam_cp, ext_cp, trans_type):
+  def update(self, pt_cp, cam_cp, ext_cp, trans_type, conditional_experimental_mode, experimental_mode_via_lkas, personalities_via_wheel):
     if self.CP.carFingerprint in PQ_CARS:
-      return self.update_pq(pt_cp, cam_cp, ext_cp, trans_type)
+      return self.update_pq(pt_cp, cam_cp, ext_cp, trans_type, conditional_experimental_mode, experimental_mode_via_lkas, personalities_via_wheel)
 
     ret = car.CarState.new_message()
     # Update vehicle speed and acceleration from ABS wheel speeds.
@@ -152,7 +154,7 @@ class CarState(CarStateBase):
     self.upscale_lead_car_signal = bool(pt_cp.vl["Kombi_03"]["KBI_Variante"])
 
     # Driving personalities function
-    if self.personalities_via_wheel and ret.cruiseState.available:
+    if personalities_via_wheel and ret.cruiseState.available:
       # Sync with the onroad UI button
       if self.param_memory.get_bool("PersonalityChangedViaUI"):
         self.personality_profile = self.param.get_int("LongitudinalPersonality")
@@ -172,7 +174,7 @@ class CarState(CarStateBase):
 
     return ret
 
-  def update_pq(self, pt_cp, cam_cp, ext_cp, trans_type):
+  def update_pq(self, pt_cp, cam_cp, ext_cp, trans_type, conditional_experimental_mode, experimental_mode_via_lkas, personalities_via_wheel):
     ret = car.CarState.new_message()
     # Update vehicle speed and acceleration from ABS wheel speeds.
     ret.wheelSpeeds = self.get_wheel_speeds(

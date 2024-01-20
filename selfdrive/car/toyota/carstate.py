@@ -12,6 +12,8 @@ from openpilot.selfdrive.car.toyota.values import ToyotaFlags, CAR, DBC, STEER_T
                                                   TSS2_CAR, RADAR_ACC_CAR, EPS_SCALE, UNSUPPORTED_DSU_CAR
 from openpilot.selfdrive.frogpilot.functions.speed_limit_controller import SpeedLimitController
 
+from openpilot.selfdrive.frogpilot.functions.frogpilot_functions import lkas_button_function
+
 SteerControlType = car.CarParams.SteerControlType
 
 # These steering fault definitions seem to be common across LKA (torque) and LTA (angle):
@@ -56,7 +58,7 @@ class CarState(CarStateBase):
 
     self.traffic_signals = {}
 
-  def update(self, cp, cp_cam):
+  def update(self, cp, cp_cam, conditional_experimental_mode, experimental_mode_via_lkas, personalities_via_wheel):
     ret = car.CarState.new_message()
 
     ret.doorOpen = any([cp.vl["BODY_CONTROL_STATE"]["DOOR_OPEN_FL"], cp.vl["BODY_CONTROL_STATE"]["DOOR_OPEN_FR"],
@@ -173,7 +175,7 @@ class CarState(CarStateBase):
       self.lkas_hud = copy.copy(cp_cam.vl["LKAS_HUD"])
 
     # Driving personalities function
-    if self.personalities_via_wheel and ret.cruiseState.available:
+    if personalities_via_wheel and ret.cruiseState.available:
       # Need to subtract by 1 to comply with the personality profiles of "0", "1", and "2"
       self.personality_profile = cp.vl["PCM_CRUISE_SM"]["DISTANCE_LINES"] - 1
 
@@ -203,19 +205,13 @@ class CarState(CarStateBase):
           self.previous_personality_profile = self.personality_profile
 
     # Toggle Experimental Mode from steering wheel function
-    if self.experimental_mode_via_lkas and ret.cruiseState.available and self.CP.carFingerprint != CAR.PRIUS_V:
+    if experimental_mode_via_lkas and ret.cruiseState.available and self.CP.carFingerprint != CAR.PRIUS_V:
       message_keys = ["LDA_ON_MESSAGE", "SET_ME_X02"]
       lkas_pressed = any(self.lkas_hud.get(key) == 1 for key in message_keys)
+
       if lkas_pressed and not self.lkas_previously_pressed:
-        if self.conditional_experimental_mode:
-          # Set "CEStatus" to work with "Conditional Experimental Mode"
-          conditional_status = self.param_memory.get_int("CEStatus")
-          override_value = 0 if conditional_status in (1, 2, 3, 4) else 1 if conditional_status >= 5 else 2
-          self.param_memory.put_int("CEStatus", override_value)
-        else:
-          experimental_mode = self.param.get_bool("ExperimentalMode")
-          # Invert the value of "ExperimentalMode"
-          self.param.put_bool("ExperimentalMode", not experimental_mode)
+        lkas_button_function(conditional_experimental_mode)
+
       self.lkas_previously_pressed = lkas_pressed
 
     # Traffic signals for Speed Limit Controller - Credit goes to the DragonPilot team!

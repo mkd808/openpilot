@@ -20,7 +20,7 @@ class CarInterface(CarInterfaceBase):
     ret.steerRatio = 13.
     return ret
 
-  def _update(self, c):
+  def _update(self, c, conditional_experimental_mode, experimental_mode_via_lkas, mute_door, mute_seatbelt, personalities_via_wheel):
     self.sm.update(0)
     gps_sock = 'gpsLocationExternal' if self.sm.rcv_frame['gpsLocationExternal'] > 1 else 'gpsLocation'
 
