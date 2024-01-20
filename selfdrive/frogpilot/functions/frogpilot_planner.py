@@ -128,3 +128,8 @@ class FrogPilotPlanner:
     self.map_turn_speed_controller = params.get_bool("MTSCEnabled")
     if self.map_turn_speed_controller:
       params_memory.put_int("MapTargetLatA", 2 * (params.get_int("MTSCAggressiveness") / 100))
+
+    self.nudgeless = params.get_bool("NudgelessLaneChange")
+    self.lane_change_delay = params.get_int("LaneChangeTime") if self.nudgeless else 0
+    self.lane_detection = params.get_bool("LaneDetection") and self.nudgeless
+    self.one_lane_change = params.get_bool("OneLaneChange") and self.nudgeless
