@@ -18,7 +18,7 @@ from openpilot.system.version import get_short_branch
 from openpilot.selfdrive.boardd.boardd import can_list_to_can_capnp
 from openpilot.selfdrive.car.car_helpers import get_car, get_startup_event, get_one_can
 from openpilot.selfdrive.controls.lib.lateral_planner import CAMERA_OFFSET
-from openpilot.selfdrive.controls.lib.drive_helpers import VCruiseHelper, get_lag_adjusted_curvature
+from openpilot.selfdrive.controls.lib.drive_helpers import VCruiseHelper, clip_curvature
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl, MIN_LATERAL_CONTROL_SPEED
 from openpilot.selfdrive.controls.lib.longcontrol import LongControl
 from openpilot.selfdrive.controls.lib.latcontrol_pid import LatControlPID
@@ -629,6 +629,7 @@ class Controls:
 
     lat_plan = self.sm['lateralPlan']
     long_plan = self.sm['longitudinalPlan']
+    model_v2 = self.sm['modelV2']
     frogpilot_long_plan = self.sm['frogpilotLongitudinalPlan']
 
     # Reset the Random Event flag
@@ -695,12 +696,7 @@ class Controls:
         actuators.speed = long_plan.speeds[-1]
 
       # Steering PID loop and lateral MPC
-      self.desired_curvature, self.desired_curvature_rate = get_lag_adjusted_curvature(self.CP, CS.vEgo,
-                                                                                       lat_plan.psis,
-                                                                                       lat_plan.curvatures,
-                                                                                       lat_plan.curvatureRates,
-                                                                                       frogpilot_long_plan.distances,
-                                                                                       self.average_desired_curvature)
+      self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, model_v2.action.desiredCurvature)
       actuators.steer, actuators.steeringAngleDeg, lac_log = self.LaC.update(CC.latActive, CS, self.VM, lp,
                                                                              self.steer_limited, self.desired_curvature,
                                                                              self.desired_curvature_rate, self.sm['liveLocationKalman'],
