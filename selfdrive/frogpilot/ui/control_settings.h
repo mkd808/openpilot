@@ -49,5 +49,5 @@ private:
   Params paramsMemory{"/dev/shm/params"};
 
   bool isMetric = params.getBool("IsMetric");
-  int steerRatioStock = params.getFloat("SteerRatioStock");
+  float steerRatioStock = params.getFloat("SteerRatioStock");
 };

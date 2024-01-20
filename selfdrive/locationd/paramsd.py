@@ -136,7 +136,7 @@ def main():
 
   steer_ratio_stock = params_reader.get_float("SteerRatioStock")
   if steer_ratio_stock != CP.steerRatio:
-    params_reader.put_int("SteerRatio", CP.steerRatio * 100)
+    params_reader.put_float("SteerRatio", CP.steerRatio)
     params_reader.put_float("SteerRatioStock", CP.steerRatio)
     params_reader.put_bool("DoReboot", True)
 
