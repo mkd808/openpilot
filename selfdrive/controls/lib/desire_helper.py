@@ -2,6 +2,8 @@ from cereal import log
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.realtime import DT_MDL
 
+from openpilot.selfdrive.frogpilot.functions.frogpilot_functions import calculate_lane_width
+
 LaneChangeState = log.LateralPlan.LaneChangeState
 LaneChangeDirection = log.LateralPlan.LaneChangeDirection
 

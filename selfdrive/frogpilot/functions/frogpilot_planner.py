@@ -57,6 +57,9 @@ class FrogPilotPlanner:
     frogpilot_lateral_plan_send.valid = sm.all_checks(service_list=['carState', 'controlsState', 'modelV2'])
     frogpilotLateralPlan = frogpilot_lateral_plan_send.frogpilotLateralPlan
 
+    frogpilotLateralPlan.laneWidthLeft = float(DH.lane_width_left)
+    frogpilotLateralPlan.laneWidthRight = float(DH.lane_width_right)
+
     pm.send('frogpilotLateralPlan', frogpilot_lateral_plan_send)
 
   def publish_longitudinal(self, sm, pm, mpc):
