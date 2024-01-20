@@ -33,6 +33,10 @@ def manager_init() -> None:
   # save boot log
   subprocess.call("./bootlog", cwd=os.path.join(BASEDIR, "system/loggerd"))
 
+  # Clear the error log on boot to prevent old errors from hanging around
+  if os.path.isfile(os.path.join(sentry.CRASHES_DIR, 'error.txt')):
+    os.remove(os.path.join(sentry.CRASHES_DIR, 'error.txt'))
+
   params = Params()
   params.clear_all(ParamKeyType.CLEAR_ON_MANAGER_START)
   params.clear_all(ParamKeyType.CLEAR_ON_ONROAD_TRANSITION)
