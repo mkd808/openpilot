@@ -975,7 +975,6 @@ void AnnotatedCameraWidget::drawLead(QPainter &painter, const cereal::RadarState
   if (leadInfo) {
     // Declare the variables
     float lead_speed = std::max(v_rel, 0.0f);  // Ensure lead speed doesn't go under 0 m/s cause that's dumb
-    float yRel = lead_data.getYRel();
 
     // Form the text and center it below the chevron
     painter.setPen(Qt::white);
@@ -985,9 +984,7 @@ void AnnotatedCameraWidget::drawLead(QPainter &painter, const cereal::RadarState
                       .arg(d_rel * distanceConversion, 0, 'f', 2, '0')
                       .arg(leadDistanceUnit)
                       .arg(lead_speed * speedConversion, 0, 'f', 2, '0')
-                      .arg(leadSpeedUnit)
-                      .arg(yRel, 0, 'f', 2, '0')
-                      .arg(leadDistanceUnit);
+                      .arg(leadSpeedUnit);
 
     // Calculate the text starting position
     QFontMetrics metrics(painter.font());
@@ -1068,19 +1065,11 @@ void AnnotatedCameraWidget::paintEvent(QPaintEvent *event) {
       update_leads(s, radar_state, model.getPosition());
       auto lead_one = radar_state.getLeadOne();
       auto lead_two = radar_state.getLeadTwo();
-      auto lead_left = radar_state.getLeadLeft();
-      auto lead_right = radar_state.getLeadRight();
       if (lead_one.getStatus()) {
         drawLead(painter, lead_one, s->scene.lead_vertices[0]);
       }
       if (lead_two.getStatus() && (std::abs(lead_one.getDRel() - lead_two.getDRel()) > 3.0)) {
         drawLead(painter, lead_two, s->scene.lead_vertices[1]);
-      }
-      if (lead_left.getStatus()) {
-        drawLead(painter, lead_left, s->scene.lead_vertices[2]);
-      }
-      if (lead_right.getStatus()) {
-        drawLead(painter, lead_right, s->scene.lead_vertices[3]);
       }
     }
   }
