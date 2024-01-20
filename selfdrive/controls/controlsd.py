@@ -1014,7 +1014,7 @@ class Controls:
     self.green_light_alert = self.params.get_bool("GreenLightAlert")
 
     lateral_tune = self.params.get_bool("LateralTune")
-    self.steer_ratio = self.params.get_int("SteerRatio") / 100 if lateral_tune else self.params.get_int("SteerRatioStock") / 100
+    self.steer_ratio = self.params.get_int("SteerRatio") / 100 if lateral_tune else self.params.get_float("SteerRatioStock")
 
     self.lock_doors = self.params.get_bool("LockDoors")
     self.long_pitch = self.params.get_bool("LongPitch")
