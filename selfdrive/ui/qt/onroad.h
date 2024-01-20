@@ -124,6 +124,8 @@ private:
   bool blindSpotRight;
   bool experimentalMode;
 
+  int cameraView;
+
   QElapsedTimer timer;
 
 protected:

@@ -220,6 +220,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"ApiCache_DriveStats", PERSISTENT},
     {"AverageCurvature", PERSISTENT},
     {"BlindSpotPath", PERSISTENT},
+    {"CameraView", PERSISTENT},
     {"CustomUI", PERSISTENT},
     {"DriveStats", PERSISTENT},
     {"FrogPilotTogglesUpdated", PERSISTENT},
