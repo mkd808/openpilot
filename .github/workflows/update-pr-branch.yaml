@@ -50,7 +50,7 @@ jobs:
           git fetch origin ${{ env.SOURCE_BRANCH }}
           COMMIT_HASH=$(git rev-parse origin/${{ env.SOURCE_BRANCH }}~1)
           git archive $COMMIT_HASH | tar -x
-          git add .
+          git add --all
           day=$(TZ='America/Phoenix' date '+%-d')
           suffix="th"
           case $day in

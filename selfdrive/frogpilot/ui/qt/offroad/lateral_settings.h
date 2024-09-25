@@ -32,5 +32,6 @@ private:
   bool hasAutoTune;
   bool hasNNFFLog;
   bool isMetric = params.getBool("IsMetric");
+  bool isSubaru;
   bool started;
 };

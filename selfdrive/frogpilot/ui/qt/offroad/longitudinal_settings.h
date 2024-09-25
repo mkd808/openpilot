@@ -42,6 +42,7 @@ private:
   bool isGM;
   bool isHKGCanFd;
   bool isMetric = params.getBool("IsMetric");
+  bool isSubaru;
   bool isToyota;
   bool slcOpen;
 };

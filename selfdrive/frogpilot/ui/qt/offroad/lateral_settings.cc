@@ -53,7 +53,13 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
     if (param == "AlwaysOnLateral") {
       FrogPilotParamManageControl *aolToggle = new FrogPilotParamManageControl(param, title, desc, icon);
       QObject::connect(aolToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
-        showToggles(aolKeys);
+        std::set<QString> modifiedAOLKeys = aolKeys;
+
+        if (isSubaru || (params.getBool("ExperimentalModeActivation") && params.getBool("ExperimentalModeViaLKAS"))) {
+          modifiedAOLKeys.erase("AlwaysOnLateralLKAS");
+        }
+
+        showToggles(modifiedAOLKeys);
       });
       lateralToggle = aolToggle;
     } else if (param == "PauseAOLOnBrake") {
@@ -133,6 +139,12 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
     });
   }
 
+  QObject::connect(static_cast<ToggleControl*>(toggles["AlwaysOnLateralLKAS"]), &ToggleControl::toggleFlipped, [this](bool state) {
+    if (state && params.getBool("ExperimentalModeViaLKAS")) {
+      params.putBoolNonBlocking("ExperimentalModeViaLKAS", false);
+    }
+  });
+
   QObject::connect(static_cast<ToggleControl*>(toggles["NNFF"]), &ToggleControl::toggleFlipped, [this](bool state) {
     std::set<QString> modifiedLateralTuneKeys = lateralTuneKeys;
 
@@ -202,6 +214,7 @@ void FrogPilotLateralPanel::updateCarToggles() {
     bool forcingAutoTune = params.getBool("LateralTune") && params.getBool("ForceAutoTune");
     uiState()->scene.has_auto_tune = hasAutoTune || forcingAutoTune;
     hasNNFFLog = checkNNFFLogFileExists(carFingerprint);
+    isSubaru = carName == "subaru";
   } else {
     hasAutoTune = false;
     hasNNFFLog = true;

@@ -124,7 +124,7 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
       QObject::connect(experimentalModeActivationToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
         std::set<QString> modifiedExperimentalModeActivationKeys = experimentalModeActivationKeys;
 
-        if (params.getBool("AlwaysOnLateralLKAS")) {
+        if (isSubaru || (params.getBool("AlwaysOnLateral") && params.getBool("AlwaysOnLateralLKAS"))) {
           modifiedExperimentalModeActivationKeys.erase("ExperimentalModeViaLKAS");
         }
 
@@ -312,6 +312,12 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
     });
   }
 
+  QObject::connect(static_cast<ToggleControl*>(toggles["ExperimentalModeViaLKAS"]), &ToggleControl::toggleFlipped, [this](bool state) {
+    if (state && params.getBool("AlwaysOnLateralLKAS")) {
+      params.putBoolNonBlocking("AlwaysOnLateralLKAS", false);
+    }
+  });
+
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotLongitudinalPanel::hideToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::closeSubParentToggle, this, &FrogPilotLongitudinalPanel::hideSubToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::updateMetric, this, &FrogPilotLongitudinalPanel::updateMetric);
@@ -335,6 +341,7 @@ void FrogPilotLongitudinalPanel::updateCarToggles() {
     hasPCMCruise = CP.getPcmCruise();
     isGM = carName == "gm";
     isHKGCanFd = carName == "hyundai" && safetyModel == cereal::CarParams::SafetyModel::HYUNDAI_CANFD;
+    isSubaru = carName == "subaru";
     isToyota = carName == "toyota";
   } else {
     hasDashSpeedLimits = true;
