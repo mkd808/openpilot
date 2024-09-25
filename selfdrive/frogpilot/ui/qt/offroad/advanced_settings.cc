@@ -10,6 +10,7 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
 
     {"AdvancedLongitudinalTune", tr("Advanced Longitudinal Tuning"), tr("Advanced settings that control how openpilot manages speed and acceleration."), "../frogpilot/assets/toggle_icons/icon_longitudinal_tune.png"},
     {"LeadDetectionThreshold", tr("Lead Detection Threshold"), tr("How sensitive openpilot is to detecting vehicles ahead. A lower value can help detect vehicles sooner and from farther away, but may occasionally mistake other objects for vehicles."), ""},
+    {"MaxDesiredAcceleration", tr("Maximum Acceleration Rate"), tr("Set a cap on how fast openpilot can accelerate to prevent high acceleration at low speeds."), ""},
 
     {"CustomPersonalities", tr("Customize Driving Personalities"), tr("Customize the driving personality profiles."), "../frogpilot/assets/toggle_icons/icon_personality.png"},
     {"TrafficPersonalityProfile", tr("Traffic Personality"), tr("Customize the 'Traffic' personality profile."), "../frogpilot/assets/stock_theme/distance_icons/traffic.png"},
@@ -49,7 +50,7 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
     {"SidebarMetrics", tr("Sidebar"), tr("Display system information like CPU, GPU, RAM usage, IP address, and storage space in the sidebar."), ""},
     {"UseSI", tr("Use International System of Units"), tr("Display measurements using the 'International System of Units' (SI)."), ""},
 
-    {"ModelManagement", tr("Model Management"), tr("Manage the driving models used by openpilot."), "../assets/offroad/icon_calibration.png"},
+    {"ModelManagement", tr("Model Management"), tr("Manage the driving models used by openpilot."), "../frogpilot/assets/toggle_icons/icon_model.png"},
     {"AutomaticallyUpdateModels", tr("Automatically Update and Download Models"), tr("Automatically download new or updated driving models."), ""},
     {"ModelRandomizer", tr("Model Randomizer"), tr("A random model is selected and can be reviewed at the end of each drive to help find your preferred model."), ""},
     {"ManageBlacklistedModels", tr("Manage Model Blacklist"), tr("Control which models are blacklisted and won't be used for future drives."), ""},
@@ -119,6 +120,8 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
       advancedToggle = longitudinalTuneToggle;
     } else if (param == "LeadDetectionThreshold") {
       advancedToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1, 99, "%");
+    } else if (param == "MaxDesiredAcceleration") {
+      advancedToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, 0.1, 4.0, "m/s", std::map<int, QString>(), 0.1);
 
     } else if (param == "CustomPersonalities") {
       FrogPilotParamManageControl *customPersonalitiesToggle = new FrogPilotParamManageControl(param, title, desc, icon);
@@ -822,8 +825,8 @@ void FrogPilotAdvancedPanel::updateMetric() {
     double smallDistanceConversion = isMetric ? INCH_TO_CM : CM_TO_INCH;
     double distanceConversion = isMetric ? FOOT_TO_METER : METER_TO_FOOT;
 
-    params.putIntNonBlocking("LaneLinesWidth", std::nearbyint(params.getInt("LaneLinesWidth") * smallDistanceConversion));
-    params.putIntNonBlocking("RoadEdgesWidth", std::nearbyint(params.getInt("RoadEdgesWidth") * smallDistanceConversion));
+    params.putFloatNonBlocking("LaneLinesWidth", params.getFloat("LaneLinesWidth") * smallDistanceConversion);
+    params.putFloatNonBlocking("RoadEdgesWidth", params.getFloat("RoadEdgesWidth") * smallDistanceConversion);
 
     params.putFloatNonBlocking("PathWidth", params.getFloat("PathWidth") * distanceConversion);
   }
@@ -976,6 +979,8 @@ void FrogPilotAdvancedPanel::showToggles(std::set<QString> &keys) {
 }
 
 void FrogPilotAdvancedPanel::hideToggles() {
+  setUpdatesEnabled(false);
+
   customPersonalityOpen = false;
   modelManagementOpen = false;
 
@@ -999,15 +1004,14 @@ void FrogPilotAdvancedPanel::hideToggles() {
     toggle->setVisible(!subToggles);
   }
 
+  setUpdatesEnabled(true);
   update();
 }
 
 void FrogPilotAdvancedPanel::hideSubToggles() {
   if (customPersonalityOpen) {
-    for (auto &[key, toggle] : toggles) {
-      customPersonalityOpen = false;
-      toggle->setVisible(customDrivingPersonalityKeys.find(key.c_str()) != customDrivingPersonalityKeys.end());
-    }
+    customPersonalityOpen = false;
+    showToggles(customDrivingPersonalityKeys);
   } else if (modelManagementOpen) {
     for (LabelControl *label : labelControls) {
       label->setVisible(false);
@@ -1015,8 +1019,6 @@ void FrogPilotAdvancedPanel::hideSubToggles() {
 
     showToggles(modelManagementKeys);
   }
-
-  update();
 }
 
 void FrogPilotAdvancedPanel::hideSubSubToggles() {
@@ -1027,6 +1029,4 @@ void FrogPilotAdvancedPanel::hideSubSubToggles() {
 
     showToggles(modelRandomizerKeys);
   }
-
-  update();
 }

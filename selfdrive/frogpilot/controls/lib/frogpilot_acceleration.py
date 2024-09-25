@@ -76,6 +76,8 @@ class FrogPilotAcceleration:
         self.max_accel = clip(self.frogpilot_planner.lead_one.aLeadK, get_max_accel_sport_plus(v_ego), get_max_allowed_accel(v_ego))
       self.max_accel = get_max_accel_ramp_off(self.max_accel, self.frogpilot_planner.v_cruise, v_ego)
 
+    self.max_accel = min(self.max_accel, frogpilot_toggles.max_desired_accel)
+
     if controlsState.experimentalMode:
       self.min_accel = ACCEL_MIN
     elif min(self.frogpilot_planner.frogpilot_vcruise.mtsc_target, self.frogpilot_planner.frogpilot_vcruise.vtsc_target) < v_cruise:

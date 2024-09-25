@@ -37,6 +37,7 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
 
     {"LateralTune", tr("Lateral Tuning"), tr("Modify openpilot's steering behavior."), "../frogpilot/assets/toggle_icons/icon_lateral_tune.png"},
     {"ForceAutoTune", tr("Force Auto Tune"), tr("Forces comma's auto lateral tuning for unsupported vehicles."), ""},
+    {"ForceAutoTuneOff", tr("Force Auto Tune Off"), tr("Forces comma's auto lateral tuning off for supported vehicles."), ""},
     {"NNFF", tr("NNFF"), tr("Use Twilsonco's Neural Network Feedforward for enhanced precision in lateral control."), ""},
     {"NNFFLite", tr("Smoother Entry and Exit for Curves"), tr("Uses Twilsonco's steering torque tweak to provide smoother handling when entering and exiting curves."), ""},
     {"TacoTune", tr("Taco Tune"), tr("Use comma's 'Taco Tune' designed for handling left and right turns."), ""},
@@ -64,8 +65,15 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
         std::set<QString> modifiedLateralTuneKeys = lateralTuneKeys;
 
         bool usingNNFF = hasNNFFLog && params.getBool("LateralTune") && params.getBool("NNFF");
-        if (hasAutoTune || usingNNFF) {
+        if (usingNNFF) {
           modifiedLateralTuneKeys.erase("ForceAutoTune");
+          modifiedLateralTuneKeys.erase("ForceAutoTuneOff");
+        } else {
+          if (hasAutoTune) {
+            modifiedLateralTuneKeys.erase("ForceAutoTune");
+          } else {
+            modifiedLateralTuneKeys.erase("ForceAutoTuneOff");
+          }
         }
 
         if (!hasNNFFLog) {
@@ -116,6 +124,7 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
     toggles[param.toStdString()] = lateralToggle;
 
     tryConnect<ToggleControl>(lateralToggle, &ToggleControl::toggleFlipped, this, updateFrogPilotToggles);
+    tryConnect<FrogPilotButtonToggleControl>(lateralToggle, &FrogPilotButtonToggleControl::buttonClicked, this, updateFrogPilotToggles);
     tryConnect<FrogPilotParamManageControl>(lateralToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotLateralPanel::openParentToggle);
     tryConnect<FrogPilotParamValueControl>(lateralToggle, &FrogPilotParamValueControl::valueChanged, this, updateFrogPilotToggles);
 
@@ -123,6 +132,30 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
       update();
     });
   }
+
+  QObject::connect(static_cast<ToggleControl*>(toggles["NNFF"]), &ToggleControl::toggleFlipped, [this](bool state) {
+    std::set<QString> modifiedLateralTuneKeys = lateralTuneKeys;
+
+    bool usingNNFF = hasNNFFLog && state;
+    if (usingNNFF) {
+      modifiedLateralTuneKeys.erase("ForceAutoTune");
+      modifiedLateralTuneKeys.erase("ForceAutoTuneOff");
+    } else {
+      if (hasAutoTune) {
+        modifiedLateralTuneKeys.erase("ForceAutoTune");
+      } else {
+        modifiedLateralTuneKeys.erase("ForceAutoTuneOff");
+      }
+    }
+
+    if (!hasNNFFLog) {
+      modifiedLateralTuneKeys.erase("NNFF");
+    } else if (usingNNFF) {
+      modifiedLateralTuneKeys.erase("NNFFLite");
+    }
+
+    showToggles(modifiedLateralTuneKeys);
+  });
 
   std::set<QString> rebootKeys = {"AlwaysOnLateral", "NNFF", "NNFFLite"};
   for (const QString &key : rebootKeys) {
@@ -185,12 +218,12 @@ void FrogPilotLateralPanel::updateMetric() {
     double distanceConversion = isMetric ? FOOT_TO_METER : METER_TO_FOOT;
     double speedConversion = isMetric ? MILE_TO_KM : KM_TO_MILE;
 
-    params.putIntNonBlocking("LaneDetectionWidth", std::nearbyint(params.getInt("LaneDetectionWidth") * distanceConversion));
+    params.putFloatNonBlocking("LaneDetectionWidth", params.getFloat("LaneDetectionWidth") * distanceConversion);
 
-    params.putIntNonBlocking("MinimumLaneChangeSpeed", std::nearbyint(params.getInt("MinimumLaneChangeSpeed") * speedConversion));
-    params.putIntNonBlocking("PauseAOLOnBrake", std::nearbyint(params.getInt("PauseAOLOnBrake") * speedConversion));
-    params.putIntNonBlocking("PauseLateralOnSignal", std::nearbyint(params.getInt("PauseLateralOnSignal") * speedConversion));
-    params.putIntNonBlocking("PauseLateralSpeed", std::nearbyint(params.getInt("PauseLateralSpeed") * speedConversion));
+    params.putFloatNonBlocking("MinimumLaneChangeSpeed", params.getFloat("MinimumLaneChangeSpeed") * speedConversion);
+    params.putFloatNonBlocking("PauseAOLOnBrake", params.getFloat("PauseAOLOnBrake") * speedConversion);
+    params.putFloatNonBlocking("PauseLateralOnSignal", params.getFloat("PauseLateralOnSignal") * speedConversion);
+    params.putFloatNonBlocking("PauseLateralSpeed", params.getFloat("PauseLateralSpeed") * speedConversion);
   }
 
   FrogPilotParamValueControl *laneWidthToggle = static_cast<FrogPilotParamValueControl*>(toggles["LaneDetectionWidth"]);
@@ -225,6 +258,8 @@ void FrogPilotLateralPanel::showToggles(std::set<QString> &keys) {
 }
 
 void FrogPilotLateralPanel::hideToggles() {
+  setUpdatesEnabled(false);
+
   for (auto &[key, toggle] : toggles) {
     bool subToggles = aolKeys.find(key.c_str()) != aolKeys.end() ||
                       laneChangeKeys.find(key.c_str()) != laneChangeKeys.end() ||
@@ -234,5 +269,6 @@ void FrogPilotLateralPanel::hideToggles() {
     toggle->setVisible(!subToggles);
   }
 
+  setUpdatesEnabled(true);
   update();
 }

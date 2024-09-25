@@ -1007,6 +1007,8 @@ void FrogPilotVisualsPanel::showToggles(std::set<QString> &keys) {
 }
 
 void FrogPilotVisualsPanel::hideToggles() {
+  setUpdatesEnabled(false);
+
   personalizeOpenpilotOpen = false;
 
   for (auto &[key, toggle] : toggles) {
@@ -1019,15 +1021,14 @@ void FrogPilotVisualsPanel::hideToggles() {
     toggle->setVisible(!subToggles);
   }
 
+  setUpdatesEnabled(true);
   update();
 }
 
 void FrogPilotVisualsPanel::hideSubToggles() {
   if (personalizeOpenpilotOpen) {
-    for (auto &[key, toggle] : toggles) {
-      toggle->setVisible(bonusContentKeys.find(key.c_str()) != bonusContentKeys.end());
-    }
+    showToggles(bonusContentKeys);
   }
 
-  update();
+  setUpdatesEnabled(true);
 }

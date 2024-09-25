@@ -62,10 +62,10 @@ FrogPilotSettingsWindow::FrogPilotSettingsWindow(SettingsWindow *parent) : QFram
   };
 
   std::vector<QString> descriptions = {
-    tr("Control how FrogPilot handles your vehicle's acceleration and braking."),
+    tr("Advanced FrogPilot features for experienced users."),
     tr("Control FrogPilot's sounds and alerts."),
     tr("Modify the appearance of FrogPilot."),
-    tr("Control how FrogPilot handles your vehicle's steering."),
+    tr("Control how FrogPilot handles your vehicle's acceleration, braking, and steering."),
     tr("Download offline maps and manage 'Navigate On openpilot (NOO)' settings."),
     tr("Tools and system utilities for maintaining and troubleshooting FrogPilot."),
     tr("Configure settings specific to your vehicle's make and model.")

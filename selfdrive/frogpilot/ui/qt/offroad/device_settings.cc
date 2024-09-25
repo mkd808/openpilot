@@ -93,10 +93,13 @@ void FrogPilotDevicePanel::showToggles(std::set<QString> &keys) {
 }
 
 void FrogPilotDevicePanel::hideToggles() {
+  setUpdatesEnabled(false);
+
   for (auto &[key, toggle] : toggles) {
     bool subToggles = deviceManagementKeys.find(key.c_str()) != deviceManagementKeys.end();
     toggle->setVisible(!subToggles);
   }
 
+  setUpdatesEnabled(true);
   update();
 }

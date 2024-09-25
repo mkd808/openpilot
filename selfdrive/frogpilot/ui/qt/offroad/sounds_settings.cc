@@ -54,6 +54,7 @@ FrogPilotSoundsPanel::FrogPilotSoundsPanel(FrogPilotSettingsWindow *parent) : Fr
     toggles[param.toStdString()] = soundsToggle;
 
     tryConnect<ToggleControl>(soundsToggle, &ToggleControl::toggleFlipped, this, updateFrogPilotToggles);
+    tryConnect<FrogPilotButtonToggleControl>(soundsToggle, &FrogPilotButtonToggleControl::buttonClicked, this, updateFrogPilotToggles);
     tryConnect<FrogPilotParamManageControl>(soundsToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotSoundsPanel::openParentToggle);
     tryConnect<FrogPilotParamValueControl>(soundsToggle, &FrogPilotParamValueControl::valueChanged, this, updateFrogPilotToggles);
 
@@ -93,11 +94,14 @@ void FrogPilotSoundsPanel::showToggles(std::set<QString> &keys) {
 }
 
 void FrogPilotSoundsPanel::hideToggles() {
+  setUpdatesEnabled(false);
+
   for (auto &[key, toggle] : toggles) {
     bool subToggles = alertVolumeControlKeys.find(key.c_str()) != alertVolumeControlKeys.end() ||
                       customAlertsKeys.find(key.c_str()) != customAlertsKeys.end();
     toggle->setVisible(!subToggles);
   }
 
+  setUpdatesEnabled(true);
   update();
 }

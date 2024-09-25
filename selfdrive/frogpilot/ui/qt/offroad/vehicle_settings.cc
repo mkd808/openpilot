@@ -251,6 +251,8 @@ void FrogPilotVehiclesPanel::setModels() {
 }
 
 void FrogPilotVehiclesPanel::hideToggles() {
+  setUpdatesEnabled(false);
+
   disableOpenpilotLong->setVisible(hasOpenpilotLongitudinal && !hasExperimentalOpenpilotLongitudinal && !isGMPCMCruise || params.getBool("DisableOpenpilotLongitudinal"));
 
   selectMakeButton->setValue(carMake);
@@ -268,36 +270,35 @@ void FrogPilotVehiclesPanel::hideToggles() {
   std::set<QString> voltKeys = {"VoltSNG"};
 
   for (auto &[key, toggle] : toggles) {
-    if (toggle) {
-      toggle->setVisible(false);
+    toggle->setVisible(false);
 
-      if ((!hasOpenpilotLongitudinal || params.getBool("DisableOpenpilotLongitudinal")) && longitudinalKeys.find(key.c_str()) != longitudinalKeys.end()) {
-        continue;
-      }
+    if ((!hasOpenpilotLongitudinal || params.getBool("DisableOpenpilotLongitudinal")) && longitudinalKeys.find(key.c_str()) != longitudinalKeys.end()) {
+      continue;
+    }
 
-      if (hasSNG && sngKeys.find(key.c_str()) != sngKeys.end()) {
-        continue;
-      }
+    if (hasSNG && sngKeys.find(key.c_str()) != sngKeys.end()) {
+      continue;
+    }
 
-      if (!isImpreza && imprezaKeys.find(key.c_str()) != imprezaKeys.end()) {
-        continue;
-      }
+    if (!isImpreza && imprezaKeys.find(key.c_str()) != imprezaKeys.end()) {
+      continue;
+    }
 
-      if (!isVolt && voltKeys.find(key.c_str()) != voltKeys.end()) {
-        continue;
-      }
+    if (!isVolt && voltKeys.find(key.c_str()) != voltKeys.end()) {
+      continue;
+    }
 
-      if (hyundai) {
-        toggle->setVisible(hyundaiKeys.find(key.c_str()) != hyundaiKeys.end());
-      } else if (gm) {
-        toggle->setVisible(gmKeys.find(key.c_str()) != gmKeys.end());
-      } else if (subaru) {
-        toggle->setVisible(subaruKeys.find(key.c_str()) != subaruKeys.end());
-      } else if (toyota) {
-        toggle->setVisible(toyotaKeys.find(key.c_str()) != toyotaKeys.end());
-      }
+    if (hyundai) {
+      toggle->setVisible(hyundaiKeys.find(key.c_str()) != hyundaiKeys.end());
+    } else if (gm) {
+      toggle->setVisible(gmKeys.find(key.c_str()) != gmKeys.end());
+    } else if (subaru) {
+      toggle->setVisible(subaruKeys.find(key.c_str()) != subaruKeys.end());
+    } else if (toyota) {
+      toggle->setVisible(toyotaKeys.find(key.c_str()) != toyotaKeys.end());
     }
   }
 
+  setUpdatesEnabled(true);
   update();
 }

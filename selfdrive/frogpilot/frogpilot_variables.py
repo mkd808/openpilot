@@ -88,6 +88,7 @@ class FrogPilotVariables:
 
     advanced_longitudinal_tune = toggle.openpilot_longitudinal and self.params.get_bool("LongitudinalTune")
     toggle.lead_detection_threshold = self.params.get_int("LeadDetectionThreshold") / 100. if advanced_longitudinal_tune else 0.5
+    toggle.max_desired_accel = self.params.get_float("MaxDesiredAcceleration") if advanced_longitudinal_tune else 4.0
 
     toggle.alert_volume_control = self.params.get_bool("AlertVolumeControl")
     toggle.disengage_volume = self.params.get_int("DisengageVolume") if toggle.alert_volume_control else 100
@@ -198,6 +199,7 @@ class FrogPilotVariables:
 
     lateral_tune = self.params.get_bool("LateralTune")
     toggle.force_auto_tune = lateral_tune and self.params.get_bool("ForceAutoTune")
+    toggle.force_auto_tune_off = lateral_tune and self.params.get_bool("ForceAutoTuneOff")
     toggle.taco_tune = lateral_tune and self.params.get_bool("TacoTune")
     toggle.turn_desires = lateral_tune and self.params.get_bool("TurnDesires")
 
