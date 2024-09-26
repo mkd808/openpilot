@@ -80,7 +80,7 @@ QStringList getCarNames(const QString &carMake, QMap<QString, QString> &carModel
   return names;
 }
 
-FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent) {
+FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent), parent(parent) {
   selectMakeButton = new ButtonControl(tr("Select Make"), tr("SELECT"));
   QObject::connect(selectMakeButton, &ButtonControl::clicked, [this]() {
     QStringList makes = {
@@ -133,7 +133,6 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
     } else {
       params.putBool("DisableOpenpilotLongitudinal", state);
     }
-    updateCarToggles();
   });
   addItem(disableOpenpilotLong);
 
@@ -171,7 +170,7 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
     addItem(vehicleToggle);
     toggles[param] = vehicleToggle;
 
-    tryConnect(vehicleToggle, &updateFrogPilotToggles);
+    makeConnections(vehicleToggle);
 
     QObject::connect(vehicleToggle, &AbstractControl::showDescriptionEvent, [this]() {
       update();
@@ -197,7 +196,6 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
         carModel = QString::fromStdString(params.get(params.get("CarModelName").empty() ? "CarModel" : "CarModelName"));
       }
       setModels();
-      updateCarToggles();
     }).detach();
   });
 
@@ -208,41 +206,24 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
 
   if (!carMake.isEmpty()) {
     setModels();
-  } else {
-    hideToggles();
   }
+}
 
-  updateCarToggles();
+void FrogPilotVehiclesPanel::showEvent(QShowEvent *event) {
+  hasExperimentalOpenpilotLongitudinal = parent->hasExperimentalOpenpilotLongitudinal;
+  hasOpenpilotLongitudinal = parent->hasOpenpilotLongitudinal;
+  hasSNG = parent->hasSNG;
+  isGMPCMCruise = parent->isGMPCMCruise;
+  isImpreza = parent->isImpreza;
+  isVolt = parent->isVolt;
+
+  hideToggles();
 }
 
 void FrogPilotVehiclesPanel::updateState(const UIState &s) {
   if (!isVisible()) return;
 
   started = s.scene.started;
-}
-
-void FrogPilotVehiclesPanel::updateCarToggles() {
-  std::string carParams = params.get("CarParamsPersistent");
-  if (!carParams.empty()) {
-    AlignedBuffer aligned_buf;
-    capnp::FlatArrayMessageReader cmsg(aligned_buf.align(carParams.data(), carParams.size()));
-    cereal::CarParams::Reader CP = cmsg.getRoot<cereal::CarParams>();
-
-    auto carFingerprint = CP.getCarFingerprint();
-
-    hasExperimentalOpenpilotLongitudinal = CP.getExperimentalLongitudinalAvailable();
-    hasOpenpilotLongitudinal = hasLongitudinalControl(CP);
-    hasSNG = CP.getMinEnableSpeed() <= 0;
-    isGMPCMCruise = CP.getCarName() == "gm" && CP.getPcmCruise();
-    isImpreza = carFingerprint == "SUBARU_IMPREZA";
-    isVolt = carFingerprint == "CHEVROLET_VOLT";
-  } else {
-    hasExperimentalOpenpilotLongitudinal = false;
-    hasOpenpilotLongitudinal = true;
-    hasSNG = false;
-    isImpreza = true;
-    isVolt = true;
-  }
 }
 
 void FrogPilotVehiclesPanel::setModels() {

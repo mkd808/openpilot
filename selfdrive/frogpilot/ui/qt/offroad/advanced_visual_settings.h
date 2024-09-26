@@ -14,10 +14,11 @@ signals:
   void openParentToggle();
 
 private:
+  FrogPilotSettingsWindow *parent;
+
   void hideToggles();
   void showEvent(QShowEvent *event) override;
   void showToggles(const std::set<QString> &keys);
-  void updateCarToggles();
   void updateMetric();
 
   FrogPilotButtonToggleControl *borderMetricsBtn;

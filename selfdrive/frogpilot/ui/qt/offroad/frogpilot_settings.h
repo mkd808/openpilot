@@ -7,6 +7,30 @@ class FrogPilotSettingsWindow : public QFrame {
 public:
   explicit FrogPilotSettingsWindow(SettingsWindow *parent);
 
+  bool disableOpenpilotLongitudinal;
+  bool hasAutoTune;
+  bool hasBSM;
+  bool hasDashSpeedLimits;
+  bool hasExperimentalOpenpilotLongitudinal;
+  bool hasNNFFLog;
+  bool hasOpenpilotLongitudinal;
+  bool hasPCMCruise;
+  bool hasSNG;
+  bool isGM;
+  bool isGMPCMCruise;
+  bool isHKGCanFd;
+  bool isImpreza;
+  bool isSubaru;
+  bool isToyota;
+  bool isVolt;
+  bool forcingAutoTune;
+  bool liveValid;
+
+  float steerFrictionStock;
+  float steerKPStock;
+  float steerLatAccelStock;
+  float steerRatioStock;
+
 signals:
   void closeParentToggle();
   void closeSubParentToggle();
@@ -18,9 +42,13 @@ signals:
   void updateMetric();
 
 private:
+  void addPanelControl(FrogPilotListWidget *list, const QString &title, const QString &desc, const std::vector<QString> &button_labels, const QString &icon, const std::vector<QWidget*> &panels);
+  void showEvent(QShowEvent *event) override;
+  void updateCarToggles();
+
   QStackedLayout *mainLayout;
 
   QWidget *frogpilotSettingsWidget;
 
-  void addPanelControl(FrogPilotListWidget *list, const QString &title, const QString &desc, const std::vector<QString> &button_labels, const QString &icon, const std::vector<QWidget*> &panels);
+  Params params;
 };

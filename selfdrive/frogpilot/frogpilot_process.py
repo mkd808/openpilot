@@ -43,6 +43,10 @@ def automatic_update_check(started, params):
   update_state_idle = params.get("UpdaterState", encoding='utf8') == "idle"
 
   if update_ready and not started:
+    os.system("pkill -SIGUSR1 -f system.updated.updated")
+    time.sleep(30)
+    os.system("pkill -SIGHUP -f system.updated.updated")
+    time.sleep(300)
     HARDWARE.reboot()
   elif update_available:
     os.system("pkill -SIGUSR1 -f system.updated.updated")

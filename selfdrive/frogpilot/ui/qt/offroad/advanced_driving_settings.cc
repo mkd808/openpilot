@@ -1,6 +1,6 @@
 #include "selfdrive/frogpilot/ui/qt/offroad/advanced_driving_settings.h"
 
-FrogPilotAdvancedDrivingPanel::FrogPilotAdvancedDrivingPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent) {
+FrogPilotAdvancedDrivingPanel::FrogPilotAdvancedDrivingPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent), parent(parent) {
   const std::vector<std::tuple<QString, QString, QString, QString>> advancedToggles {
     {"AdvancedLateralTune", tr("Advanced Lateral Tuning"), tr("Advanced settings that control how openpilot manages steering."), "../frogpilot/assets/toggle_icons/icon_lateral_tune.png"},
     {"SteerFriction", steerFrictionStock != 0 ? QString(tr("Friction (Default: %1)")).arg(QString::number(steerFrictionStock, 'f', 2)) : tr("Friction"), tr("Adjust the resistance in the steering system. Higher values provide more stable steering but can make it feel heavy, while lower values allow lighter steering but may feel too sensitive."), ""},
@@ -450,8 +450,6 @@ FrogPilotAdvancedDrivingPanel::FrogPilotAdvancedDrivingPanel(FrogPilotSettingsWi
               Hardware::reboot();
             }
           }
-
-          updateCarToggles();
         }
       });
       selectModelBtn->setValue(QString::fromStdString(params.get("ModelName")));
@@ -497,7 +495,7 @@ FrogPilotAdvancedDrivingPanel::FrogPilotAdvancedDrivingPanel(FrogPilotSettingsWi
     addItem(advancedDrivingToggle);
     toggles[param] = advancedDrivingToggle;
 
-    tryConnect(advancedDrivingToggle, &updateFrogPilotToggles);
+    makeConnections(advancedDrivingToggle);
 
     if (FrogPilotParamManageControl *frogPilotManageToggle = qobject_cast<FrogPilotParamManageControl*>(advancedDrivingToggle)) {
       QObject::connect(frogPilotManageToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotAdvancedDrivingPanel::openParentToggle);
@@ -629,17 +627,31 @@ FrogPilotAdvancedDrivingPanel::FrogPilotAdvancedDrivingPanel(FrogPilotSettingsWi
   QObject::connect(parent, &FrogPilotSettingsWindow::closeSubParentToggle, this, &FrogPilotAdvancedDrivingPanel::hideSubToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::closeSubSubParentToggle, this, &FrogPilotAdvancedDrivingPanel::hideSubSubToggles);
   QObject::connect(uiState(), &UIState::driveRated, this, &FrogPilotAdvancedDrivingPanel::updateModelLabels);
-  QObject::connect(uiState(), &UIState::offroadTransition, this, &FrogPilotAdvancedDrivingPanel::updateCarToggles);
 
-  hideToggles();
   updateModelLabels();
 }
 
 void FrogPilotAdvancedDrivingPanel::showEvent(QShowEvent *event) {
-  disableOpenpilotLongitudinal = params.getBool("DisableOpenpilotLongitudinal");
   modelManagement = params.getBool("ModelManagement");
   modelRandomizer = params.getBool("ModelRandomizer");
-  updateCarToggles();
+
+  disableOpenpilotLongitudinal = parent->disableOpenpilotLongitudinal;
+  hasOpenpilotLongitudinal = parent->hasOpenpilotLongitudinal;
+  liveValid = parent->liveValid;
+  steerFrictionStock = parent->steerFrictionStock;
+  steerKPStock = parent->steerKPStock;
+  steerLatAccelStock = parent->steerLatAccelStock;
+  steerRatioStock = parent->steerRatioStock;
+
+  steerFrictionToggle->setTitle(QString(tr("Friction (Default: %1)")).arg(QString::number(steerFrictionStock, 'f', 2)));
+  steerKPToggle->setTitle(QString(tr("Kp Factor (Default: %1)")).arg(QString::number(steerKPStock, 'f', 2)));
+  steerKPToggle->updateControl(steerKPStock * 0.50, steerKPStock * 1.50);
+  steerLatAccelToggle->setTitle(QString(tr("Lateral Accel (Default: %1)")).arg(QString::number(steerLatAccelStock, 'f', 2)));
+  steerLatAccelToggle->updateControl(steerLatAccelStock * 0.75, steerLatAccelStock * 1.25);
+  steerRatioToggle->setTitle(QString(tr("Steer Ratio (Default: %1)")).arg(QString::number(steerRatioStock, 'f', 2)));
+  steerRatioToggle->updateControl(steerRatioStock * 0.75, steerRatioStock * 1.25);
+
+  hideToggles();
 }
 
 void FrogPilotAdvancedDrivingPanel::updateState(const UIState &s) {
@@ -656,89 +668,6 @@ void FrogPilotAdvancedDrivingPanel::updateState(const UIState &s) {
   }
 
   started = s.scene.started;
-}
-
-void FrogPilotAdvancedDrivingPanel::updateCarToggles() {
-  float currentFrictionStock = params.getFloat("SteerFrictionStock");
-  float currentKPStock = params.getFloat("SteerKPStock");
-  float currentLatAccelStock = params.getFloat("SteerLatAccelStock");
-  float currentRatioStock = params.getFloat("SteerRatioStock");
-
-  std::string carParams = params.get("CarParamsPersistent");
-  if (!carParams.empty()) {
-    AlignedBuffer aligned_buf;
-    capnp::FlatArrayMessageReader cmsg(aligned_buf.align(carParams.data(), carParams.size()));
-    cereal::CarParams::Reader CP = cmsg.getRoot<cereal::CarParams>();
-
-    hasOpenpilotLongitudinal = hasLongitudinalControl(CP);
-    steerFrictionStock = CP.getLateralTuning().getTorque().getFriction();
-    steerKPStock = CP.getLateralTuning().getTorque().getKp();
-    steerLatAccelStock = CP.getLateralTuning().getTorque().getLatAccelFactor();
-    steerRatioStock = CP.getSteerRatio();
-
-    steerFrictionToggle->setTitle(QString(tr("Friction (Default: %1)")).arg(QString::number(steerFrictionStock, 'f', 2)));
-    if (currentFrictionStock != steerFrictionStock) {
-      if (params.getFloat("SteerFriction") == currentFrictionStock) {
-        params.putFloatNonBlocking("SteerFriction", steerFrictionStock);
-      }
-      params.putFloatNonBlocking("SteerFrictionStock", steerFrictionStock);
-    }
-
-    steerKPToggle->setTitle(QString(tr("Kp Factor (Default: %1)")).arg(QString::number(steerKPStock, 'f', 2)));
-    steerKPToggle->updateControl(steerKPStock * 0.50, currentKPStock * 1.50);
-    if (currentKPStock != steerKPStock) {
-      if (params.getFloat("SteerKP") == currentKPStock) {
-        params.putFloatNonBlocking("SteerKP", steerKPStock);
-      }
-      params.putFloatNonBlocking("SteerKPStock", steerKPStock);
-    }
-
-    steerLatAccelToggle->setTitle(QString(tr("Lateral Accel (Default: %1)")).arg(QString::number(steerLatAccelStock, 'f', 2)));
-    steerLatAccelToggle->updateControl(steerLatAccelStock * 0.75, steerLatAccelStock * 1.25);
-    if (currentLatAccelStock != steerLatAccelStock) {
-      if (params.getFloat("SteerLatAccel") == steerLatAccelStock) {
-        params.putFloatNonBlocking("SteerLatAccel", steerLatAccelStock);
-      }
-      params.putFloatNonBlocking("SteerLatAccelStock", steerLatAccelStock);
-    }
-
-    steerRatioToggle->setTitle(QString(tr("Steer Ratio (Default: %1)")).arg(QString::number(steerRatioStock, 'f', 2)));
-    steerRatioToggle->updateControl(steerRatioStock * 0.75, steerRatioStock * 1.25);
-    if (currentRatioStock != steerRatioStock) {
-      if (params.getFloat("SteerRatio") == steerRatioStock) {
-        params.putFloatNonBlocking("SteerRatio", steerRatioStock);
-      }
-      params.putFloatNonBlocking("SteerRatioStock", steerRatioStock);
-    }
-  } else {
-    hasOpenpilotLongitudinal = true;
-  }
-
-  std::string liveTorqueParamsKey;
-  if (modelManagement) {
-    QString model = QString::fromStdString(params.get("ModelName"));
-    QString part_model_param = processModelName(model);
-    liveTorqueParamsKey = part_model_param.toStdString() + "LiveTorqueParameters";
-  } else {
-    liveTorqueParamsKey = "LiveTorqueParameters";
-  }
-
-  if (params.checkKey(liveTorqueParamsKey)) {
-    auto torqueParams = params.get(liveTorqueParamsKey);
-    if (!torqueParams.empty()) {
-      AlignedBuffer aligned_buf;
-      capnp::FlatArrayMessageReader cmsg(aligned_buf.align(torqueParams.data(), torqueParams.size()));
-      cereal::Event::Reader LTP = cmsg.getRoot<cereal::Event>();
-
-      auto liveTorqueParams = LTP.getLiveTorqueParameters();
-
-      liveValid = liveTorqueParams.getLiveValid();
-    } else {
-      liveValid = false;
-    }
-  } else {
-    liveValid = false;
-  }
 }
 
 void FrogPilotAdvancedDrivingPanel::startDownloadAllModels() {
@@ -788,14 +717,6 @@ void FrogPilotAdvancedDrivingPanel::startDownloadAllModels() {
     }
   });
   progressTimer->start();
-}
-
-QString FrogPilotAdvancedDrivingPanel::processModelName(const QString &modelName) {
-  QString modelCleaned = modelName;
-  modelCleaned = modelCleaned.remove(QRegularExpression("[🗺️👀📡]")).simplified();
-  QString scoreParam = modelCleaned.remove(QRegularExpression("[^a-zA-Z0-9()-]")).replace(" ", "").simplified();
-  scoreParam = scoreParam.replace("(Default)", "").replace("-", "");
-  return scoreParam;
 }
 
 void FrogPilotAdvancedDrivingPanel::updateCalibrationDescription() {

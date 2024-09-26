@@ -16,7 +16,7 @@ signals:
   void openSubSubParentToggle();
 
 private:
-  QString processModelName(const QString &modelName);
+  FrogPilotSettingsWindow *parent;
 
   void hideSubToggles();
   void hideSubSubToggles();
@@ -25,7 +25,6 @@ private:
   void showToggles(const std::set<QString> &keys);
   void startDownloadAllModels();
   void updateCalibrationDescription();
-  void updateCarToggles();
   void updateModelLabels();
   void updateState(const UIState &s);
 

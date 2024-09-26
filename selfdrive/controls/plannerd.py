@@ -37,17 +37,15 @@ def plannerd_thread():
   frogpilot_toggles = FrogPilotVariables.toggles
   FrogPilotVariables.update_frogpilot_params()
 
-  e2e_longitudinal_model = frogpilot_toggles.e2e_longitudinal_model
   radarless_model = frogpilot_toggles.radarless_model
-  velocity_model = frogpilot_toggles.velocity_model
 
   update_toggles = False
 
   while True:
     sm.update()
     if sm.updated['modelV2']:
-      longitudinal_planner.update(e2e_longitudinal_model, radarless_model, velocity_model, sm, frogpilot_toggles)
-      longitudinal_planner.publish(e2e_longitudinal_model, sm, pm)
+      longitudinal_planner.update(radarless_model, sm, frogpilot_toggles)
+      longitudinal_planner.publish(sm, pm)
       publish_ui_plan(sm, pm, longitudinal_planner)
 
     # Update FrogPilot parameters

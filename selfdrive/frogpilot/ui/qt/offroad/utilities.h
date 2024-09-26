@@ -8,6 +8,8 @@ public:
   explicit UtilitiesPanel(FrogPilotSettingsWindow *parent);
 
 private:
+  FrogPilotSettingsWindow *parent;
+
   Params params;
   Params paramsMemory{"/dev/shm/params"};
 

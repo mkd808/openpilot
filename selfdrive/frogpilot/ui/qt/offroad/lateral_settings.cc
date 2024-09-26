@@ -1,26 +1,6 @@
-#include <filesystem>
-#include <iostream>
-
 #include "selfdrive/frogpilot/ui/qt/offroad/lateral_settings.h"
 
-bool checkNNFFLogFileExists(const std::string &carFingerprint) {
-  std::filesystem::path latModelsPath("../car/torque_data/lat_models");
-  if (!std::filesystem::exists(latModelsPath)) {
-    std::cerr << "Lat models directory does not exist." << std::endl;
-    return false;
-  }
-
-  for (const std::filesystem::directory_entry &entry : std::filesystem::directory_iterator(latModelsPath)) {
-    std::string filename = entry.path().filename().string();
-    if (filename.find(carFingerprint) == 0) {
-      std::cout << "NNFF supports fingerprint: " << filename << std::endl;
-      return true;
-    }
-  }
-  return false;
-}
-
-FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent) {
+FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent), parent(parent) {
   const std::vector<std::tuple<QString, QString, QString, QString>> lateralToggles {
     {"AlwaysOnLateral", tr("Always on Lateral"), tr("Maintain openpilot lateral control when the brake or gas pedals are used.\n\nDeactivation occurs only through the 'Cruise Control' button."), "../frogpilot/assets/toggle_icons/icon_always_on_lateral.png"},
     {"AlwaysOnLateralLKAS", tr("Control Via LKAS Button"), tr("Enable or disable 'Always On Lateral' by clicking your 'LKAS' button."), ""},
@@ -129,7 +109,7 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
     addItem(lateralToggle);
     toggles[param] = lateralToggle;
 
-    tryConnect(lateralToggle, &updateFrogPilotToggles);
+    makeConnections(lateralToggle);
 
     if (FrogPilotParamManageControl *frogPilotManageToggle = qobject_cast<FrogPilotParamManageControl*>(lateralToggle)) {
       QObject::connect(frogPilotManageToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotLateralPanel::openParentToggle);
@@ -189,38 +169,23 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
 
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotLateralPanel::hideToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::updateMetric, this, &FrogPilotLateralPanel::updateMetric);
-  QObject::connect(uiState(), &UIState::offroadTransition, this, &FrogPilotLateralPanel::updateCarToggles);
   QObject::connect(uiState(), &UIState::uiUpdate, this, &FrogPilotLateralPanel::updateState);
 
-  hideToggles();
   updateMetric();
+}
+
+void FrogPilotLateralPanel::showEvent(QShowEvent *event) {
+  hasAutoTune = parent->hasAutoTune;
+  hasNNFFLog = parent->hasNNFFLog;
+  isSubaru = parent->isSubaru;
+
+  hideToggles();
 }
 
 void FrogPilotLateralPanel::updateState(const UIState &s) {
   if (!isVisible()) return;
 
   started = s.scene.started;
-}
-
-void FrogPilotLateralPanel::updateCarToggles() {
-  std::string carParams = params.get("CarParamsPersistent");
-  if (!carParams.empty()) {
-    AlignedBuffer aligned_buf;
-    capnp::FlatArrayMessageReader cmsg(aligned_buf.align(carParams.data(), carParams.size()));
-    cereal::CarParams::Reader CP = cmsg.getRoot<cereal::CarParams>();
-
-    auto carFingerprint = CP.getCarFingerprint();
-    std::string carName = CP.getCarName();
-
-    hasAutoTune = (carName == "hyundai" || carName == "toyota") && CP.getLateralTuning().which() == cereal::CarParams::LateralTuning::TORQUE;
-    bool forcingAutoTune = params.getBool("LateralTune") && params.getBool("ForceAutoTune");
-    uiState()->scene.has_auto_tune = hasAutoTune || forcingAutoTune;
-    hasNNFFLog = checkNNFFLogFileExists(carFingerprint);
-    isSubaru = carName == "subaru";
-  } else {
-    hasAutoTune = false;
-    hasNNFFLog = true;
-  }
 }
 
 void FrogPilotLateralPanel::updateMetric() {

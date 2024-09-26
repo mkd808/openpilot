@@ -216,7 +216,6 @@ class RadarD:
     self.frogpilot_toggles = FrogPilotVariables.toggles
     FrogPilotVariables.update_frogpilot_params()
 
-    self.e2e_longitudinal_model = self.frogpilot_toggles.e2e_longitudinal_model
     self.velocity_model = self.frogpilot_toggles.velocity_model
 
     self.update_toggles = False
@@ -266,7 +265,7 @@ class RadarD:
 
     if self.velocity_model and len(sm['modelV2'].velocity.x):
       model_v_ego = sm['modelV2'].velocity.x[0]
-    elif not self.e2e_longitudinal_model and len(sm['modelV2'].temporalPose.trans):
+    elif len(sm['modelV2'].temporalPose.trans):
       model_v_ego = sm['modelV2'].temporalPose.trans[0]
     else:
       model_v_ego = self.v_ego

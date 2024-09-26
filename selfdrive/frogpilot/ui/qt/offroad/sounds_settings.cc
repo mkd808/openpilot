@@ -1,6 +1,6 @@
 #include "selfdrive/frogpilot/ui/qt/offroad/sounds_settings.h"
 
-FrogPilotSoundsPanel::FrogPilotSoundsPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent) {
+FrogPilotSoundsPanel::FrogPilotSoundsPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent), parent(parent) {
   const std::vector<std::tuple<QString, QString, QString, QString>> soundsToggles {
     {"AlertVolumeControl", tr("Alert Volume Controller"), tr("Control the volume level for each individual sound in openpilot."), "../frogpilot/assets/toggle_icons/icon_mute.png"},
     {"DisengageVolume", tr("Disengage Volume"), tr("Related alerts:\n\nAdaptive Cruise Disabled\nParking Brake Engaged\nBrake Pedal Pressed\nSpeed too Low"), ""},
@@ -53,7 +53,7 @@ FrogPilotSoundsPanel::FrogPilotSoundsPanel(FrogPilotSettingsWindow *parent) : Fr
     addItem(soundsToggle);
     toggles[param] = soundsToggle;
 
-    tryConnect(soundsToggle, &updateFrogPilotToggles);
+    makeConnections(soundsToggle);
 
     if (FrogPilotParamManageControl *frogPilotManageToggle = qobject_cast<FrogPilotParamManageControl*>(soundsToggle)) {
       QObject::connect(frogPilotManageToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotSoundsPanel::openParentToggle);
@@ -65,22 +65,12 @@ FrogPilotSoundsPanel::FrogPilotSoundsPanel(FrogPilotSettingsWindow *parent) : Fr
   }
 
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotSoundsPanel::hideToggles);
-  QObject::connect(uiState(), &UIState::offroadTransition, this, &FrogPilotSoundsPanel::updateCarToggles);
-
-  hideToggles();
 }
 
-void FrogPilotSoundsPanel::updateCarToggles() {
-  std::string carParams = params.get("CarParamsPersistent");
-  if (!carParams.empty()) {
-    AlignedBuffer aligned_buf;
-    capnp::FlatArrayMessageReader cmsg(aligned_buf.align(carParams.data(), carParams.size()));
-    cereal::CarParams::Reader CP = cmsg.getRoot<cereal::CarParams>();
+void FrogPilotSoundsPanel::showEvent(QShowEvent *event) {
+  hasBSM = parent->hasBSM;
 
-    hasBSM = CP.getEnableBsm();
-  } else {
-    hasBSM = true;
-  }
+  hideToggles();
 }
 
 void FrogPilotSoundsPanel::showToggles(const std::set<QString> &keys) {

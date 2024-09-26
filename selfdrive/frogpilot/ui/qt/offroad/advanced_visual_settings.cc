@@ -1,6 +1,6 @@
 #include "selfdrive/frogpilot/ui/qt/offroad/advanced_visual_settings.h"
 
-FrogPilotAdvancedVisualsPanel::FrogPilotAdvancedVisualsPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent) {
+FrogPilotAdvancedVisualsPanel::FrogPilotAdvancedVisualsPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent), parent(parent) {
   const std::vector<std::tuple<QString, QString, QString, QString>> advancedToggles {
     {"DeveloperUI", tr("Developer UI"), tr("Show detailed information about openpilot's internal operations."), "../frogpilot/assets/toggle_icons/icon_device.png"},
     {"BorderMetrics", tr("Border Metrics"), tr("Display performance metrics around the edge of the screen while driving."), ""},
@@ -107,7 +107,7 @@ FrogPilotAdvancedVisualsPanel::FrogPilotAdvancedVisualsPanel(FrogPilotSettingsWi
     addItem(advancedVisualToggle);
     toggles[param] = advancedVisualToggle;
 
-    tryConnect(advancedVisualToggle, &updateFrogPilotToggles);
+    makeConnections(advancedVisualToggle);
 
     if (FrogPilotParamManageControl *frogPilotManageToggle = qobject_cast<FrogPilotParamManageControl*>(advancedVisualToggle)) {
       QObject::connect(frogPilotManageToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotAdvancedVisualsPanel::openParentToggle);
@@ -120,33 +120,17 @@ FrogPilotAdvancedVisualsPanel::FrogPilotAdvancedVisualsPanel(FrogPilotSettingsWi
 
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotAdvancedVisualsPanel::hideToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::updateMetric, this, &FrogPilotAdvancedVisualsPanel::updateMetric);
-  QObject::connect(uiState(), &UIState::offroadTransition, this, &FrogPilotAdvancedVisualsPanel::updateCarToggles);
 
-  hideToggles();
   updateMetric();
 }
 
 void FrogPilotAdvancedVisualsPanel::showEvent(QShowEvent *event) {
-  disableOpenpilotLongitudinal = params.getBool("DisableOpenpilotLongitudinal");
-}
+  disableOpenpilotLongitudinal = parent->disableOpenpilotLongitudinal;
+  hasAutoTune = parent->hasAutoTune;
+  hasBSM = parent->hasBSM;
+  hasOpenpilotLongitudinal = parent->hasOpenpilotLongitudinal;
 
-void FrogPilotAdvancedVisualsPanel::updateCarToggles() {
-  std::string carParams = params.get("CarParamsPersistent");
-  if (!carParams.empty()) {
-    AlignedBuffer aligned_buf;
-    capnp::FlatArrayMessageReader cmsg(aligned_buf.align(carParams.data(), carParams.size()));
-    cereal::CarParams::Reader CP = cmsg.getRoot<cereal::CarParams>();
-
-    std::string carName = CP.getCarName();
-
-    hasAutoTune = (carName == "hyundai" || carName == "toyota") && CP.getLateralTuning().which() == cereal::CarParams::LateralTuning::TORQUE;
-    hasBSM = CP.getEnableBsm();
-    hasOpenpilotLongitudinal = hasLongitudinalControl(CP);
-  } else {
-    hasAutoTune = true;
-    hasBSM = true;
-    hasOpenpilotLongitudinal = true;
-  }
+  hideToggles();
 }
 
 void FrogPilotAdvancedVisualsPanel::updateMetric() {

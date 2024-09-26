@@ -8,5 +8,7 @@ public:
   explicit FrogPilotDataPanel(FrogPilotSettingsWindow *parent);
 
 private:
+  FrogPilotSettingsWindow *parent;
+
   Params params;
 };

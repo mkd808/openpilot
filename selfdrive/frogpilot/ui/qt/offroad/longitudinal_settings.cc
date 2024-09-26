@@ -1,6 +1,6 @@
 #include "selfdrive/frogpilot/ui/qt/offroad/longitudinal_settings.h"
 
-FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent) {
+FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent), parent(parent) {
   const std::vector<std::tuple<QString, QString, QString, QString>> longitudinalToggles {
     {"ConditionalExperimental", tr("Conditional Experimental Mode"), tr("Automatically switches to 'Experimental Mode' under predefined conditions."), "../frogpilot/assets/toggle_icons/icon_conditional.png"},
     {"CESpeed", tr("Below"), tr("Switch to 'Experimental Mode' below this speed when not following a lead vehicle."), ""},
@@ -302,7 +302,7 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
     addItem(longitudinalToggle);
     toggles[param] = longitudinalToggle;
 
-    tryConnect(longitudinalToggle, &updateFrogPilotToggles);
+    makeConnections(longitudinalToggle);
 
     if (FrogPilotParamManageControl *frogPilotManageToggle = qobject_cast<FrogPilotParamManageControl*>(longitudinalToggle)) {
       QObject::connect(frogPilotManageToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotLongitudinalPanel::openParentToggle);
@@ -322,36 +322,19 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotLongitudinalPanel::hideToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::closeSubParentToggle, this, &FrogPilotLongitudinalPanel::hideSubToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::updateMetric, this, &FrogPilotLongitudinalPanel::updateMetric);
-  QObject::connect(uiState(), &UIState::offroadTransition, this, &FrogPilotLongitudinalPanel::updateCarToggles);
 
-  hideToggles();
   updateMetric();
 }
 
-void FrogPilotLongitudinalPanel::updateCarToggles() {
-  std::string carParams = params.get("CarParamsPersistent");
-  if (!carParams.empty()) {
-    AlignedBuffer aligned_buf;
-    capnp::FlatArrayMessageReader cmsg(aligned_buf.align(carParams.data(), carParams.size()));
-    cereal::CarParams::Reader CP = cmsg.getRoot<cereal::CarParams>();
+void FrogPilotLongitudinalPanel::showEvent(QShowEvent *event) {
+  hasDashSpeedLimits = parent->hasDashSpeedLimits;
+  hasPCMCruise = parent->hasPCMCruise;
+  isGM = parent->isGM;
+  isHKGCanFd = parent->isHKGCanFd;
+  isSubaru = parent->isSubaru;
+  isToyota = parent->isToyota;
 
-    std::string carName = CP.getCarName();
-    auto safetyConfigs = CP.getSafetyConfigs();
-    auto safetyModel = safetyConfigs[0].getSafetyModel();
-
-    hasDashSpeedLimits = carName == "hyundai" || carName == "toyota";
-    hasPCMCruise = CP.getPcmCruise();
-    isGM = carName == "gm";
-    isHKGCanFd = carName == "hyundai" && safetyModel == cereal::CarParams::SafetyModel::HYUNDAI_CANFD;
-    isSubaru = carName == "subaru";
-    isToyota = carName == "toyota";
-  } else {
-    hasDashSpeedLimits = true;
-    hasPCMCruise = true;
-    isGM = true;
-    isHKGCanFd = true;
-    isToyota = true;
-  }
+  hideToggles();
 }
 
 void FrogPilotLongitudinalPanel::updateMetric() {

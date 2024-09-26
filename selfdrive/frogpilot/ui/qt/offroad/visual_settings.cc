@@ -1,6 +1,6 @@
 #include "selfdrive/frogpilot/ui/qt/offroad/visual_settings.h"
 
-FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent) {
+FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent), parent(parent) {
   const std::vector<std::tuple<QString, QString, QString, QString>> visualToggles {
     {"BonusContent", tr("Bonus Content"), tr("Bonus FrogPilot features to make openpilot a bit more fun!"), "../frogpilot/assets/toggle_icons/frog.png"},
     {"GoatScream", tr("Goat Scream"), tr("Enable the famed 'Goat Scream' that has brought both joy and anger to FrogPilot users all around the world!"), ""},
@@ -871,7 +871,7 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
     addItem(visualToggle);
     toggles[param] = visualToggle;
 
-    tryConnect(visualToggle, &updateFrogPilotToggles);
+    makeConnections(visualToggle);
 
     if (FrogPilotParamManageControl *frogPilotManageToggle = qobject_cast<FrogPilotParamManageControl*>(visualToggle)) {
       QObject::connect(frogPilotManageToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotVisualsPanel::openParentToggle);
@@ -898,20 +898,20 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
 
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotVisualsPanel::hideToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::closeSubParentToggle, this, &FrogPilotVisualsPanel::hideSubToggles);
-  QObject::connect(uiState(), &UIState::offroadTransition, this, &FrogPilotVisualsPanel::updateCarToggles);
   QObject::connect(uiState(), &UIState::uiUpdate, this, &FrogPilotVisualsPanel::updateState);
-
-  hideToggles();
 }
 
 void FrogPilotVisualsPanel::showEvent(QShowEvent *event) {
-  disableOpenpilotLongitudinal = params.getBool("DisableOpenpilotLongitudinal");
-
   colorsDownloaded = params.get("DownloadableColors").empty();
   iconsDownloaded = params.get("DownloadableIcons").empty();
   signalsDownloaded = params.get("DownloadableSignals").empty();
   soundsDownloaded = params.get("DownloadableSounds").empty();
   wheelsDownloaded = params.get("DownloadableWheels").empty();
+
+  disableOpenpilotLongitudinal = parent->disableOpenpilotLongitudinal;
+  hasOpenpilotLongitudinal = parent->hasOpenpilotLongitudinal;
+
+  hideToggles();
 }
 
 void FrogPilotVisualsPanel::updateState(const UIState &s) {
@@ -977,23 +977,6 @@ void FrogPilotVisualsPanel::updateState(const UIState &s) {
   }
 
   started = s.scene.started;
-}
-
-void FrogPilotVisualsPanel::updateCarToggles() {
-  std::string carParams = params.get("CarParamsPersistent");
-  if (!carParams.empty()) {
-    AlignedBuffer aligned_buf;
-    capnp::FlatArrayMessageReader cmsg(aligned_buf.align(carParams.data(), carParams.size()));
-    cereal::CarParams::Reader CP = cmsg.getRoot<cereal::CarParams>();
-
-    std::string carName = CP.getCarName();
-
-    hasAutoTune = (carName == "hyundai" || carName == "toyota") && CP.getLateralTuning().which() == cereal::CarParams::LateralTuning::TORQUE;
-    hasOpenpilotLongitudinal = hasLongitudinalControl(CP);
-  } else {
-    hasAutoTune = true;
-    hasOpenpilotLongitudinal = true;
-  }
 }
 
 void FrogPilotVisualsPanel::showToggles(const std::set<QString> &keys) {

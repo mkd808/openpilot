@@ -16,9 +16,11 @@ public:
   explicit FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent);
 
 private:
+  FrogPilotSettingsWindow *parent;
+
   void hideToggles();
   void setModels();
-  void updateCarToggles();
+  void showEvent(QShowEvent *event) override;
   void updateState(const UIState &s);
 
   ButtonControl *selectMakeButton;
