@@ -869,36 +869,39 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
     }
 
     addItem(visualToggle);
-    toggles[param.toStdString()] = visualToggle;
+    toggles[param] = visualToggle;
 
-    FrogPilotParamValueControl *screenBrightnessToggle = static_cast<FrogPilotParamValueControl*>(toggles["ScreenBrightness"]);
-    QObject::connect(screenBrightnessToggle, &FrogPilotParamValueControl::valueChanged, [this](float value) {
-      if (!started) {
-        uiState()->scene.screen_brightness = value;
-      }
-    });
+    tryConnect(visualToggle, &updateFrogPilotToggles);
 
-    FrogPilotParamValueControl *screenBrightnessOnroadToggle = static_cast<FrogPilotParamValueControl*>(toggles["ScreenBrightnessOnroad"]);
-    QObject::connect(screenBrightnessOnroadToggle, &FrogPilotParamValueControl::valueChanged, [this](float value) {
-      if (started) {
-        uiState()->scene.screen_brightness_onroad = value;
-      }
-    });
-
-    tryConnect<ToggleControl>(visualToggle, &ToggleControl::toggleFlipped, this, updateFrogPilotToggles);
-    tryConnect<FrogPilotButtonToggleControl>(visualToggle, &FrogPilotButtonToggleControl::buttonClicked, this, updateFrogPilotToggles);
-    tryConnect<FrogPilotParamManageControl>(visualToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotVisualsPanel::openParentToggle);
-    tryConnect<FrogPilotParamValueControl>(visualToggle, &FrogPilotParamValueControl::valueChanged, this, updateFrogPilotToggles);
+    if (FrogPilotParamManageControl *frogPilotManageToggle = qobject_cast<FrogPilotParamManageControl*>(visualToggle)) {
+      QObject::connect(frogPilotManageToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotVisualsPanel::openParentToggle);
+    }
 
     QObject::connect(visualToggle, &AbstractControl::showDescriptionEvent, [this]() {
       update();
     });
   }
 
+  FrogPilotParamValueControl *screenBrightnessToggle = static_cast<FrogPilotParamValueControl*>(toggles["ScreenBrightness"]);
+  QObject::connect(screenBrightnessToggle, &FrogPilotParamValueControl::valueChanged, [this](float value) {
+    if (!started) {
+      uiState()->scene.screen_brightness = value;
+    }
+  });
+
+  FrogPilotParamValueControl *screenBrightnessOnroadToggle = static_cast<FrogPilotParamValueControl*>(toggles["ScreenBrightnessOnroad"]);
+  QObject::connect(screenBrightnessOnroadToggle, &FrogPilotParamValueControl::valueChanged, [this](float value) {
+    if (started) {
+      uiState()->scene.screen_brightness_onroad = value;
+    }
+  });
+
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotVisualsPanel::hideToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::closeSubParentToggle, this, &FrogPilotVisualsPanel::hideSubToggles);
   QObject::connect(uiState(), &UIState::offroadTransition, this, &FrogPilotVisualsPanel::updateCarToggles);
   QObject::connect(uiState(), &UIState::uiUpdate, this, &FrogPilotVisualsPanel::updateState);
+
+  hideToggles();
 }
 
 void FrogPilotVisualsPanel::showEvent(QShowEvent *event) {
@@ -977,13 +980,13 @@ void FrogPilotVisualsPanel::updateState(const UIState &s) {
 }
 
 void FrogPilotVisualsPanel::updateCarToggles() {
-  auto carParams = params.get("CarParamsPersistent");
+  std::string carParams = params.get("CarParamsPersistent");
   if (!carParams.empty()) {
     AlignedBuffer aligned_buf;
     capnp::FlatArrayMessageReader cmsg(aligned_buf.align(carParams.data(), carParams.size()));
     cereal::CarParams::Reader CP = cmsg.getRoot<cereal::CarParams>();
 
-    auto carName = CP.getCarName();
+    std::string carName = CP.getCarName();
 
     hasAutoTune = (carName == "hyundai" || carName == "toyota") && CP.getLateralTuning().which() == cereal::CarParams::LateralTuning::TORQUE;
     hasOpenpilotLongitudinal = hasLongitudinalControl(CP);
@@ -991,15 +994,13 @@ void FrogPilotVisualsPanel::updateCarToggles() {
     hasAutoTune = true;
     hasOpenpilotLongitudinal = true;
   }
-
-  hideToggles();
 }
 
-void FrogPilotVisualsPanel::showToggles(std::set<QString> &keys) {
+void FrogPilotVisualsPanel::showToggles(const std::set<QString> &keys) {
   setUpdatesEnabled(false);
 
   for (auto &[key, toggle] : toggles) {
-    toggle->setVisible(keys.find(key.c_str()) != keys.end());
+    toggle->setVisible(keys.find(key) != keys.end());
   }
 
   setUpdatesEnabled(true);
@@ -1012,11 +1013,11 @@ void FrogPilotVisualsPanel::hideToggles() {
   personalizeOpenpilotOpen = false;
 
   for (auto &[key, toggle] : toggles) {
-    bool subToggles = bonusContentKeys.find(key.c_str()) != bonusContentKeys.end() ||
-                      customOnroadUIKeys.find(key.c_str()) != customOnroadUIKeys.end() ||
-                      personalizeOpenpilotKeys.find(key.c_str()) != personalizeOpenpilotKeys.end() ||
-                      qolKeys.find(key.c_str()) != qolKeys.end() ||
-                      screenKeys.find(key.c_str()) != screenKeys.end();
+    bool subToggles = bonusContentKeys.find(key) != bonusContentKeys.end() ||
+                      customOnroadUIKeys.find(key) != customOnroadUIKeys.end() ||
+                      personalizeOpenpilotKeys.find(key) != personalizeOpenpilotKeys.end() ||
+                      qolKeys.find(key) != qolKeys.end() ||
+                      screenKeys.find(key) != screenKeys.end();
 
     toggle->setVisible(!subToggles);
   }

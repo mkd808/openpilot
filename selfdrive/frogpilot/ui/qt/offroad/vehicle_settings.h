@@ -38,7 +38,7 @@ private:
   std::set<QString> subaruKeys = {"CrosstrekTorque"};
   std::set<QString> toyotaKeys = {"ClusterOffset", "SNGHack", "ToyotaDoors"};
 
-  std::map<std::string, AbstractControl*> toggles;
+  std::map<QString, AbstractControl*> toggles;
 
   Params params;
 

@@ -18,7 +18,7 @@ private:
   void hideSubToggles();
   void hideToggles();
   void showEvent(QShowEvent *event) override;
-  void showToggles(std::set<QString> &keys);
+  void showToggles(const std::set<QString> &keys);
   void updateCarToggles();
   void updateState(const UIState &s);
 
@@ -36,7 +36,7 @@ private:
   std::set<QString> qolKeys = {"BigMap", "CameraView", "DriverCamera", "FullMap", "HideSpeed", "MapStyle", "StoppedTimer", "WheelSpeed"};
   std::set<QString> screenKeys = {"HideUIElements", "ScreenBrightness", "ScreenBrightnessOnroad", "ScreenRecorder", "ScreenTimeout", "ScreenTimeoutOnroad", "StandbyMode"};
 
-  std::map<std::string, AbstractControl*> toggles;
+  std::map<QString, AbstractControl*> toggles;
 
   Params params;
   Params paramsMemory{"/dev/shm/params"};

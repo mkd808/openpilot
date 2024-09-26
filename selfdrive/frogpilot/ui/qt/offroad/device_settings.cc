@@ -38,12 +38,13 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
     }
 
     addItem(deviceToggle);
-    toggles[param.toStdString()] = deviceToggle;
+    toggles[param] = deviceToggle;
 
-    tryConnect<ToggleControl>(deviceToggle, &ToggleControl::toggleFlipped, this, updateFrogPilotToggles);
-    tryConnect<FrogPilotButtonToggleControl>(deviceToggle, &FrogPilotButtonToggleControl::buttonClicked, this, updateFrogPilotToggles);
-    tryConnect<FrogPilotParamManageControl>(deviceToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotDevicePanel::openParentToggle);
-    tryConnect<FrogPilotParamValueControl>(deviceToggle, &FrogPilotParamValueControl::valueChanged, this, updateFrogPilotToggles);
+    tryConnect(deviceToggle, &updateFrogPilotToggles);
+
+    if (FrogPilotParamManageControl *frogPilotManageToggle = qobject_cast<FrogPilotParamManageControl*>(deviceToggle)) {
+      QObject::connect(frogPilotManageToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotDevicePanel::openParentToggle);
+    }
 
     QObject::connect(deviceToggle, &AbstractControl::showDescriptionEvent, [this]() {
       update();
@@ -79,12 +80,12 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
   hideToggles();
 }
 
-void FrogPilotDevicePanel::showToggles(std::set<QString> &keys) {
+void FrogPilotDevicePanel::showToggles(const std::set<QString> &keys) {
   setUpdatesEnabled(false);
 
   for (auto &[key, toggle] : toggles) {
-    if (keys.find(key.c_str()) != keys.end()) {
-      toggle->setVisible(keys.find(key.c_str()) != keys.end());
+    if (keys.find(key) != keys.end()) {
+      toggle->setVisible(keys.find(key) != keys.end());
     }
   }
 
@@ -96,7 +97,7 @@ void FrogPilotDevicePanel::hideToggles() {
   setUpdatesEnabled(false);
 
   for (auto &[key, toggle] : toggles) {
-    bool subToggles = deviceManagementKeys.find(key.c_str()) != deviceManagementKeys.end();
+    bool subToggles = deviceManagementKeys.find(key) != deviceManagementKeys.end();
     toggle->setVisible(!subToggles);
   }
 

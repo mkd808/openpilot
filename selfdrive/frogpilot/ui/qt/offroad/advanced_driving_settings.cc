@@ -1,6 +1,6 @@
-#include "selfdrive/frogpilot/ui/qt/offroad/advanced_settings.h"
+#include "selfdrive/frogpilot/ui/qt/offroad/advanced_driving_settings.h"
 
-FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent) {
+FrogPilotAdvancedDrivingPanel::FrogPilotAdvancedDrivingPanel(FrogPilotSettingsWindow *parent) : FrogPilotListWidget(parent) {
   const std::vector<std::tuple<QString, QString, QString, QString>> advancedToggles {
     {"AdvancedLateralTune", tr("Advanced Lateral Tuning"), tr("Advanced settings that control how openpilot manages steering."), "../frogpilot/assets/toggle_icons/icon_lateral_tune.png"},
     {"SteerFriction", steerFrictionStock != 0 ? QString(tr("Friction (Default: %1)")).arg(QString::number(steerFrictionStock, 'f', 2)) : tr("Friction"), tr("Adjust the resistance in the steering system. Higher values provide more stable steering but can make it feel heavy, while lower values allow lighter steering but may feel too sensitive."), ""},
@@ -41,15 +41,6 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
     {"RelaxedJerkSpeed", tr("Speed Control Smoothness"), tr("Controls the penalty on the rate of change of acceleration while using the 'Relaxed' personality profile. Higher values result in smoother but slower speed changes, while lower values make speed adjustments quicker but potentially more abrupt.\n\nDefault: 1.0."), ""},
     {"ResetRelaxedPersonality", tr("Reset Settings"), tr("Restore the 'Relaxed' settings to their default values."), ""},
 
-    {"DeveloperUI", tr("Developer UI"), tr("Show detailed information about openpilot's internal operations."), "../frogpilot/assets/toggle_icons/icon_device.png"},
-    {"BorderMetrics", tr("Border Metrics"), tr("Display performance metrics around the edge of the screen while driving."), ""},
-    {"FPSCounter", tr("FPS Counter"), tr("Show the 'Frames Per Second' (FPS) at the bottom of the screen while driving."), ""},
-    {"LateralMetrics", tr("Lateral Metrics"), tr("Display metrics related to steering control at the top of the screen while driving."), ""},
-    {"LongitudinalMetrics", tr("Longitudinal Metrics"), tr("Display metrics related to acceleration, speed, and desired following distance at the top of the screen while driving."), ""},
-    {"NumericalTemp", tr("Numerical Temperature Gauge"), tr("Show exact temperature readings instead of general status labels like 'GOOD', 'OK', or 'HIGH' in the sidebar."), ""},
-    {"SidebarMetrics", tr("Sidebar"), tr("Display system information like CPU, GPU, RAM usage, IP address, and storage space in the sidebar."), ""},
-    {"UseSI", tr("Use International System of Units"), tr("Display measurements using the 'International System of Units' (SI)."), ""},
-
     {"ModelManagement", tr("Model Management"), tr("Manage the driving models used by openpilot."), "../frogpilot/assets/toggle_icons/icon_model.png"},
     {"AutomaticallyUpdateModels", tr("Automatically Update and Download Models"), tr("Automatically download new or updated driving models."), ""},
     {"ModelRandomizer", tr("Model Randomizer"), tr("A random model is selected and can be reviewed at the end of each drive to help find your preferred model."), ""},
@@ -61,19 +52,10 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
     {"DownloadAllModels", tr("Download All Models"), tr("Download all undownloaded driving models."), ""},
     {"SelectModel", tr("Select Model"), tr("Select which model openpilot uses to drive."), ""},
     {"ResetCalibrations", tr("Reset Model Calibrations"), tr("Reset calibration settings for the driving models."), ""},
-
-    {"ModelUI", tr("Model UI"), tr("Customize the model visualizations on the screen."), "../assets/offroad/icon_calibration.png"},
-    {"DynamicPathWidth", tr("Dynamic Path Width"), tr("Automatically adjust the width of the driving path display based on openpilot's engagement state."), ""},
-    {"HideLeadMarker", tr("Hide Lead Marker"), tr("Do not display the marker for the vehicle ahead on the screen."), ""},
-    {"LaneLinesWidth", tr("Lane Lines Width"), tr("Adjust how thick the lane lines appear on the display.\n\nDefault matches the MUTCD standard of 4 inches."), ""},
-    {"PathEdgeWidth", tr("Path Edges Width"), tr("Adjust the width of the edges of the driving path to represent different modes and statuses.\n\nDefault is 20% of the total path width.\n\nColor Guide:\n- Blue: Navigation\n- Light Blue: 'Always On Lateral'\n- Green: Default\n- Orange: 'Experimental Mode'\n- Red: 'Traffic Mode'\n- Yellow: 'Conditional Experimental Mode' Overridden"), ""},
-    {"PathWidth", tr("Path Width"), tr("Set how wide the driving path appears on your screen.\n\nDefault (6.1 feet / 1.9 meters) matches the width of a 2019 Lexus ES 350."), ""},
-    {"RoadEdgesWidth", tr("Road Edges Width"), tr("Adjust how thick the road edges appear on the display.\n\nDefault matches half of the MUTCD standard lane line width of 4 inches."), ""},
-    {"UnlimitedLength", tr("'Unlimited' Road UI Length"), tr("Extend the display of the path, lane lines, and road edges as far as the model can see."), ""},
   };
 
   for (const auto &[param, title, desc, icon] : advancedToggles) {
-    AbstractControl *advancedToggle;
+    AbstractControl *advancedDrivingToggle;
 
     if (param == "AdvancedLateralTune") {
       FrogPilotParamManageControl *lateralTuneToggle = new FrogPilotParamManageControl(param, title, desc, icon);
@@ -87,23 +69,23 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
 
         showToggles(modifiedLateralTuneKeys);
       });
-      advancedToggle = lateralTuneToggle;
+      advancedDrivingToggle = lateralTuneToggle;
     } else if (param == "SteerFriction") {
       std::vector<QString> steerFrictionToggles{"ResetSteerFriction"};
       std::vector<QString> steerFrictionToggleNames{"Reset"};
-      advancedToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, 0, 0.25, QString(), std::map<int, QString>(), 0.01, steerFrictionToggles, steerFrictionToggleNames, false);
+      advancedDrivingToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, 0, 0.25, QString(), std::map<int, QString>(), 0.01, steerFrictionToggles, steerFrictionToggleNames, false);
     } else if (param == "SteerKP") {
       std::vector<QString> steerKPToggles{"ResetSteerKP"};
       std::vector<QString> steerKPToggleNames{"Reset"};
-      advancedToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, steerKPStock * 0.50, steerKPStock * 1.50, QString(), std::map<int, QString>(), 0.01, steerKPToggles, steerKPToggleNames, false);
+      advancedDrivingToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, steerKPStock * 0.50, steerKPStock * 1.50, QString(), std::map<int, QString>(), 0.01, steerKPToggles, steerKPToggleNames, false);
     } else if (param == "SteerLatAccel") {
       std::vector<QString> steerLatAccelToggles{"ResetSteerLatAccel"};
       std::vector<QString> steerLatAccelToggleNames{"Reset"};
-      advancedToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, steerLatAccelStock * 0.25, steerLatAccelStock * 1.25, QString(), std::map<int, QString>(), 0.01, steerLatAccelToggles, steerLatAccelToggleNames, false);
+      advancedDrivingToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, steerLatAccelStock * 0.25, steerLatAccelStock * 1.25, QString(), std::map<int, QString>(), 0.01, steerLatAccelToggles, steerLatAccelToggleNames, false);
     } else if (param == "SteerRatio") {
       std::vector<QString> steerRatioToggles{"ResetSteerRatio"};
       std::vector<QString> steerRatioToggleNames{"Reset"};
-      advancedToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, steerRatioStock * 0.75, steerRatioStock * 1.25, QString(), std::map<int, QString>(), 0.01, steerRatioToggles, steerRatioToggleNames, false);
+      advancedDrivingToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, steerRatioStock * 0.75, steerRatioStock * 1.25, QString(), std::map<int, QString>(), 0.01, steerRatioToggles, steerRatioToggleNames, false);
 
     } else if (param == "AdvancedLongitudinalTune") {
       FrogPilotParamManageControl *longitudinalTuneToggle = new FrogPilotParamManageControl(param, title, desc, icon);
@@ -117,21 +99,21 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
 
         showToggles(modifiedLongitudinalTuneKeys);
       });
-      advancedToggle = longitudinalTuneToggle;
+      advancedDrivingToggle = longitudinalTuneToggle;
     } else if (param == "LeadDetectionThreshold") {
-      advancedToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1, 99, "%");
+      advancedDrivingToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1, 99, "%");
     } else if (param == "MaxDesiredAcceleration") {
-      advancedToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, 0.1, 4.0, "m/s", std::map<int, QString>(), 0.1);
+      advancedDrivingToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, 0.1, 4.0, "m/s", std::map<int, QString>(), 0.1);
 
     } else if (param == "CustomPersonalities") {
       FrogPilotParamManageControl *customPersonalitiesToggle = new FrogPilotParamManageControl(param, title, desc, icon);
       QObject::connect(customPersonalitiesToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
         showToggles(customDrivingPersonalityKeys);
       });
-      advancedToggle = customPersonalitiesToggle;
+      advancedDrivingToggle = customPersonalitiesToggle;
     } else if (param == "ResetTrafficPersonality" || param == "ResetAggressivePersonality" || param == "ResetStandardPersonality" || param == "ResetRelaxedPersonality") {
       FrogPilotButtonsControl *profileBtn = new FrogPilotButtonsControl(title, desc, {tr("Reset")});
-      advancedToggle = profileBtn;
+      advancedDrivingToggle = profileBtn;
     } else if (param == "TrafficPersonalityProfile") {
       FrogPilotParamManageControl *trafficPersonalityToggle = new FrogPilotParamManageControl(param, title, desc, icon);
       QObject::connect(trafficPersonalityToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
@@ -139,7 +121,7 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
         openSubParentToggle();
         showToggles(trafficPersonalityKeys);
       });
-      advancedToggle = trafficPersonalityToggle;
+      advancedDrivingToggle = trafficPersonalityToggle;
     } else if (param == "AggressivePersonalityProfile") {
       FrogPilotParamManageControl *aggressivePersonalityToggle = new FrogPilotParamManageControl(param, title, desc, icon);
       QObject::connect(aggressivePersonalityToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
@@ -147,7 +129,7 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
         openSubParentToggle();
         showToggles(aggressivePersonalityKeys);
       });
-      advancedToggle = aggressivePersonalityToggle;
+      advancedDrivingToggle = aggressivePersonalityToggle;
     } else if (param == "StandardPersonalityProfile") {
       FrogPilotParamManageControl *standardPersonalityToggle = new FrogPilotParamManageControl(param, title, desc, icon);
       QObject::connect(standardPersonalityToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
@@ -155,7 +137,7 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
         openSubParentToggle();
         showToggles(standardPersonalityKeys);
       });
-      advancedToggle = standardPersonalityToggle;
+      advancedDrivingToggle = standardPersonalityToggle;
     } else if (param == "RelaxedPersonalityProfile") {
       FrogPilotParamManageControl *relaxedPersonalityToggle = new FrogPilotParamManageControl(param, title, desc, icon);
       QObject::connect(relaxedPersonalityToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
@@ -163,74 +145,20 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
         openSubParentToggle();
         showToggles(relaxedPersonalityKeys);
       });
-      advancedToggle = relaxedPersonalityToggle;
+      advancedDrivingToggle = relaxedPersonalityToggle;
     } else if (trafficPersonalityKeys.find(param) != trafficPersonalityKeys.end() ||
                aggressivePersonalityKeys.find(param) != aggressivePersonalityKeys.end() ||
                standardPersonalityKeys.find(param) != standardPersonalityKeys.end() ||
                relaxedPersonalityKeys.find(param) != relaxedPersonalityKeys.end()) {
       if (param == "TrafficFollow" || param == "AggressiveFollow" || param == "StandardFollow" || param == "RelaxedFollow") {
         if (param == "TrafficFollow") {
-          advancedToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0.5, 5, tr(" seconds"), std::map<int, QString>(), 0.01);
+          advancedDrivingToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0.5, 5, tr(" seconds"), std::map<int, QString>(), 0.01);
         } else {
-          advancedToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1, 5, tr(" seconds"), std::map<int, QString>(), 0.01);
+          advancedDrivingToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1, 5, tr(" seconds"), std::map<int, QString>(), 0.01);
         }
       } else {
-        advancedToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1, 500, "%");
+        advancedDrivingToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1, 500, "%");
       }
-
-    } else if (param == "DeveloperUI") {
-      FrogPilotParamManageControl *developerUIToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(developerUIToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
-        std::set<QString> modifiedDeveloperUIKeys = developerUIKeys;
-
-        if (!hasAutoTune) {
-          modifiedDeveloperUIKeys.erase("LateralMetrics");
-        }
-
-        if (disableOpenpilotLongitudinal || !hasOpenpilotLongitudinal) {
-          modifiedDeveloperUIKeys.erase("LongitudinalMetrics");
-        }
-
-        showToggles(modifiedDeveloperUIKeys);
-      });
-      advancedToggle = developerUIToggle;
-    } else if (param == "BorderMetrics") {
-      std::vector<QString> borderToggles{"BlindSpotMetrics", "ShowSteering", "SignalMetrics"};
-      std::vector<QString> borderToggleNames{tr("Blind Spot"), tr("Steering Torque"), tr("Turn Signal")};
-      advancedToggle = new FrogPilotButtonToggleControl(param, title, desc, borderToggles, borderToggleNames);
-    } else if (param == "LateralMetrics") {
-      std::vector<QString> lateralToggles{"TuningInfo"};
-      std::vector<QString> lateralToggleNames{tr("Auto Tune")};
-      advancedToggle = new FrogPilotButtonToggleControl(param, title, desc, lateralToggles, lateralToggleNames);
-    } else if (param == "LongitudinalMetrics") {
-      std::vector<QString> longitudinalToggles{"LeadInfo", "JerkInfo"};
-      std::vector<QString> longitudinalToggleNames{tr("Lead Info"), tr("Longitudinal Jerk")};
-      advancedToggle = new FrogPilotButtonToggleControl(param, title, desc, longitudinalToggles, longitudinalToggleNames);
-    } else if (param == "NumericalTemp") {
-      std::vector<QString> temperatureToggles{"Fahrenheit"};
-      std::vector<QString> temperatureToggleNames{tr("Fahrenheit")};
-      advancedToggle = new FrogPilotButtonToggleControl(param, title, desc, temperatureToggles, temperatureToggleNames);
-    } else if (param == "SidebarMetrics") {
-      std::vector<QString> sidebarMetricsToggles{"ShowCPU", "ShowGPU", "ShowIP", "ShowMemoryUsage", "ShowStorageLeft", "ShowStorageUsed"};
-      std::vector<QString> sidebarMetricsToggleNames{tr("CPU"), tr("GPU"), tr("IP"), tr("RAM"), tr("SSD Left"), tr("SSD Used")};
-      FrogPilotButtonToggleControl *sidebarMetricsToggle = new FrogPilotButtonToggleControl(param, title, desc, sidebarMetricsToggles, sidebarMetricsToggleNames, false, 150);
-      QObject::connect(sidebarMetricsToggle, &FrogPilotButtonToggleControl::buttonClicked, [this](int index) {
-        if (index == 0) {
-          params.putBool("ShowGPU", false);
-        } else if (index == 1) {
-          params.putBool("ShowCPU", false);
-        } else if (index == 3) {
-          params.putBool("ShowStorageLeft", false);
-          params.putBool("ShowStorageUsed", false);
-        } else if (index == 4) {
-          params.putBool("ShowMemoryUsage", false);
-          params.putBool("ShowStorageUsed", false);
-        } else if (index == 5) {
-          params.putBool("ShowMemoryUsage", false);
-          params.putBool("ShowStorageLeft", false);
-        }
-      });
-      advancedToggle = sidebarMetricsToggle;
 
     } else if (param == "ModelManagement") {
       FrogPilotParamManageControl *modelManagementToggle = new FrogPilotParamManageControl(param, title, desc, icon);
@@ -249,14 +177,14 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
 
         showToggles(modelManagementKeys);
       });
-      advancedToggle = modelManagementToggle;
+      advancedDrivingToggle = modelManagementToggle;
     } else if (param == "ModelRandomizer") {
       FrogPilotParamManageControl *modelRandomizerToggle = new FrogPilotParamManageControl(param, title, desc, icon);
       QObject::connect(modelRandomizerToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
         openSubParentToggle();
         showToggles(modelRandomizerKeys);
       });
-      advancedToggle = modelRandomizerToggle;
+      advancedDrivingToggle = modelRandomizerToggle;
     } else if (param == "ManageBlacklistedModels") {
       FrogPilotButtonsControl *blacklistBtn = new FrogPilotButtonsControl(title, desc, {tr("ADD"), tr("REMOVE")});
       QObject::connect(blacklistBtn, &FrogPilotButtonsControl::buttonClicked, [=](int id) {
@@ -303,7 +231,7 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
           }
         }
       });
-      advancedToggle = blacklistBtn;
+      advancedDrivingToggle = blacklistBtn;
     } else if (param == "ResetScores") {
       ButtonControl *resetCalibrationsBtn = new ButtonControl(title, tr("RESET"), desc);
       QObject::connect(resetCalibrationsBtn, &ButtonControl::clicked, [this]() {
@@ -318,7 +246,7 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
           updateModelLabels();
         }
       });
-      advancedToggle = reinterpret_cast<AbstractControl*>(resetCalibrationsBtn);
+      advancedDrivingToggle = reinterpret_cast<AbstractControl*>(resetCalibrationsBtn);
     } else if (param == "ReviewScores") {
       ButtonControl *reviewScoresBtn = new ButtonControl(title, tr("VIEW"), desc);
       QObject::connect(reviewScoresBtn, &ButtonControl::clicked, [this]() {
@@ -332,7 +260,7 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
           toggle->setVisible(false);
         }
       });
-      advancedToggle = reinterpret_cast<AbstractControl*>(reviewScoresBtn);
+      advancedDrivingToggle = reinterpret_cast<AbstractControl*>(reviewScoresBtn);
     } else if (param == "DeleteModel") {
       deleteModelBtn = new ButtonControl(title, tr("DELETE"), desc);
       QObject::connect(deleteModelBtn, &ButtonControl::clicked, [this]() {
@@ -375,7 +303,7 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
           }
         }
       });
-      advancedToggle = reinterpret_cast<AbstractControl*>(deleteModelBtn);
+      advancedDrivingToggle = reinterpret_cast<AbstractControl*>(deleteModelBtn);
     } else if (param == "DownloadModel") {
       downloadModelBtn = new ButtonControl(title, tr("DOWNLOAD"), desc);
       QObject::connect(downloadModelBtn, &ButtonControl::clicked, [this]() {
@@ -466,7 +394,7 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
           }
         }
       });
-      advancedToggle = reinterpret_cast<AbstractControl*>(downloadModelBtn);
+      advancedDrivingToggle = reinterpret_cast<AbstractControl*>(downloadModelBtn);
     } else if (param == "DownloadAllModels") {
       downloadAllModelsBtn = new ButtonControl(title, tr("DOWNLOAD"), desc);
       QObject::connect(downloadAllModelsBtn, &ButtonControl::clicked, [this]() {
@@ -482,7 +410,7 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
           startDownloadAllModels();
         }
       });
-      advancedToggle = reinterpret_cast<AbstractControl*>(downloadAllModelsBtn);
+      advancedDrivingToggle = reinterpret_cast<AbstractControl*>(downloadAllModelsBtn);
     } else if (param == "SelectModel") {
       selectModelBtn = new ButtonControl(title, tr("SELECT"), desc);
       QObject::connect(selectModelBtn, &ButtonControl::clicked, [this]() {
@@ -522,13 +450,15 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
               Hardware::reboot();
             }
           }
+
+          updateCarToggles();
         }
       });
       selectModelBtn->setValue(QString::fromStdString(params.get("ModelName")));
-      advancedToggle = reinterpret_cast<AbstractControl*>(selectModelBtn);
+      advancedDrivingToggle = reinterpret_cast<AbstractControl*>(selectModelBtn);
     } else if (param == "ResetCalibrations") {
       FrogPilotButtonsControl *resetCalibrationsBtn = new FrogPilotButtonsControl(title, desc, {tr("RESET ALL"), tr("RESET ONE")});
-      QObject::connect(resetCalibrationsBtn, &FrogPilotButtonsControl::showDescriptionEvent, this, &FrogPilotAdvancedPanel::updateCalibrationDescription);
+      QObject::connect(resetCalibrationsBtn, &FrogPilotButtonsControl::showDescriptionEvent, this, &FrogPilotAdvancedDrivingPanel::updateCalibrationDescription);
       QObject::connect(resetCalibrationsBtn, &FrogPilotButtonsControl::buttonClicked, [=](int id) {
         if (id == 0) {
           if (FrogPilotConfirmationDialog::yesorno(tr("Are you sure you want to completely reset all of your model calibrations?"), this)) {
@@ -558,43 +488,29 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
           }
         }
       });
-      advancedToggle = resetCalibrationsBtn;
-
-    } else if (param == "ModelUI") {
-      FrogPilotParamManageControl *modelUIToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(modelUIToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
-        std::set<QString> modifiedModelUIKeysKeys = modelUIKeys;
-
-        if (disableOpenpilotLongitudinal || !hasOpenpilotLongitudinal) {
-          modifiedModelUIKeysKeys.erase("HideLeadMarker");
-        }
-
-        showToggles(modifiedModelUIKeysKeys);
-      });
-      advancedToggle = modelUIToggle;
-    } else if (param == "LaneLinesWidth" || param == "RoadEdgesWidth") {
-      advancedToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 24, tr(" inches"));
-    } else if (param == "PathEdgeWidth") {
-      advancedToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 100, tr("%"));
-    } else if (param == "PathWidth") {
-      advancedToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 10, tr(" feet"), std::map<int, QString>(), 0.1);
+      advancedDrivingToggle = resetCalibrationsBtn;
 
     } else {
-      advancedToggle = new ParamControl(param, title, desc, icon);
+      advancedDrivingToggle = new ParamControl(param, title, desc, icon);
     }
 
-    addItem(advancedToggle);
-    toggles[param.toStdString()] = advancedToggle;
+    addItem(advancedDrivingToggle);
+    toggles[param] = advancedDrivingToggle;
 
-    tryConnect<ToggleControl>(advancedToggle, &ToggleControl::toggleFlipped, this, updateFrogPilotToggles);
-    tryConnect<FrogPilotButtonToggleControl>(advancedToggle, &FrogPilotButtonToggleControl::buttonClicked, this, updateFrogPilotToggles);
-    tryConnect<FrogPilotParamManageControl>(advancedToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotAdvancedPanel::openParentToggle);
-    tryConnect<FrogPilotParamValueControl>(advancedToggle, &FrogPilotParamValueControl::valueChanged, this, updateFrogPilotToggles);
+    tryConnect(advancedDrivingToggle, &updateFrogPilotToggles);
 
-    QObject::connect(advancedToggle, &AbstractControl::showDescriptionEvent, [this]() {
+    if (FrogPilotParamManageControl *frogPilotManageToggle = qobject_cast<FrogPilotParamManageControl*>(advancedDrivingToggle)) {
+      QObject::connect(frogPilotManageToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotAdvancedDrivingPanel::openParentToggle);
+    }
+
+    QObject::connect(advancedDrivingToggle, &AbstractControl::showDescriptionEvent, [this]() {
       update();
     });
   }
+
+  QObject::connect(static_cast<ToggleControl*>(toggles["ModelManagement"]), &ToggleControl::toggleFlipped, [this](bool state) {
+    modelManagement = state;
+  });
 
   QObject::connect(static_cast<ToggleControl*>(toggles["ModelRandomizer"]), &ToggleControl::toggleFlipped, [this](bool state) {
     modelRandomizer = state;
@@ -709,23 +625,24 @@ FrogPilotAdvancedPanel::FrogPilotAdvancedPanel(FrogPilotSettingsWindow *parent) 
     }
   });
 
-  QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotAdvancedPanel::hideToggles);
-  QObject::connect(parent, &FrogPilotSettingsWindow::closeSubParentToggle, this, &FrogPilotAdvancedPanel::hideSubToggles);
-  QObject::connect(parent, &FrogPilotSettingsWindow::closeSubSubParentToggle, this, &FrogPilotAdvancedPanel::hideSubSubToggles);
-  QObject::connect(parent, &FrogPilotSettingsWindow::updateMetric, this, &FrogPilotAdvancedPanel::updateMetric);
-  QObject::connect(uiState(), &UIState::driveRated, this, &FrogPilotAdvancedPanel::updateModelLabels);
-  QObject::connect(uiState(), &UIState::offroadTransition, this, &FrogPilotAdvancedPanel::updateCarToggles);
+  QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotAdvancedDrivingPanel::hideToggles);
+  QObject::connect(parent, &FrogPilotSettingsWindow::closeSubParentToggle, this, &FrogPilotAdvancedDrivingPanel::hideSubToggles);
+  QObject::connect(parent, &FrogPilotSettingsWindow::closeSubSubParentToggle, this, &FrogPilotAdvancedDrivingPanel::hideSubSubToggles);
+  QObject::connect(uiState(), &UIState::driveRated, this, &FrogPilotAdvancedDrivingPanel::updateModelLabels);
+  QObject::connect(uiState(), &UIState::offroadTransition, this, &FrogPilotAdvancedDrivingPanel::updateCarToggles);
 
-  updateMetric();
+  hideToggles();
   updateModelLabels();
 }
 
-void FrogPilotAdvancedPanel::showEvent(QShowEvent *event) {
+void FrogPilotAdvancedDrivingPanel::showEvent(QShowEvent *event) {
   disableOpenpilotLongitudinal = params.getBool("DisableOpenpilotLongitudinal");
+  modelManagement = params.getBool("ModelManagement");
   modelRandomizer = params.getBool("ModelRandomizer");
+  updateCarToggles();
 }
 
-void FrogPilotAdvancedPanel::updateState(const UIState &s) {
+void FrogPilotAdvancedDrivingPanel::updateState(const UIState &s) {
   if (!isVisible()) return;
 
   if (modelManagementOpen) {
@@ -741,21 +658,18 @@ void FrogPilotAdvancedPanel::updateState(const UIState &s) {
   started = s.scene.started;
 }
 
-void FrogPilotAdvancedPanel::updateCarToggles() {
+void FrogPilotAdvancedDrivingPanel::updateCarToggles() {
   float currentFrictionStock = params.getFloat("SteerFrictionStock");
   float currentKPStock = params.getFloat("SteerKPStock");
   float currentLatAccelStock = params.getFloat("SteerLatAccelStock");
   float currentRatioStock = params.getFloat("SteerRatioStock");
 
-  auto carParams = params.get("CarParamsPersistent");
+  std::string carParams = params.get("CarParamsPersistent");
   if (!carParams.empty()) {
     AlignedBuffer aligned_buf;
     capnp::FlatArrayMessageReader cmsg(aligned_buf.align(carParams.data(), carParams.size()));
     cereal::CarParams::Reader CP = cmsg.getRoot<cereal::CarParams>();
 
-    auto carName = CP.getCarName();
-
-    hasAutoTune = (carName == "hyundai" || carName == "toyota") && CP.getLateralTuning().which() == cereal::CarParams::LateralTuning::TORQUE;
     hasOpenpilotLongitudinal = hasLongitudinalControl(CP);
     steerFrictionStock = CP.getLateralTuning().getTorque().getFriction();
     steerKPStock = CP.getLateralTuning().getTorque().getKp();
@@ -765,96 +679,69 @@ void FrogPilotAdvancedPanel::updateCarToggles() {
     steerFrictionToggle->setTitle(QString(tr("Friction (Default: %1)")).arg(QString::number(steerFrictionStock, 'f', 2)));
     if (currentFrictionStock != steerFrictionStock) {
       if (params.getFloat("SteerFriction") == currentFrictionStock) {
-        params.putFloat("SteerFriction", steerFrictionStock);
+        params.putFloatNonBlocking("SteerFriction", steerFrictionStock);
       }
-      params.putFloat("SteerFrictionStock", steerFrictionStock);
+      params.putFloatNonBlocking("SteerFrictionStock", steerFrictionStock);
     }
 
     steerKPToggle->setTitle(QString(tr("Kp Factor (Default: %1)")).arg(QString::number(steerKPStock, 'f', 2)));
     steerKPToggle->updateControl(steerKPStock * 0.50, currentKPStock * 1.50);
     if (currentKPStock != steerKPStock) {
       if (params.getFloat("SteerKP") == currentKPStock) {
-        params.putFloat("SteerKP", steerKPStock);
+        params.putFloatNonBlocking("SteerKP", steerKPStock);
       }
-      params.putFloat("SteerKPStock", steerKPStock);
+      params.putFloatNonBlocking("SteerKPStock", steerKPStock);
     }
 
     steerLatAccelToggle->setTitle(QString(tr("Lateral Accel (Default: %1)")).arg(QString::number(steerLatAccelStock, 'f', 2)));
     steerLatAccelToggle->updateControl(steerLatAccelStock * 0.75, steerLatAccelStock * 1.25);
     if (currentLatAccelStock != steerLatAccelStock) {
       if (params.getFloat("SteerLatAccel") == steerLatAccelStock) {
-        params.putFloat("SteerLatAccel", steerLatAccelStock);
+        params.putFloatNonBlocking("SteerLatAccel", steerLatAccelStock);
       }
-      params.putFloat("SteerLatAccelStock", steerLatAccelStock);
+      params.putFloatNonBlocking("SteerLatAccelStock", steerLatAccelStock);
     }
 
     steerRatioToggle->setTitle(QString(tr("Steer Ratio (Default: %1)")).arg(QString::number(steerRatioStock, 'f', 2)));
     steerRatioToggle->updateControl(steerRatioStock * 0.75, steerRatioStock * 1.25);
     if (currentRatioStock != steerRatioStock) {
       if (params.getFloat("SteerRatio") == steerRatioStock) {
-        params.putFloat("SteerRatio", steerRatioStock);
+        params.putFloatNonBlocking("SteerRatio", steerRatioStock);
       }
-      params.putFloat("SteerRatioStock", steerRatioStock);
+      params.putFloatNonBlocking("SteerRatioStock", steerRatioStock);
     }
   } else {
-    hasAutoTune = true;
     hasOpenpilotLongitudinal = true;
   }
 
-  auto torqueParams = params.get("LiveTorqueParameters");
-  if (!torqueParams.empty()) {
-    AlignedBuffer aligned_buf;
-    capnp::FlatArrayMessageReader cmsg(aligned_buf.align(torqueParams.data(), torqueParams.size()));
-    cereal::Event::Reader LTP = cmsg.getRoot<cereal::Event>();
+  std::string liveTorqueParamsKey;
+  if (modelManagement) {
+    QString model = QString::fromStdString(params.get("ModelName"));
+    QString part_model_param = processModelName(model);
+    liveTorqueParamsKey = part_model_param.toStdString() + "LiveTorqueParameters";
+  } else {
+    liveTorqueParamsKey = "LiveTorqueParameters";
+  }
 
-    auto liveTorqueParams = LTP.getLiveTorqueParameters();
+  if (params.checkKey(liveTorqueParamsKey)) {
+    auto torqueParams = params.get(liveTorqueParamsKey);
+    if (!torqueParams.empty()) {
+      AlignedBuffer aligned_buf;
+      capnp::FlatArrayMessageReader cmsg(aligned_buf.align(torqueParams.data(), torqueParams.size()));
+      cereal::Event::Reader LTP = cmsg.getRoot<cereal::Event>();
 
-    liveValid = liveTorqueParams.getLiveValid();
+      auto liveTorqueParams = LTP.getLiveTorqueParameters();
+
+      liveValid = liveTorqueParams.getLiveValid();
+    } else {
+      liveValid = false;
+    }
   } else {
     liveValid = false;
   }
-
-  hideToggles();
 }
 
-void FrogPilotAdvancedPanel::updateMetric() {
-  bool previousIsMetric = isMetric;
-  isMetric = params.getBool("IsMetric");
-
-  if (isMetric != previousIsMetric) {
-    double smallDistanceConversion = isMetric ? INCH_TO_CM : CM_TO_INCH;
-    double distanceConversion = isMetric ? FOOT_TO_METER : METER_TO_FOOT;
-
-    params.putFloatNonBlocking("LaneLinesWidth", params.getFloat("LaneLinesWidth") * smallDistanceConversion);
-    params.putFloatNonBlocking("RoadEdgesWidth", params.getFloat("RoadEdgesWidth") * smallDistanceConversion);
-
-    params.putFloatNonBlocking("PathWidth", params.getFloat("PathWidth") * distanceConversion);
-  }
-
-  FrogPilotParamValueControl *laneLinesWidthToggle = static_cast<FrogPilotParamValueControl*>(toggles["LaneLinesWidth"]);
-  FrogPilotParamValueControl *pathWidthToggle = static_cast<FrogPilotParamValueControl*>(toggles["PathWidth"]);
-  FrogPilotParamValueControl *roadEdgesWidthToggle = static_cast<FrogPilotParamValueControl*>(toggles["RoadEdgesWidth"]);
-
-  if (isMetric) {
-    laneLinesWidthToggle->setDescription(tr("Customize the lane line width.\n\nDefault matches the Vienna average of 10 centimeters."));
-    roadEdgesWidthToggle->setDescription(tr("Customize the road edges width.\n\nDefault is 1/2 of the Vienna average lane line width of 10 centimeters."));
-
-    laneLinesWidthToggle->updateControl(0, 60, tr(" centimeters"));
-    roadEdgesWidthToggle->updateControl(0, 60, tr(" centimeters"));
-
-    pathWidthToggle->updateControl(0, 3, tr(" meters"));
-  } else {
-    laneLinesWidthToggle->setDescription(tr("Customize the lane line width.\n\nDefault matches the MUTCD average of 4 inches."));
-    roadEdgesWidthToggle->setDescription(tr("Customize the road edges width.\n\nDefault is 1/2 of the MUTCD average lane line width of 4 inches."));
-
-    laneLinesWidthToggle->updateControl(0, 24, tr(" inches"));
-    roadEdgesWidthToggle->updateControl(0, 24, tr(" inches"));
-
-    pathWidthToggle->updateControl(0, 10, tr(" feet"));
-  }
-}
-
-void FrogPilotAdvancedPanel::startDownloadAllModels() {
+void FrogPilotAdvancedDrivingPanel::startDownloadAllModels() {
   allModelsDownloading = true;
   modelDownloading = true;
 
@@ -903,7 +790,7 @@ void FrogPilotAdvancedPanel::startDownloadAllModels() {
   progressTimer->start();
 }
 
-QString FrogPilotAdvancedPanel::processModelName(const QString &modelName) {
+QString FrogPilotAdvancedDrivingPanel::processModelName(const QString &modelName) {
   QString modelCleaned = modelName;
   modelCleaned = modelCleaned.remove(QRegularExpression("[🗺️👀📡]")).simplified();
   QString scoreParam = modelCleaned.remove(QRegularExpression("[^a-zA-Z0-9()-]")).replace(" ", "").simplified();
@@ -911,7 +798,7 @@ QString FrogPilotAdvancedPanel::processModelName(const QString &modelName) {
   return scoreParam;
 }
 
-void FrogPilotAdvancedPanel::updateCalibrationDescription() {
+void FrogPilotAdvancedDrivingPanel::updateCalibrationDescription() {
   QString model = QString::fromStdString(params.get("ModelName"));
   QString part_model_param = processModelName(model);
 
@@ -938,7 +825,7 @@ void FrogPilotAdvancedPanel::updateCalibrationDescription() {
   qobject_cast<FrogPilotButtonsControl *>(sender())->setDescription(desc);
 }
 
-void FrogPilotAdvancedPanel::updateModelLabels() {
+void FrogPilotAdvancedDrivingPanel::updateModelLabels() {
   QVector<QPair<QString, int>> modelScores;
   availableModelNames = QString::fromStdString(params.get("AvailableModelsNames")).split(",");
 
@@ -967,18 +854,18 @@ void FrogPilotAdvancedPanel::updateModelLabels() {
   }
 }
 
-void FrogPilotAdvancedPanel::showToggles(std::set<QString> &keys) {
+void FrogPilotAdvancedDrivingPanel::showToggles(const std::set<QString> &keys) {
   setUpdatesEnabled(false);
 
   for (auto &[key, toggle] : toggles) {
-    toggle->setVisible(keys.find(key.c_str()) != keys.end());
+    toggle->setVisible(keys.find(key) != keys.end());
   }
 
   setUpdatesEnabled(true);
   update();
 }
 
-void FrogPilotAdvancedPanel::hideToggles() {
+void FrogPilotAdvancedDrivingPanel::hideToggles() {
   setUpdatesEnabled(false);
 
   customPersonalityOpen = false;
@@ -988,18 +875,24 @@ void FrogPilotAdvancedPanel::hideToggles() {
     label->setVisible(false);
   }
 
+  std::set<QString> longitudinalKeys = {"AdvancedLongitudinalTune", "CustomPersonalities"};
   for (auto &[key, toggle] : toggles) {
-    bool subToggles = aggressivePersonalityKeys.find(key.c_str()) != aggressivePersonalityKeys.end() ||
-                      customDrivingPersonalityKeys.find(key.c_str()) != customDrivingPersonalityKeys.end() ||
-                      developerUIKeys.find(key.c_str()) != developerUIKeys.end() ||
-                      lateralTuneKeys.find(key.c_str()) != lateralTuneKeys.end() ||
-                      longitudinalTuneKeys.find(key.c_str()) != longitudinalTuneKeys.end() ||
-                      modelManagementKeys.find(key.c_str()) != modelManagementKeys.end() ||
-                      modelRandomizerKeys.find(key.c_str()) != modelRandomizerKeys.end() ||
-                      modelUIKeys.find(key.c_str()) != modelUIKeys.end() ||
-                      relaxedPersonalityKeys.find(key.c_str()) != relaxedPersonalityKeys.end() ||
-                      standardPersonalityKeys.find(key.c_str()) != standardPersonalityKeys.end() ||
-                      trafficPersonalityKeys.find(key.c_str()) != trafficPersonalityKeys.end();
+    bool subToggles = aggressivePersonalityKeys.find(key) != aggressivePersonalityKeys.end() ||
+                      customDrivingPersonalityKeys.find(key) != customDrivingPersonalityKeys.end() ||
+                      lateralTuneKeys.find(key) != lateralTuneKeys.end() ||
+                      longitudinalTuneKeys.find(key) != longitudinalTuneKeys.end() ||
+                      modelManagementKeys.find(key) != modelManagementKeys.end() ||
+                      modelRandomizerKeys.find(key) != modelRandomizerKeys.end() ||
+                      relaxedPersonalityKeys.find(key) != relaxedPersonalityKeys.end() ||
+                      standardPersonalityKeys.find(key) != standardPersonalityKeys.end() ||
+                      trafficPersonalityKeys.find(key) != trafficPersonalityKeys.end();
+
+    if (disableOpenpilotLongitudinal || !hasOpenpilotLongitudinal) {
+      if (longitudinalKeys.find(key) != longitudinalKeys.end()) {
+        toggle->setVisible(false);
+        continue;
+      }
+    }
 
     toggle->setVisible(!subToggles);
   }
@@ -1008,7 +901,7 @@ void FrogPilotAdvancedPanel::hideToggles() {
   update();
 }
 
-void FrogPilotAdvancedPanel::hideSubToggles() {
+void FrogPilotAdvancedDrivingPanel::hideSubToggles() {
   if (customPersonalityOpen) {
     customPersonalityOpen = false;
     showToggles(customDrivingPersonalityKeys);
@@ -1016,17 +909,15 @@ void FrogPilotAdvancedPanel::hideSubToggles() {
     for (LabelControl *label : labelControls) {
       label->setVisible(false);
     }
-
     showToggles(modelManagementKeys);
   }
 }
 
-void FrogPilotAdvancedPanel::hideSubSubToggles() {
+void FrogPilotAdvancedDrivingPanel::hideSubSubToggles() {
   if (modelManagementOpen) {
     for (LabelControl *label : labelControls) {
       label->setVisible(false);
     }
-
     showToggles(modelRandomizerKeys);
   }
 }

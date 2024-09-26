@@ -51,12 +51,13 @@ FrogPilotSoundsPanel::FrogPilotSoundsPanel(FrogPilotSettingsWindow *parent) : Fr
     }
 
     addItem(soundsToggle);
-    toggles[param.toStdString()] = soundsToggle;
+    toggles[param] = soundsToggle;
 
-    tryConnect<ToggleControl>(soundsToggle, &ToggleControl::toggleFlipped, this, updateFrogPilotToggles);
-    tryConnect<FrogPilotButtonToggleControl>(soundsToggle, &FrogPilotButtonToggleControl::buttonClicked, this, updateFrogPilotToggles);
-    tryConnect<FrogPilotParamManageControl>(soundsToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotSoundsPanel::openParentToggle);
-    tryConnect<FrogPilotParamValueControl>(soundsToggle, &FrogPilotParamValueControl::valueChanged, this, updateFrogPilotToggles);
+    tryConnect(soundsToggle, &updateFrogPilotToggles);
+
+    if (FrogPilotParamManageControl *frogPilotManageToggle = qobject_cast<FrogPilotParamManageControl*>(soundsToggle)) {
+      QObject::connect(frogPilotManageToggle, &FrogPilotParamManageControl::manageButtonClicked, this, &FrogPilotSoundsPanel::openParentToggle);
+    }
 
     QObject::connect(soundsToggle, &AbstractControl::showDescriptionEvent, [this]() {
       update();
@@ -65,10 +66,12 @@ FrogPilotSoundsPanel::FrogPilotSoundsPanel(FrogPilotSettingsWindow *parent) : Fr
 
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotSoundsPanel::hideToggles);
   QObject::connect(uiState(), &UIState::offroadTransition, this, &FrogPilotSoundsPanel::updateCarToggles);
+
+  hideToggles();
 }
 
 void FrogPilotSoundsPanel::updateCarToggles() {
-  auto carParams = params.get("CarParamsPersistent");
+  std::string carParams = params.get("CarParamsPersistent");
   if (!carParams.empty()) {
     AlignedBuffer aligned_buf;
     capnp::FlatArrayMessageReader cmsg(aligned_buf.align(carParams.data(), carParams.size()));
@@ -78,15 +81,13 @@ void FrogPilotSoundsPanel::updateCarToggles() {
   } else {
     hasBSM = true;
   }
-
-  hideToggles();
 }
 
-void FrogPilotSoundsPanel::showToggles(std::set<QString> &keys) {
+void FrogPilotSoundsPanel::showToggles(const std::set<QString> &keys) {
   setUpdatesEnabled(false);
 
   for (auto &[key, toggle] : toggles) {
-    toggle->setVisible(keys.find(key.c_str()) != keys.end());
+    toggle->setVisible(keys.find(key) != keys.end());
   }
 
   setUpdatesEnabled(true);
@@ -97,8 +98,8 @@ void FrogPilotSoundsPanel::hideToggles() {
   setUpdatesEnabled(false);
 
   for (auto &[key, toggle] : toggles) {
-    bool subToggles = alertVolumeControlKeys.find(key.c_str()) != alertVolumeControlKeys.end() ||
-                      customAlertsKeys.find(key.c_str()) != customAlertsKeys.end();
+    bool subToggles = alertVolumeControlKeys.find(key) != alertVolumeControlKeys.end() ||
+                      customAlertsKeys.find(key) != customAlertsKeys.end();
     toggle->setVisible(!subToggles);
   }
 

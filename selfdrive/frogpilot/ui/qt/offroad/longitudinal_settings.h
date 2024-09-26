@@ -17,7 +17,7 @@ signals:
 private:
   void hideSubToggles();
   void hideToggles();
-  void showToggles(std::set<QString> &keys);
+  void showToggles(const std::set<QString> &keys);
   void updateCarToggles();
   void updateMetric();
 
@@ -33,7 +33,7 @@ private:
   std::set<QString> speedLimitControllerQOLKeys = {"ForceMPHDashboard", "SetSpeedLimit", "SLCConfirmation", "SLCLookaheadHigher", "SLCLookaheadLower"};
   std::set<QString> speedLimitControllerVisualsKeys = {"ShowSLCOffset", "SpeedLimitChangedAlert", "UseVienna"};
 
-  std::map<std::string, AbstractControl*> toggles;
+  std::map<QString, AbstractControl*> toggles;
 
   Params params;
 

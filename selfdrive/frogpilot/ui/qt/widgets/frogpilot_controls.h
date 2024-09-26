@@ -6,6 +6,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
+#include <QObject>
 #include <QTimer>
 
 #include "selfdrive/ui/qt/widgets/controls.h"
@@ -13,14 +14,6 @@
 void updateFrogPilotToggles();
 
 QColor loadThemeColors(const QString &colorKey, bool clearCache = false);
-
-template <typename TargetType, typename SignalType, typename ReceiverType, typename SlotType>
-void tryConnect(AbstractControl *obj, SignalType signal, ReceiverType receiver, SlotType slot) {
-  TargetType *target = static_cast<TargetType*>(obj);
-  if (target) {
-    QObject::connect(target, signal, receiver, slot);
-  }
-}
 
 const QString buttonStyle = R"(
   QPushButton {
@@ -222,6 +215,12 @@ public:
         int buttonIndex = buttons.indexOf(button);
         button->setChecked(params.getBool(buttonParams[buttonIndex].toStdString()));
       }
+    }
+  }
+
+  void setEnabledButtons(int id, bool enable) {
+    if (QPushButton *button = qobject_cast<QPushButton *>(buttonGroup->button(id))) {
+      button->setEnabled(enable);
     }
   }
 
@@ -508,3 +507,41 @@ private:
   FrogPilotParamValueControl *control1;
   FrogPilotParamValueControl *control2;
 };
+
+inline void tryConnect(QObject *controlToggle, std::function<void()> slot) {
+  if (!controlToggle) {
+    return;
+  }
+
+  FrogPilotButtonToggleControl *buttonToggleControl = qobject_cast<FrogPilotButtonToggleControl*>(controlToggle);
+  if (buttonToggleControl) {
+    QObject::connect(buttonToggleControl, &FrogPilotButtonToggleControl::buttonClicked, [slot]() {
+      slot();
+    });
+    return;
+  }
+
+  FrogPilotParamValueControl *paramValueControl = qobject_cast<FrogPilotParamValueControl*>(controlToggle);
+  if (paramValueControl) {
+    QObject::connect(paramValueControl, &FrogPilotParamValueControl::valueChanged, [slot]() {
+      slot();
+    });
+    return;
+  }
+
+  ParamControl *paramControl = qobject_cast<ParamControl*>(controlToggle);
+  if (paramControl) {
+    QObject::connect(paramControl, &ToggleControl::toggleFlipped, [slot]() {
+      slot();
+    });
+    return;
+  }
+
+  ToggleControl *toggleControl = qobject_cast<ToggleControl*>(controlToggle);
+  if (toggleControl) {
+    QObject::connect(toggleControl, &ToggleControl::toggleFlipped, [slot]() {
+      slot();
+    });
+    return;
+  }
+}

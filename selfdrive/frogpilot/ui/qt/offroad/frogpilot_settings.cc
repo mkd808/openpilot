@@ -1,5 +1,6 @@
 #include "selfdrive/frogpilot/navigation/ui/navigation_settings.h"
-#include "selfdrive/frogpilot/ui/qt/offroad/advanced_settings.h"
+#include "selfdrive/frogpilot/ui/qt/offroad/advanced_driving_settings.h"
+#include "selfdrive/frogpilot/ui/qt/offroad/advanced_visual_settings.h"
 #include "selfdrive/frogpilot/ui/qt/offroad/data_settings.h"
 #include "selfdrive/frogpilot/ui/qt/offroad/device_settings.h"
 #include "selfdrive/frogpilot/ui/qt/offroad/frogpilot_settings.h"
@@ -19,10 +20,13 @@ FrogPilotSettingsWindow::FrogPilotSettingsWindow(SettingsWindow *parent) : QFram
 
   FrogPilotListWidget *list = new FrogPilotListWidget(frogpilotSettingsWidget);
 
-  FrogPilotAdvancedPanel *frogpilotAdvancedPanel = new FrogPilotAdvancedPanel(this);
-  QObject::connect(frogpilotAdvancedPanel, &FrogPilotAdvancedPanel::openParentToggle, this, &FrogPilotSettingsWindow::openParentToggle);
-  QObject::connect(frogpilotAdvancedPanel, &FrogPilotAdvancedPanel::openSubParentToggle, this, &FrogPilotSettingsWindow::openSubParentToggle);
-  QObject::connect(frogpilotAdvancedPanel, &FrogPilotAdvancedPanel::openSubSubParentToggle, this, &FrogPilotSettingsWindow::openSubSubParentToggle);
+  FrogPilotAdvancedDrivingPanel *frogpilotAdvancedDrivingPanel = new FrogPilotAdvancedDrivingPanel(this);
+  QObject::connect(frogpilotAdvancedDrivingPanel, &FrogPilotAdvancedDrivingPanel::openParentToggle, this, &FrogPilotSettingsWindow::openParentToggle);
+  QObject::connect(frogpilotAdvancedDrivingPanel, &FrogPilotAdvancedDrivingPanel::openSubParentToggle, this, &FrogPilotSettingsWindow::openSubParentToggle);
+  QObject::connect(frogpilotAdvancedDrivingPanel, &FrogPilotAdvancedDrivingPanel::openSubSubParentToggle, this, &FrogPilotSettingsWindow::openSubSubParentToggle);
+
+  FrogPilotAdvancedVisualsPanel *frogpilotAdvancedVisualsPanel = new FrogPilotAdvancedVisualsPanel(this);
+  QObject::connect(frogpilotAdvancedVisualsPanel, &FrogPilotAdvancedVisualsPanel::openParentToggle, this, &FrogPilotSettingsWindow::openParentToggle);
 
   FrogPilotDevicePanel *frogpilotDevicePanel = new FrogPilotDevicePanel(this);
   QObject::connect(frogpilotDevicePanel, &FrogPilotDevicePanel::openParentToggle, this, &FrogPilotSettingsWindow::openParentToggle);
@@ -42,7 +46,7 @@ FrogPilotSettingsWindow::FrogPilotSettingsWindow(SettingsWindow *parent) : QFram
   QObject::connect(frogpilotVisualsPanel, &FrogPilotVisualsPanel::openSubParentToggle, this, &FrogPilotSettingsWindow::openSubParentToggle);
 
   std::vector<std::pair<QString, std::vector<QWidget*>>> panels = {
-    {tr("Advanced Settings"), {frogpilotAdvancedPanel}},
+    {tr("Advanced Settings"), {frogpilotAdvancedDrivingPanel, frogpilotAdvancedVisualsPanel}},
     {tr("Alerts and Sounds"), {frogpilotSoundsPanel}},
     {tr("Display Settings"), {frogpilotVisualsPanel}},
     {tr("Driving Controls"), {frogpilotLongitudinalPanel, frogpilotLateralPanel}},
@@ -72,7 +76,7 @@ FrogPilotSettingsWindow::FrogPilotSettingsWindow(SettingsWindow *parent) : QFram
   };
 
   std::vector<std::vector<QString>> buttonLabels = {
-    {tr("MANAGE")},
+    {tr("DRIVING"), tr("VISUALS")},
     {tr("MANAGE")},
     {tr("MANAGE")},
     {tr("GAS / BRAKE"), tr("STEERING")},

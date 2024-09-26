@@ -15,11 +15,11 @@ signals:
 
 private:
   void hideToggles();
-  void showToggles(std::set<QString> &keys);
+  void showToggles(const std::set<QString> &keys);
 
   std::set<QString> deviceManagementKeys = {"DeviceShutdown", "IncreaseThermalLimits", "LowVoltageShutdown", "NoLogging", "NoUploads", "OfflineMode"};
 
-  std::map<std::string, AbstractControl*> toggles;
+  std::map<QString, AbstractControl*> toggles;
 
   Params params;
 };
