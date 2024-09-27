@@ -23,8 +23,9 @@ private:
 
   FrogPilotButtonToggleControl *borderMetricsBtn;
 
-  std::set<QString> developerUIKeys = {"BorderMetrics", "FPSCounter", "LateralMetrics", "LongitudinalMetrics", "NumericalTemp", "SidebarMetrics", "UseSI"};
-  std::set<QString> modelUIKeys = {"DynamicPathWidth", "HideLeadMarker", "LaneLinesWidth", "PathEdgeWidth", "PathWidth", "RoadEdgesWidth", "UnlimitedLength"};
+  std::set<QString> advancedCustomOnroadUIKeys = {"CameraView", "HideLeadMarker", "HideSpeed", "WheelSpeed"};
+  std::set<QString> developerUIKeys = {"BorderMetrics", "FPSCounter", "LateralMetrics", "LongitudinalMetrics", "NumericalTemp", "SidebarMetrics", "ShowStoppingPoint", "UseSI"};
+  std::set<QString> modelUIKeys = {"LaneLinesWidth", "PathEdgeWidth", "PathWidth", "RoadEdgesWidth", "UnlimitedLength"};
 
   std::map<QString, AbstractControl*> toggles;
 

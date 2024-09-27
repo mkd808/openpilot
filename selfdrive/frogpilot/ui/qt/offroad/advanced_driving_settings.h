@@ -25,6 +25,7 @@ private:
   void showToggles(const std::set<QString> &keys);
   void startDownloadAllModels();
   void updateCalibrationDescription();
+  void updateMetric();
   void updateModelLabels();
   void updateState(const UIState &s);
 
@@ -40,10 +41,11 @@ private:
 
   std::set<QString> aggressivePersonalityKeys = {"AggressiveFollow", "AggressiveJerkAcceleration", "AggressiveJerkDanger", "AggressiveJerkSpeed", "ResetAggressivePersonality"};
   std::set<QString> customDrivingPersonalityKeys = {"AggressivePersonalityProfile", "RelaxedPersonalityProfile", "StandardPersonalityProfile", "TrafficPersonalityProfile"};
-  std::set<QString> lateralTuneKeys = {"SteerFriction", "SteerLatAccel", "SteerKP", "SteerRatio"};
+  std::set<QString> lateralTuneKeys = {"ForceAutoTune", "ForceAutoTuneOff", "SteerFriction", "SteerLatAccel", "SteerKP", "SteerRatio", "TacoTune", "TurnDesires"};
   std::set<QString> longitudinalTuneKeys = {"LeadDetectionThreshold", "MaxDesiredAcceleration"};
   std::set<QString> modelManagementKeys = {"AutomaticallyUpdateModels", "DeleteModel", "DownloadModel", "DownloadAllModels", "ModelRandomizer", "ResetCalibrations", "SelectModel"};
   std::set<QString> modelRandomizerKeys = {"ManageBlacklistedModels", "ResetScores", "ReviewScores"};
+  std::set<QString> qolKeys = {"ForceStandstill", "SetSpeedOffset"};
   std::set<QString> relaxedPersonalityKeys = {"RelaxedFollow", "RelaxedJerkAcceleration", "RelaxedJerkDanger", "RelaxedJerkSpeed", "ResetRelaxedPersonality"};
   std::set<QString> standardPersonalityKeys = {"StandardFollow", "StandardJerkAcceleration", "StandardJerkDanger", "StandardJerkSpeed", "ResetStandardPersonality"};
   std::set<QString> trafficPersonalityKeys = {"TrafficFollow", "TrafficJerkAcceleration", "TrafficJerkDanger", "TrafficJerkSpeed", "ResetTrafficPersonality"};
@@ -62,8 +64,12 @@ private:
   bool cancellingDownload;
   bool customPersonalityOpen;
   bool disableOpenpilotLongitudinal;
+  bool hasAutoTune;
+  bool hasNNFFLog;
   bool hasOpenpilotLongitudinal;
+  bool hasPCMCruise;
   bool haveModelsDownloaded;
+  bool isMetric = params.getBool("IsMetric");
   bool liveValid;
   bool modelDeleting;
   bool modelDownloading;

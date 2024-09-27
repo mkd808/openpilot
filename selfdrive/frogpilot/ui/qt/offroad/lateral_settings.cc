@@ -8,7 +8,7 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
     {"PauseAOLOnBrake", tr("Pause On Brake Below"), tr("Pause 'Always On Lateral' when the brake pedal is being pressed below the set speed."), ""},
     {"HideAOLStatusBar", tr("Hide the Status Bar"), tr("Don't use the status bar for 'Always On Lateral'."), ""},
 
-    {"LaneChangeCustomizations", tr("Lane Change Customizations"), tr("Customize the lane change behaviors in openpilot."), "../frogpilot/assets/toggle_icons/icon_lane.png"},
+    {"LaneChangeCustomizations", tr("Lane Changes"), tr("Customize the lane change behaviors in openpilot."), "../frogpilot/assets/toggle_icons/icon_lane.png"},
     {"LaneChangeTime", tr("Lane Change Timer"), tr("Set a delay before executing a lane change."), ""},
     {"LaneDetectionWidth", tr("Lane Detection Threshold"), tr("Set the required lane width to be qualified as a lane."), ""},
     {"MinimumLaneChangeSpeed", tr("Minimum Lane Change Speed"), tr("Customize the minimum driving speed to allow openpilot to change lanes."), ""},
@@ -16,12 +16,8 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
     {"OneLaneChange", tr("One Lane Change Per Signal"), tr("Only allow one lane change per turn signal activation."), ""},
 
     {"LateralTune", tr("Lateral Tuning"), tr("Modify openpilot's steering behavior."), "../frogpilot/assets/toggle_icons/icon_lateral_tune.png"},
-    {"ForceAutoTune", tr("Force Auto Tune"), tr("Forces comma's auto lateral tuning for unsupported vehicles."), ""},
-    {"ForceAutoTuneOff", tr("Force Auto Tune Off"), tr("Forces comma's auto lateral tuning off for supported vehicles."), ""},
     {"NNFF", tr("NNFF"), tr("Use Twilsonco's Neural Network Feedforward for enhanced precision in lateral control."), ""},
     {"NNFFLite", tr("Smoother Entry and Exit for Curves"), tr("Uses Twilsonco's steering torque tweak to provide smoother handling when entering and exiting curves."), ""},
-    {"TacoTune", tr("Taco Tune"), tr("Use comma's 'Taco Tune' designed for handling left and right turns."), ""},
-    {"TurnDesires", tr("Use Turn Desires"), tr("Use turn desires for greater precision in turns below the minimum lane change speed."), ""},
 
     {"QOLControls", tr("Quality of Life"), tr("Miscellaneous quality of life changes to improve your overall openpilot experience."), "../frogpilot/assets/toggle_icons/quality_of_life.png"},
     {"PauseLateralSpeed", tr("Pause Lateral Below"), tr("Pause lateral control on all speeds below the set speed."), ""},
@@ -51,17 +47,6 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
         std::set<QString> modifiedLateralTuneKeys = lateralTuneKeys;
 
         bool usingNNFF = hasNNFFLog && params.getBool("LateralTune") && params.getBool("NNFF");
-        if (usingNNFF) {
-          modifiedLateralTuneKeys.erase("ForceAutoTune");
-          modifiedLateralTuneKeys.erase("ForceAutoTuneOff");
-        } else {
-          if (hasAutoTune) {
-            modifiedLateralTuneKeys.erase("ForceAutoTune");
-          } else {
-            modifiedLateralTuneKeys.erase("ForceAutoTuneOff");
-          }
-        }
-
         if (!hasNNFFLog) {
           modifiedLateralTuneKeys.erase("NNFF");
         } else if (usingNNFF) {
@@ -130,17 +115,6 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
     std::set<QString> modifiedLateralTuneKeys = lateralTuneKeys;
 
     bool usingNNFF = hasNNFFLog && state;
-    if (usingNNFF) {
-      modifiedLateralTuneKeys.erase("ForceAutoTune");
-      modifiedLateralTuneKeys.erase("ForceAutoTuneOff");
-    } else {
-      if (hasAutoTune) {
-        modifiedLateralTuneKeys.erase("ForceAutoTune");
-      } else {
-        modifiedLateralTuneKeys.erase("ForceAutoTuneOff");
-      }
-    }
-
     if (!hasNNFFLog) {
       modifiedLateralTuneKeys.erase("NNFF");
     } else if (usingNNFF) {

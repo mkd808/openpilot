@@ -1,56 +1,37 @@
 name: Update MAKE-PRS-HERE
 
 on:
-  schedule:
-    - cron: '0 6 * * *'
+  push:
+    branches:
+      - FrogPilot-Staging
 
 env:
   SOURCE_BRANCH: FrogPilot-Staging
   TARGET_BRANCH: MAKE-PRS-HERE
 
 jobs:
-  update-target-branch:
+  squash-and-cherry-pick:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source branch to check last commit time
+      - name: Checkout repository
         uses: actions/checkout@v3
         with:
           ref: ${{ env.SOURCE_BRANCH }}
-          fetch-depth: 1
-
-      - name: Check if last commit on FrogPilot-Staging was made in the last 24 hours
-        id: check_last_commit
-        run: |
-          last_commit_time=$(git log -1 --format=%ct)
-          current_time=$(date +%s)
-          time_diff=$((current_time - last_commit_time))
-          if [ $time_diff -gt 86400 ]; then
-            echo "Last commit was not within the last 24 hours, exiting."
-            exit 0
-          fi
-
-      - name: Checkout target branch
-        if: steps.check_last_commit.outcome == 'success'
-        uses: actions/checkout@v3
-        with:
-          ref: ${{ env.TARGET_BRANCH }}
           fetch-depth: 0
 
       - name: Set Git user name and email
-        if: steps.check_last_commit.outcome == 'success'
         run: |
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Replace content with SOURCE_BRANCH minus last commit
-        if: steps.check_last_commit.outcome == 'success'
+      - name: Get the second to last commit hash and create a temporary branch
         run: |
-          git rm -rf .
-          git fetch origin ${{ env.SOURCE_BRANCH }}
-          COMMIT_HASH=$(git rev-parse origin/${{ env.SOURCE_BRANCH }}~1)
-          git archive $COMMIT_HASH | tar -x
-          git add --all
+          commit_hash=$(git rev-parse HEAD~1)
+          git checkout -b temp-branch $commit_hash
+
+      - name: Squash all commits into one with today's date in Phoenix time zone
+        run: |
           day=$(TZ='America/Phoenix' date '+%-d')
           suffix="th"
           case $day in
@@ -59,5 +40,20 @@ jobs:
             3|23) suffix="rd" ;;
           esac
           commit_message="$(TZ='America/Phoenix' date '+%B ')$day$suffix, $(TZ='America/Phoenix' date '+%Y') Update"
+          git reset --soft $(git rev-list --max-parents=0 HEAD)
           git commit -m "$commit_message"
+
+      - name: Cherry-pick the squashed commit to target branch and push
+        run: |
+          git fetch origin
+          git checkout ${{ env.TARGET_BRANCH }}
+          git cherry-pick temp-branch -X theirs || {
+            if git status | grep -q "nothing to commit, working tree clean"; then
+              echo "Empty commit detected, skipping cherry-pick."
+              git cherry-pick --skip
+            else
+              echo "Continuing with cherry-pick."
+              git cherry-pick --continue
+            fi
+          }
           git push origin ${{ env.TARGET_BRANCH }}

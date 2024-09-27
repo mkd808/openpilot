@@ -19,10 +19,14 @@ private:
   void hideToggles();
   void showEvent(QShowEvent *event);
   void showToggles(const std::set<QString> &keys);
+  void updateState(const UIState &s);
 
   std::set<QString> deviceManagementKeys = {"DeviceShutdown", "IncreaseThermalLimits", "LowVoltageShutdown", "NoLogging", "NoUploads", "OfflineMode"};
+  std::set<QString> screenKeys = { "ScreenBrightness", "ScreenBrightnessOnroad", "ScreenRecorder", "ScreenTimeout", "ScreenTimeoutOnroad"};
 
   std::map<QString, AbstractControl*> toggles;
 
   Params params;
+
+  bool started;
 };

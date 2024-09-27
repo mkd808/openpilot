@@ -9,6 +9,13 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
     {"IncreaseThermalLimits", tr("Increase Thermal Safety Limit"), tr("Allow the device to run at a temperature above comma's recommended thermal limits."), ""},
     {"LowVoltageShutdown", tr("Low Voltage Shutdown Threshold"), tr("Automatically shut the device down when your battery reaches a specific voltage level to prevent killing your battery."), ""},
     {"OfflineMode", tr("Offline Mode"), tr("Allow the device to be offline indefinitely."), ""},
+
+    {"ScreenManagement", tr("Screen Management"), tr("Manage your screen's brightness, timeout settings, and hide onroad UI elements."), "../frogpilot/assets/toggle_icons/icon_light.png"},
+    {"ScreenBrightness", tr("Screen Brightness"), tr("Customize your screen brightness when offroad."), ""},
+    {"ScreenBrightnessOnroad", tr("Screen Brightness (Onroad)"), tr("Customize your screen brightness when onroad."), ""},
+    {"ScreenRecorder", tr("Screen Recorder"), tr("Enable the ability to record the screen while onroad."), ""},
+    {"ScreenTimeout", tr("Screen Timeout"), tr("Customize how long it takes for your screen to turn off."), ""},
+    {"ScreenTimeoutOnroad", tr("Screen Timeout (Onroad)"), tr("Customize how long it takes for your screen to turn off when onroad."), ""},
   };
 
   for (const auto &[param, title, desc, icon] : deviceToggles) {
@@ -32,6 +39,22 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
       deviceToggle = new FrogPilotButtonToggleControl(param, title, desc, uploadsToggles, uploadsToggleNames);
     } else if (param == "LowVoltageShutdown") {
       deviceToggle = new FrogPilotParamValueControl(param, title, desc, icon, 11.8, 12.5, tr(" volts"), std::map<int, QString>(), 0.01);
+
+    } else if (param == "ScreenManagement") {
+      FrogPilotParamManageControl *screenToggle = new FrogPilotParamManageControl(param, title, desc, icon);
+      QObject::connect(screenToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
+        showToggles(screenKeys);
+      });
+      deviceToggle = screenToggle;
+    } else if (param == "ScreenBrightness" || param == "ScreenBrightnessOnroad") {
+      std::map<int, QString> brightnessLabels;
+      int minBrightness = (param == "ScreenBrightnessOnroad") ? 0 : 1;
+      for (int i = 1; i <= 101; i++) {
+        brightnessLabels[i] = (i == 101) ? tr("Auto") : QString::number(i) + "%";
+      }
+      deviceToggle = new FrogPilotParamValueControl(param, title, desc, icon, minBrightness, 101, QString(), brightnessLabels, 1, false, true);
+    } else if (param == "ScreenTimeout" || param == "ScreenTimeoutOnroad") {
+      deviceToggle = new FrogPilotParamValueControl(param, title, desc, icon, 5, 60, tr(" seconds"));
 
     } else {
       deviceToggle = new ParamControl(param, title, desc, icon);
@@ -75,20 +98,37 @@ FrogPilotDevicePanel::FrogPilotDevicePanel(FrogPilotSettingsWindow *parent) : Fr
     }
   });
 
+  FrogPilotParamValueControl *screenBrightnessToggle = static_cast<FrogPilotParamValueControl*>(toggles["ScreenBrightness"]);
+  QObject::connect(screenBrightnessToggle, &FrogPilotParamValueControl::valueChanged, [this](float value) {
+    if (!started) {
+      uiState()->scene.screen_brightness = value;
+    }
+  });
+
+  FrogPilotParamValueControl *screenBrightnessOnroadToggle = static_cast<FrogPilotParamValueControl*>(toggles["ScreenBrightnessOnroad"]);
+  QObject::connect(screenBrightnessOnroadToggle, &FrogPilotParamValueControl::valueChanged, [this](float value) {
+    if (started) {
+      uiState()->scene.screen_brightness_onroad = value;
+    }
+  });
+
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotDevicePanel::hideToggles);
+  QObject::connect(uiState(), &UIState::uiUpdate, this, &FrogPilotDevicePanel::updateState);
 }
 
 void FrogPilotDevicePanel::showEvent(QShowEvent *event) {
   hideToggles();
 }
 
+void FrogPilotDevicePanel::updateState(const UIState &s) {
+  started = s.scene.started;
+}
+
 void FrogPilotDevicePanel::showToggles(const std::set<QString> &keys) {
   setUpdatesEnabled(false);
 
   for (auto &[key, toggle] : toggles) {
-    if (keys.find(key) != keys.end()) {
-      toggle->setVisible(keys.find(key) != keys.end());
-    }
+    toggle->setVisible(keys.find(key) != keys.end());
   }
 
   setUpdatesEnabled(true);
@@ -99,7 +139,8 @@ void FrogPilotDevicePanel::hideToggles() {
   setUpdatesEnabled(false);
 
   for (auto &[key, toggle] : toggles) {
-    bool subToggles = deviceManagementKeys.find(key) != deviceManagementKeys.end();
+    bool subToggles = deviceManagementKeys.find(key) != deviceManagementKeys.end() ||
+                      screenKeys.find(key) != screenKeys.end();
     toggle->setVisible(!subToggles);
   }
 

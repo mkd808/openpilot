@@ -46,7 +46,7 @@ class FrogPilotFollowing:
     self.following_lead = self.frogpilot_planner.tracking_lead and lead_distance < (self.t_follow + 1) * v_ego
 
     if self.frogpilot_planner.tracking_lead:
-      self.safe_obstacle_distance = int(get_safe_obstacle_distance(v_ego, self.t_follow))
+      self.safe_obstacle_distance = int(get_safe_obstacle_distance(v_ego, self.t_follow, stopping_distance))
       self.safe_obstacle_distance_stock = self.safe_obstacle_distance
       self.stopped_equivalence_factor = int(get_stopped_equivalence_factor(v_lead))
       self.update_follow_values(lead_distance, stopping_distance, v_ego, v_lead, frogpilot_toggles)

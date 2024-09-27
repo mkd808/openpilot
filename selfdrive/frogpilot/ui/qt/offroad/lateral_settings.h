@@ -24,7 +24,7 @@ private:
 
   std::set<QString> aolKeys = {"AlwaysOnLateralLKAS", "AlwaysOnLateralMain", "HideAOLStatusBar", "PauseAOLOnBrake"};
   std::set<QString> laneChangeKeys = {"LaneChangeTime", "LaneDetectionWidth", "MinimumLaneChangeSpeed", "NudgelessLaneChange", "OneLaneChange"};
-  std::set<QString> lateralTuneKeys = {"ForceAutoTune", "ForceAutoTuneOff", "NNFF", "NNFFLite", "TacoTune", "TurnDesires"};
+  std::set<QString> lateralTuneKeys = {"NNFF", "NNFFLite"};
   std::set<QString> qolKeys = {"PauseLateralSpeed"};
 
   std::map<QString, AbstractControl*> toggles;

@@ -85,10 +85,18 @@ class FrogPilotVariables:
     stock_steer_ratio = self.params.get_float("SteerRatioStock")
     toggle.steer_ratio = self.params.get_float("SteerRatio") if advanced_lateral_tune else stock_steer_ratio
     toggle.use_custom_steer_ratio = toggle.steer_ratio != stock_steer_ratio
+    toggle.taco_tune = advanced_lateral_tune and self.params.get_bool("TacoTune")
+    toggle.turn_desires = advanced_lateral_tune and self.params.get_bool("TurnDesires")
 
     advanced_longitudinal_tune = toggle.openpilot_longitudinal and self.params.get_bool("LongitudinalTune")
     toggle.lead_detection_threshold = self.params.get_int("LeadDetectionThreshold") / 100. if advanced_longitudinal_tune else 0.5
     toggle.max_desired_accel = self.params.get_float("MaxDesiredAcceleration") if advanced_longitudinal_tune else 4.0
+
+    advanced_quality_of_life_driving = self.params.get_bool("AdvancedQOLDriving")
+    toggle.force_auto_tune = advanced_quality_of_life_driving and self.params.get_bool("ForceAutoTune")
+    toggle.force_auto_tune_off = advanced_quality_of_life_driving and self.params.get_bool("ForceAutoTuneOff")
+    toggle.force_standstill = advanced_quality_of_life_driving and self.params.get_bool("ForceStandstill")
+    toggle.set_speed_offset = self.params.get_int("SetSpeedOffset") * (1. if toggle.is_metric else CV.MPH_TO_KPH) if advanced_quality_of_life_driving and not pcm_cruise else 0
 
     toggle.alert_volume_control = self.params.get_bool("AlertVolumeControl")
     toggle.disengage_volume = self.params.get_int("DisengageVolume") if toggle.alert_volume_control else 100
@@ -151,7 +159,9 @@ class FrogPilotVariables:
     custom_paths = custom_ui and self.params.get_bool("CustomPaths")
     toggle.adjacent_lanes = custom_paths and self.params.get_bool("AdjacentPath")
     toggle.blind_spot_path = custom_paths and self.params.get_bool("BlindSpotPath")
-    toggle.show_stopping_point = custom_ui and self.params.get_bool("ShowStoppingPoint")
+
+    developer_ui = self.params.get_bool("DeveloperUI")
+    toggle.show_stopping_point = developer_ui and self.params.get_bool("ShowStoppingPoint")
 
     toggle.device_management = self.params.get_bool("DeviceManagement")
     device_shutdown_setting = self.params.get_int("DeviceShutdown") if toggle.device_management else 33
@@ -197,12 +207,6 @@ class FrogPilotVariables:
     toggle.nudgeless = lane_change_customizations and self.params.get_bool("NudgelessLaneChange")
     toggle.one_lane_change = lane_change_customizations and self.params.get_bool("OneLaneChange")
 
-    lateral_tune = self.params.get_bool("LateralTune")
-    toggle.force_auto_tune = lateral_tune and self.params.get_bool("ForceAutoTune")
-    toggle.force_auto_tune_off = lateral_tune and self.params.get_bool("ForceAutoTuneOff")
-    toggle.taco_tune = lateral_tune and self.params.get_bool("TacoTune")
-    toggle.turn_desires = lateral_tune and self.params.get_bool("TurnDesires")
-
     toggle.long_pitch = toggle.openpilot_longitudinal and car_make == "gm" and self.params.get_bool("LongPitch")
     toggle.volt_sng = car_model == "CHEVROLET_VOLT" and self.params.get_bool("VoltSNG")
 
@@ -212,7 +216,7 @@ class FrogPilotVariables:
     toggle.deceleration_profile = self.params.get_int("DecelerationProfile") if longitudinal_tune else 0
     toggle.human_acceleration = longitudinal_tune and self.params.get_bool("HumanAcceleration")
     toggle.human_following = longitudinal_tune and self.params.get_bool("HumanFollowing")
-    toggle.increased_stopping_distance = self.params.get_int("StoppingDistance") * distance_conversion if longitudinal_tune else 0
+    toggle.stopping_distance = self.params.get_int("StoppingDistance") * distance_conversion if longitudinal_tune else 6.0
 
     toggle.model_manager = self.params.get_bool("ModelManagement", block=openpilot_installed)
     available_models = self.params.get("AvailableModels", block=toggle.model_manager, encoding='utf-8') or ""
@@ -253,7 +257,6 @@ class FrogPilotVariables:
     quality_of_life_controls = self.params.get_bool("QOLControls")
     toggle.custom_cruise_increase = self.params.get_int("CustomCruise") if quality_of_life_controls and not pcm_cruise else 1
     toggle.custom_cruise_increase_long = self.params.get_int("CustomCruiseLong") if quality_of_life_controls and not pcm_cruise else 5
-    toggle.force_standstill = quality_of_life_controls and self.params.get_bool("ForceStandstill")
     toggle.force_stops = toggle.force_standstill and self.params.get_bool("ForceStops")
     map_gears = quality_of_life_controls and self.params.get_bool("MapGears")
     toggle.map_acceleration = map_gears and self.params.get_bool("MapAcceleration")
@@ -261,7 +264,6 @@ class FrogPilotVariables:
     toggle.pause_lateral_below_speed = self.params.get_int("PauseLateralSpeed") * speed_conversion if quality_of_life_controls else 0
     toggle.pause_lateral_below_signal = toggle.pause_lateral_below_speed != 0 and self.params.get_bool("PauseLateralOnSignal")
     toggle.reverse_cruise_increase = quality_of_life_controls and pcm_cruise and self.params.get_bool("ReverseCruise")
-    toggle.set_speed_offset = self.params.get_int("SetSpeedOffset") * (1. if toggle.is_metric else CV.MPH_TO_KPH) if quality_of_life_controls and not pcm_cruise else 0
 
     toggle.sng_hack = toggle.openpilot_longitudinal and car_make == "toyota" and self.params.get_bool("SNGHack")
 

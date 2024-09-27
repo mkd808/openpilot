@@ -46,8 +46,8 @@ MODEL_PATHS = {
   ModelRunner.ONNX: Path(__file__).parent / 'models/supercombo.onnx'}
 
 metadata_file = (
-  'poseless_metadata.pkl' if DISABLE_POSE else
   'secret-good-openpilot_metadata.pkl' if SECRET_GOOD_OPENPILOT else
+  'poseless_metadata.pkl' if DISABLE_POSE else
   'supercombo_metadata.pkl'
 )
 METADATA_PATH = Path(__file__).parent / f'models/{metadata_file}'

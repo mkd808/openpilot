@@ -17,29 +17,19 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
 
     {"CustomUI", tr("Custom Onroad UI"), tr("Customize the Onroad UI."), "../assets/offroad/icon_road.png"},
     {"Compass", tr("Compass"), tr("Add a compass to the onroad UI."), ""},
+    {"DynamicPathWidth", tr("Dynamic Path Width"), tr("Automatically adjust the width of the driving path display based on openpilot's engagement state."), ""},
     {"CustomPaths", tr("Paths"), tr("Show your projected acceleration on the driving path, detected adjacent lanes, or when a vehicle is detected in your blindspot."), ""},
     {"PedalsOnUI", tr("Pedals Being Pressed"), tr("Display the brake and gas pedals on the onroad UI below the steering wheel icon."), ""},
     {"RoadNameUI", tr("Road Name"), tr("Display the current road's name at the bottom of the screen. Sourced from OpenStreetMap."), ""},
     {"RotatingWheel", tr("Rotating Steering Wheel"), tr("Rotate the steering wheel in the onroad UI alongside your physical steering wheel."), ""},
-    {"ShowStoppingPoint", tr("Stopping Points"), tr("Display the point where openpilot wants to stop for red lights/stop signs."), ""},
 
     {"QOLVisuals", tr("Quality of Life"), tr("Miscellaneous quality of life changes to improve your overall openpilot experience."), "../frogpilot/assets/toggle_icons/quality_of_life.png"},
     {"BigMap", tr("Big Map"), tr("Increase the size of the map in the onroad UI."), ""},
-    {"CameraView", tr("Camera View"), tr("Choose your preferred camera view for the onroad UI. This is purely a visual change and doesn't impact how openpilot drives."), ""},
     {"DriverCamera", tr("Driver Camera On Reverse"), tr("Show the driver camera feed when in reverse."), ""},
-    {"HideSpeed", tr("Hide Speed"), tr("Hide the speed indicator in the onroad UI. Additional toggle allows it to be hidden/shown via tapping the speed itself."), ""},
-    {"MapStyle", tr("Map Style"), tr("Select a map style to use with navigation."), ""},
-    {"StoppedTimer", tr("Stopped Timer"), tr("Display a timer in the onroad UI that indicates how long you've been stopped for."), ""},
-    {"WheelSpeed", tr("Use Wheel Speed"), tr("Use the wheel speed instead of the cluster speed in the onroad UI."), ""},
-
-    {"ScreenManagement", tr("Screen Management"), tr("Manage your screen's brightness, timeout settings, and hide onroad UI elements."), "../frogpilot/assets/toggle_icons/icon_light.png"},
     {"HideUIElements", tr("Hide UI Elements"), tr("Hide the selected UI elements from the onroad screen."), ""},
-    {"ScreenBrightness", tr("Screen Brightness"), tr("Customize your screen brightness when offroad."), ""},
-    {"ScreenBrightnessOnroad", tr("Screen Brightness (Onroad)"), tr("Customize your screen brightness when onroad."), ""},
-    {"ScreenRecorder", tr("Screen Recorder"), tr("Enable the ability to record the screen while onroad."), ""},
-    {"ScreenTimeout", tr("Screen Timeout"), tr("Customize how long it takes for your screen to turn off."), ""},
-    {"ScreenTimeoutOnroad", tr("Screen Timeout (Onroad)"), tr("Customize how long it takes for your screen to turn off when onroad."), ""},
+    {"MapStyle", tr("Map Style"), tr("Select a map style to use with navigation."), ""},
     {"StandbyMode", tr("Standby Mode"), tr("Turn the screen off after your screen times out when onroad, but wake it back up when engagement state changes or important alerts are triggered."), ""},
+    {"StoppedTimer", tr("Stopped Timer"), tr("Display a timer in the onroad UI that indicates how long you've been stopped for."), ""},
   };
 
   for (const auto &[param, title, desc, icon] : visualToggles) {
@@ -788,10 +778,6 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
         }
       });
       visualToggle = pedalsToggle;
-    } else if (param == "ShowStoppingPoint") {
-      std::vector<QString> stoppingPointToggles{"ShowStoppingPointMetrics"};
-      std::vector<QString> stoppingPointToggleNames{tr("Show Distance")};
-      visualToggle = new FrogPilotButtonToggleControl(param, title, desc, stoppingPointToggles, stoppingPointToggleNames);
 
     } else if (param == "QOLVisuals") {
       FrogPilotParamManageControl *qolToggle = new FrogPilotParamManageControl(param, title, desc, icon);
@@ -799,18 +785,14 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
         showToggles(qolKeys);
       });
       visualToggle = qolToggle;
-    } else if (param == "CameraView") {
-      std::vector<QString> cameraOptions{tr("Auto"), tr("Driver"), tr("Standard"), tr("Wide")};
-      ButtonParamControl *preferredCamera = new ButtonParamControl(param, title, desc, icon, cameraOptions);
-      visualToggle = preferredCamera;
     } else if (param == "BigMap") {
       std::vector<QString> mapToggles{"FullMap"};
       std::vector<QString> mapToggleNames{tr("Full Map")};
       visualToggle = new FrogPilotButtonToggleControl(param, title, desc, mapToggles, mapToggleNames);
-    } else if (param == "HideSpeed") {
-      std::vector<QString> hideSpeedToggles{"HideSpeedUI"};
-      std::vector<QString> hideSpeedToggleNames{tr("Control Via UI")};
-      visualToggle = new FrogPilotButtonToggleControl(param, title, desc, hideSpeedToggles, hideSpeedToggleNames);
+    } else if (param == "HideUIElements") {
+      std::vector<QString> uiElementsToggles{"HideAlerts", "HideMapIcon", "HideMaxSpeed"};
+      std::vector<QString> uiElementsToggleNames{tr("Alerts"), tr("Map Icon"), tr("Max Speed")};
+      visualToggle = new FrogPilotButtonToggleControl(param, title, desc, uiElementsToggles, uiElementsToggleNames);
     } else if (param == "MapStyle") {
       QMap<int, QString> styleMap = {
         {0, tr("Stock openpilot")},
@@ -844,26 +826,6 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
 
       visualToggle = mapStyleButton;
 
-    } else if (param == "ScreenManagement") {
-      FrogPilotParamManageControl *screenToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(screenToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
-        showToggles(screenKeys);
-      });
-      visualToggle = screenToggle;
-    } else if (param == "HideUIElements") {
-      std::vector<QString> uiElementsToggles{"HideAlerts", "HideMapIcon", "HideMaxSpeed"};
-      std::vector<QString> uiElementsToggleNames{tr("Alerts"), tr("Map Icon"), tr("Max Speed")};
-      visualToggle = new FrogPilotButtonToggleControl(param, title, desc, uiElementsToggles, uiElementsToggleNames);
-    } else if (param == "ScreenBrightness" || param == "ScreenBrightnessOnroad") {
-      std::map<int, QString> brightnessLabels;
-      int minBrightness = (param == "ScreenBrightnessOnroad") ? 0 : 1;
-      for (int i = 1; i <= 101; i++) {
-        brightnessLabels[i] = (i == 101) ? tr("Auto") : QString::number(i) + "%";
-      }
-      visualToggle = new FrogPilotParamValueControl(param, title, desc, icon, minBrightness, 101, QString(), brightnessLabels, 1, false, true);
-    } else if (param == "ScreenTimeout" || param == "ScreenTimeoutOnroad") {
-      visualToggle = new FrogPilotParamValueControl(param, title, desc, icon, 5, 60, tr(" seconds"));
-
     } else {
       visualToggle = new ParamControl(param, title, desc, icon);
     }
@@ -881,20 +843,6 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
       update();
     });
   }
-
-  FrogPilotParamValueControl *screenBrightnessToggle = static_cast<FrogPilotParamValueControl*>(toggles["ScreenBrightness"]);
-  QObject::connect(screenBrightnessToggle, &FrogPilotParamValueControl::valueChanged, [this](float value) {
-    if (!started) {
-      uiState()->scene.screen_brightness = value;
-    }
-  });
-
-  FrogPilotParamValueControl *screenBrightnessOnroadToggle = static_cast<FrogPilotParamValueControl*>(toggles["ScreenBrightnessOnroad"]);
-  QObject::connect(screenBrightnessOnroadToggle, &FrogPilotParamValueControl::valueChanged, [this](float value) {
-    if (started) {
-      uiState()->scene.screen_brightness_onroad = value;
-    }
-  });
 
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotVisualsPanel::hideToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::closeSubParentToggle, this, &FrogPilotVisualsPanel::hideSubToggles);
@@ -975,8 +923,6 @@ void FrogPilotVisualsPanel::updateState(const UIState &s) {
     manageWheelIconsBtn->setEnabledButtons(1, s.scene.online && (!themeDownloading || wheelDownloading) && !cancellingDownload && !themeDeleting && !wheelsDownloaded);
     manageWheelIconsBtn->setEnabledButtons(2, !themeDeleting && !themeDownloading);
   }
-
-  started = s.scene.started;
 }
 
 void FrogPilotVisualsPanel::showToggles(const std::set<QString> &keys) {
@@ -999,8 +945,7 @@ void FrogPilotVisualsPanel::hideToggles() {
     bool subToggles = bonusContentKeys.find(key) != bonusContentKeys.end() ||
                       customOnroadUIKeys.find(key) != customOnroadUIKeys.end() ||
                       personalizeOpenpilotKeys.find(key) != personalizeOpenpilotKeys.end() ||
-                      qolKeys.find(key) != qolKeys.end() ||
-                      screenKeys.find(key) != screenKeys.end();
+                      qolKeys.find(key) != qolKeys.end();
 
     toggle->setVisible(!subToggles);
   }

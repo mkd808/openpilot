@@ -29,7 +29,7 @@ private:
   std::set<QString> curveSpeedKeys = {"CurveDetectionMethod", "CurveSensitivity", "DisableCurveSpeedSmoothing", "MTSCCurvatureCheck", "TurnAggressiveness"};
   std::set<QString> experimentalModeActivationKeys = {"ExperimentalModeViaDistance", "ExperimentalModeViaLKAS", "ExperimentalModeViaTap"};
   std::set<QString> longitudinalTuneKeys = {"AccelerationProfile", "DecelerationProfile", "HumanAcceleration", "HumanFollowing", "StoppingDistance"};
-  std::set<QString> qolKeys = {"CustomCruise", "CustomCruiseLong", "ForceStandstill", "MapGears", "OnroadDistanceButton", "ReverseCruise", "SetSpeedOffset"};
+  std::set<QString> qolKeys = {"CustomCruise", "CustomCruiseLong", "MapGears", "OnroadDistanceButton", "ReverseCruise"};
   std::set<QString> speedLimitControllerKeys = {"SLCControls", "SLCQOL", "SLCVisuals"};
   std::set<QString> speedLimitControllerControlsKeys = {"Offset1", "Offset2", "Offset3", "Offset4", "SLCFallback", "SLCOverride", "SLCPriority"};
   std::set<QString> speedLimitControllerQOLKeys = {"ForceMPHDashboard", "SetSpeedLimit", "SLCConfirmation", "SLCLookaheadHigher", "SLCLookaheadLower"};

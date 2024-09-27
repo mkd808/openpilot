@@ -21,7 +21,8 @@ jobs:
       run: |
         TOKEN_USERNAME=$(gh api user -H "Authorization: token $GITHUB_TOKEN" --jq '.login')
 
-        if [[ "${{ github.actor }}" == "$TOKEN_USERNAME" ]]; then
+        if [[ "${{ github.actor }}" == "FrogAi" ]]; then
+          echo "PR opened or reopened by FrogAi. No action needed."
           exit 0
         fi
 

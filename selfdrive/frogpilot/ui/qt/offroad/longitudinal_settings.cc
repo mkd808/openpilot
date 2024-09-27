@@ -28,15 +28,13 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
     {"DecelerationProfile", tr("Deceleration Profile"), tr("Change the deceleration rate to be either sporty or eco-friendly."), ""},
     {"HumanAcceleration", tr("Human-Like Acceleration"), tr("Tweaks the acceleration behavior to be more 'human-like'."), ""},
     {"HumanFollowing", tr("Human-Like Following Distance"), tr("Tweaks the following distance dynamically to be more 'human-like' when coming up behind slower/stopped leads or following faster leads."), ""},
-    {"StoppingDistance", tr("Increase Stop Distance"), tr("Increase the stopping distance for a more comfortable stop from lead vehicles."), ""},
+    {"StoppingDistance", tr("Stopped Distance From Lead"), tr("Control the stopped distance behind lead vehicles."), ""},
 
     {"QOLControls", tr("Quality of Life"), tr("Miscellaneous quality of life changes to improve your overall openpilot experience."), "../frogpilot/assets/toggle_icons/quality_of_life.png"},
     {"CustomCruise", tr("Cruise Increase Interval"), tr("Set a custom interval to increase the max set speed by."), ""},
     {"CustomCruiseLong", tr("Cruise Increase Interval (Long Press)"), tr("Set a custom interval to increase the max set speed by when holding down the cruise increase button."), ""},
-    {"ForceStandstill", tr("Force Standstill State"), tr("Keeps openpilot in the 'standstill' state until the gas pedal is pressed."), ""},
     {"MapGears", tr("Map Accel/Decel To Gears"), tr("Map your acceleration/deceleration profile to your 'Eco' and/or 'Sport' gears."), ""},
     {"ReverseCruise", tr("Reverse Cruise Increase"), tr("Reverses the 'long press' functionality logic to increase the max set speed by 5 instead of 1. Useful to increase the max speed quickly."), ""},
-    {"SetSpeedOffset", tr("Set Speed Offset"), tr("Set an offset for your desired set speed."), ""},
 
     {"SpeedLimitController", tr("Speed Limit Controller"), tr("Automatically adjust the max speed to match the current speed limit using 'Open Street Maps', 'Navigate On openpilot', or your car's dashboard (Toyotas/Lexus/HKG only)."), "../assets/offroad/icon_speed_limit.png"},
     {"SLCControls", tr("Controls Settings"), tr("Manage toggles related to 'Speed Limit Controller's controls."), ""},
@@ -147,7 +145,7 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
       ButtonParamControl *profileSelection = new ButtonParamControl(param, title, desc, icon, profileOptions);
       longitudinalToggle = profileSelection;
     } else if (param == "StoppingDistance") {
-      longitudinalToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 10, tr(" feet"));
+      longitudinalToggle = new FrogPilotParamValueControl(param, title, desc, icon, 20, 30, tr(" feet"));
 
     } else if (param == "QOLControls") {
       FrogPilotParamManageControl *qolToggle = new FrogPilotParamManageControl(param, title, desc, icon);
@@ -159,7 +157,6 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
         } else {
           modifiedQolKeys.erase("CustomCruise");
           modifiedQolKeys.erase("CustomCruiseLong");
-          modifiedQolKeys.erase("SetSpeedOffset");
         }
 
         if (!isToyota && !isGM && !isHKGCanFd) {
@@ -173,16 +170,10 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
       longitudinalToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1, 99, tr("mph"));
     } else if (param == "CustomCruiseLong") {
       longitudinalToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1, 99, tr("mph"));
-    } else if (param == "ForceStandstill") {
-      std::vector<QString> forceStopToggles{"ForceStops"};
-      std::vector<QString> forceStopToggleNames{tr("Only For Stop Lights/Stop Signs")};
-      longitudinalToggle = new FrogPilotButtonToggleControl(param, title, desc, forceStopToggles, forceStopToggleNames);
     } else if (param == "MapGears") {
       std::vector<QString> mapGearsToggles{"MapAcceleration", "MapDeceleration"};
       std::vector<QString> mapGearsToggleNames{tr("Acceleration"), tr("Deceleration")};
       longitudinalToggle = new FrogPilotButtonToggleControl(param, title, desc, mapGearsToggles, mapGearsToggleNames);
-    } else if (param == "SetSpeedOffset") {
-      longitudinalToggle = new FrogPilotParamValueControl(param, title, desc, icon, 0, 99, tr("mph"));
 
     } else if (param == "SpeedLimitController") {
       FrogPilotParamManageControl *speedLimitControllerToggle = new FrogPilotParamManageControl(param, title, desc, icon);
@@ -355,7 +346,6 @@ void FrogPilotLongitudinalPanel::updateMetric() {
     params.putFloatNonBlocking("Offset2", params.getFloat("Offset2") * speedConversion);
     params.putFloatNonBlocking("Offset3", params.getFloat("Offset3") * speedConversion);
     params.putFloatNonBlocking("Offset4", params.getFloat("Offset4") * speedConversion);
-    params.putFloatNonBlocking("SetSpeedOffset", params.getFloat("SetSpeedOffset") * speedConversion);
   }
 
   FrogPilotDualParamControl *ceSpeedToggle = reinterpret_cast<FrogPilotDualParamControl*>(toggles["CESpeed"]);
@@ -365,7 +355,6 @@ void FrogPilotLongitudinalPanel::updateMetric() {
   FrogPilotParamValueControl *offset2Toggle = static_cast<FrogPilotParamValueControl*>(toggles["Offset2"]);
   FrogPilotParamValueControl *offset3Toggle = static_cast<FrogPilotParamValueControl*>(toggles["Offset3"]);
   FrogPilotParamValueControl *offset4Toggle = static_cast<FrogPilotParamValueControl*>(toggles["Offset4"]);
-  FrogPilotParamValueControl *setSpeedOffsetToggle = static_cast<FrogPilotParamValueControl*>(toggles["SetSpeedOffset"]);
   FrogPilotParamValueControl *stoppingDistanceToggle = static_cast<FrogPilotParamValueControl*>(toggles["StoppingDistance"]);
 
   if (isMetric) {
@@ -386,9 +375,8 @@ void FrogPilotLongitudinalPanel::updateMetric() {
     offset2Toggle->updateControl(-99, 99, tr("kph"));
     offset3Toggle->updateControl(-99, 99, tr("kph"));
     offset4Toggle->updateControl(-99, 99, tr("kph"));
-    setSpeedOffsetToggle->updateControl(0, 150, tr("kph"));
 
-    stoppingDistanceToggle->updateControl(0, 5, tr(" meters"));
+    stoppingDistanceToggle->updateControl(6, 10, tr(" meters"));
   } else {
     offset1Toggle->setTitle(tr("Speed Limit Offset (0-34 mph)"));
     offset2Toggle->setTitle(tr("Speed Limit Offset (35-54 mph)"));
@@ -407,9 +395,8 @@ void FrogPilotLongitudinalPanel::updateMetric() {
     offset2Toggle->updateControl(-99, 99, tr("mph"));
     offset3Toggle->updateControl(-99, 99, tr("mph"));
     offset4Toggle->updateControl(-99, 99, tr("mph"));
-    setSpeedOffsetToggle->updateControl(0, 99, tr("mph"));
 
-    stoppingDistanceToggle->updateControl(0, 10, tr(" feet"));
+    stoppingDistanceToggle->updateControl(20, 30, tr(" feet"));
   }
 }
 

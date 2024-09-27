@@ -120,15 +120,16 @@ FrogPilotSettingsWindow::FrogPilotSettingsWindow(SettingsWindow *parent) : QFram
   QObject::connect(parent, &SettingsWindow::closeSubParentToggle, this, &FrogPilotSettingsWindow::closeSubParentToggle);
   QObject::connect(parent, &SettingsWindow::closeSubSubParentToggle, this, &FrogPilotSettingsWindow::closeSubSubParentToggle);
   QObject::connect(parent, &SettingsWindow::updateMetric, this, &FrogPilotSettingsWindow::updateMetric);
-}
+  QObject::connect(uiState(), &UIState::offroadTransition, this, &FrogPilotSettingsWindow::updateCarToggles);
 
-void FrogPilotSettingsWindow::showEvent(QShowEvent *event) {
   updateCarToggles();
 }
 
-void FrogPilotSettingsWindow::updateCarToggles() {
+void FrogPilotSettingsWindow::showEvent(QShowEvent *event) {
   disableOpenpilotLongitudinal = params.getBool("DisableOpenpilotLongitudinal");
+}
 
+void FrogPilotSettingsWindow::updateCarToggles() {
   float currentFrictionStock = params.getFloat("SteerFrictionStock");
   float currentKPStock = params.getFloat("SteerKPStock");
   float currentLatAccelStock = params.getFloat("SteerLatAccelStock");

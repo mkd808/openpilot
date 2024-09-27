@@ -57,9 +57,8 @@ class FrogPilotPlanner:
 
     driving_gear = carState.gearShifter not in NON_DRIVING_GEARS
 
-    distance_offset = max(frogpilot_toggles.increased_stopping_distance + min(10 - v_ego, 0), 0) if not frogpilotCarState.trafficModeActive else 0
-    lead_distance = self.lead_one.dRel - distance_offset
-    stopping_distance = STOP_DISTANCE + distance_offset
+    lead_distance = self.lead_one.dRel
+    stopping_distance = frogpilot_toggles.stopping_distance if not frogpilotCarState.trafficModeActive else STOP_DISTANCE
 
     self.frogpilot_acceleration.update(controlsState, frogpilotCarState, v_cruise, v_ego, frogpilot_toggles)
 

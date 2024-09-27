@@ -32,10 +32,9 @@ private:
   LabelControl *downloadStatusLabel;
 
   std::set<QString> bonusContentKeys = {"GoatScream", "HolidayThemes", "PersonalizeOpenpilot", "RandomEvents"};
-  std::set<QString> customOnroadUIKeys = {"Compass", "CustomPaths", "PedalsOnUI", "RoadNameUI", "RotatingWheel", "ShowStoppingPoint"};
+  std::set<QString> customOnroadUIKeys = {"Compass", "CustomPaths", "DynamicPathWidth", "PedalsOnUI", "RoadNameUI", "RotatingWheel"};
   std::set<QString> personalizeOpenpilotKeys = {"CustomColors", "CustomIcons", "CustomSignals", "CustomSounds", "DownloadStatusLabel", "StartupAlert", "WheelIcon"};
-  std::set<QString> qolKeys = {"BigMap", "CameraView", "DriverCamera", "FullMap", "HideSpeed", "MapStyle", "StoppedTimer", "WheelSpeed"};
-  std::set<QString> screenKeys = {"HideUIElements", "ScreenBrightness", "ScreenBrightnessOnroad", "ScreenRecorder", "ScreenTimeout", "ScreenTimeoutOnroad", "StandbyMode"};
+  std::set<QString> qolKeys = {"BigMap", "DriverCamera", "HideUIElements", "MapStyle", "StandbyMode", "StoppedTimer"};
 
   std::map<QString, AbstractControl*> toggles;
 
@@ -55,7 +54,6 @@ private:
   bool signalsDownloaded;
   bool soundDownloading;
   bool soundsDownloaded;
-  bool started;
   bool themeDeleting;
   bool themeDownloading;
   bool wheelDownloading;

@@ -105,13 +105,13 @@ def get_T_FOLLOW(aggressive_follow=1.25, standard_follow=1.45, relaxed_follow=1.
 def get_stopped_equivalence_factor(v_lead):
   return (v_lead**2) / (2 * COMFORT_BRAKE)
 
-def get_safe_obstacle_distance(v_ego, t_follow):
-  return (v_ego**2) / (2 * COMFORT_BRAKE) + t_follow * v_ego + STOP_DISTANCE
+def get_safe_obstacle_distance(v_ego, t_follow, stopping_distance):
+  return (v_ego**2) / (2 * COMFORT_BRAKE) + t_follow * v_ego + max(stopping_distance, STOP_DISTANCE)
 
 def desired_follow_distance(v_ego, v_lead, t_follow=None):
   if t_follow is None:
     t_follow = get_T_FOLLOW()
-  return get_safe_obstacle_distance(v_ego, t_follow) - get_stopped_equivalence_factor(v_lead)
+  return get_safe_obstacle_distance(v_ego, t_follow, STOP_DISTANCE) - get_stopped_equivalence_factor(v_lead)
 
 
 def gen_long_model():
@@ -181,7 +181,7 @@ def gen_long_ocp():
   ocp.cost.yref = np.zeros((COST_DIM, ))
   ocp.cost.yref_e = np.zeros((COST_E_DIM, ))
 
-  desired_dist_comfort = get_safe_obstacle_distance(v_ego, lead_t_follow)
+  desired_dist_comfort = get_safe_obstacle_distance(v_ego, lead_t_follow, STOP_DISTANCE)
 
   # The main cost in normal operation is how close you are to the "desired" distance
   # from an obstacle at every timestep. This obstacle can be a lead car
@@ -326,10 +326,10 @@ class LongitudinalMpc:
     lead_xv = np.column_stack((x_lead_traj, v_lead_traj))
     return lead_xv
 
-  def process_lead(self, lead, increased_stopping_distance=0):
+  def process_lead(self, lead):
     v_ego = self.x0[1]
     if lead is not None and lead.status:
-      x_lead = lead.dRel - increased_stopping_distance
+      x_lead = lead.dRel
       v_lead = lead.vLead
       a_lead = lead.aLeadK
       a_lead_tau = lead.aLeadTau
@@ -355,12 +355,11 @@ class LongitudinalMpc:
     self.cruise_min_a = min_a
     self.max_a = max_a
 
-  def update(self, lead_one, lead_two, v_cruise, x, v, a, j, radarless_model, t_follow, trafficModeActive, frogpilot_toggles, personality=log.LongitudinalPersonality.standard):
+  def update(self, lead_one, lead_two, v_cruise, x, v, a, j, radarless_model, t_follow, frogpilot_toggles, personality=log.LongitudinalPersonality.standard):
     v_ego = self.x0[1]
     self.status = lead_one.status or lead_two.status
-    increased_distance = max(frogpilot_toggles.increased_stopping_distance + min(10 - v_ego, 0), 0) if not trafficModeActive else 0
 
-    lead_xv_0 = self.process_lead(lead_one, increased_distance)
+    lead_xv_0 = self.process_lead(lead_one)
     lead_xv_1 = self.process_lead(lead_two)
 
     # To estimate a safe distance from a moving lead, we calculate how much stopping
@@ -383,7 +382,7 @@ class LongitudinalMpc:
       v_cruise_clipped = np.clip(v_cruise * np.ones(N+1),
                                  v_lower,
                                  v_upper)
-      cruise_obstacle = np.cumsum(T_DIFFS * v_cruise_clipped) + get_safe_obstacle_distance(v_cruise_clipped, t_follow)
+      cruise_obstacle = np.cumsum(T_DIFFS * v_cruise_clipped) + get_safe_obstacle_distance(v_cruise_clipped, t_follow, frogpilot_toggles.stopping_distance)
       x_obstacles = np.column_stack([lead_0_obstacle, lead_1_obstacle, cruise_obstacle])
       self.source = SOURCES[np.argmin(x_obstacles[0])]
 
@@ -429,9 +428,9 @@ class LongitudinalMpc:
     # Check if it got within lead comfort range
     # TODO This should be done cleaner
     if self.mode == 'blended':
-      if any((lead_0_obstacle - get_safe_obstacle_distance(self.x_sol[:,1], t_follow))- self.x_sol[:,0] < 0.0):
+      if any((lead_0_obstacle - get_safe_obstacle_distance(self.x_sol[:,1], t_follow, frogpilot_toggles.stopping_distance))- self.x_sol[:,0] < 0.0):
         self.source = 'lead0'
-      if any((lead_1_obstacle - get_safe_obstacle_distance(self.x_sol[:,1], t_follow))- self.x_sol[:,0] < 0.0) and \
+      if any((lead_1_obstacle - get_safe_obstacle_distance(self.x_sol[:,1], t_follow, frogpilot_toggles.stopping_distance))- self.x_sol[:,0] < 0.0) and \
          (lead_1_obstacle[0] - lead_0_obstacle[0]):
         self.source = 'lead1'
 

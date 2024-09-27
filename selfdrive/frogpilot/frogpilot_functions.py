@@ -199,6 +199,30 @@ def convert_params(params, params_storage):
   for key in ["PathWidth"]:
     decrease_param(key)
 
+  def increase_param(key):
+    try:
+      metric = params_storage.get_bool("IsMetric")
+      value = params_storage.get_float(key)
+
+      if metric:
+        if value <= 5:
+          value += 6
+          params.put_float(key, value)
+          params_storage.put_float(key, value)
+      else:
+        if value <= 10:
+          value += 20
+          params.put_float(key, value)
+          params_storage.put_float(key, value)
+
+    except (UnknownKeyName, ValueError):
+      pass
+    except Exception as e:
+      print(f"An error occurred when converting params: {e}")
+
+  for key in ["StoppingDistance"]:
+    increase_param(key)
+
   print("Param conversion completed")
 
 def delete_file(file):
