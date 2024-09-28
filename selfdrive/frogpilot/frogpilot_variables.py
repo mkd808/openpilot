@@ -72,6 +72,9 @@ class FrogPilotVariables:
     distance_conversion = 1. if toggle.is_metric else CV.FOOT_TO_METER
     speed_conversion = CV.KPH_TO_MS if toggle.is_metric else CV.MPH_TO_MS
 
+    advanced_custom_onroad_ui = self.params.get_bool("AdvancedCustomUI")
+    toggle.show_stopping_point = advanced_custom_onroad_ui and self.params.get_bool("ShowStoppingPoint")
+
     advanced_lateral_tune = self.params.get_bool("AdvancedLateralTune")
     stock_steer_friction = self.params.get_float("SteerFrictionStock")
     toggle.steer_friction = self.params.get_float("SteerFriction") if advanced_lateral_tune else stock_steer_friction
@@ -159,9 +162,6 @@ class FrogPilotVariables:
     custom_paths = custom_ui and self.params.get_bool("CustomPaths")
     toggle.adjacent_lanes = custom_paths and self.params.get_bool("AdjacentPath")
     toggle.blind_spot_path = custom_paths and self.params.get_bool("BlindSpotPath")
-
-    developer_ui = self.params.get_bool("DeveloperUI")
-    toggle.show_stopping_point = developer_ui and self.params.get_bool("ShowStoppingPoint")
 
     toggle.device_management = self.params.get_bool("DeviceManagement")
     device_shutdown_setting = self.params.get_int("DeviceShutdown") if toggle.device_management else 33
