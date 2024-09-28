@@ -252,9 +252,6 @@ def is_url_pingable(url, timeout=5):
   try:
     urllib.request.urlopen(url, timeout=timeout)
     return True
-  except (urllib.error.URLError, socket.timeout) as e:
-    print(f"Failed to ping {url}: {e}")
-    return False
   except Exception as e:
     print(f"An unexpected error occurred while trying to ping {url}: {e}")
     return False
