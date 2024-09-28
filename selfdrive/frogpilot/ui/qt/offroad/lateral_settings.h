@@ -17,9 +17,9 @@ private:
   FrogPilotSettingsWindow *parent;
 
   void hideToggles();
-  void showEvent(QShowEvent *event) override;
   void showToggles(const std::set<QString> &keys);
   void updateMetric();
+  void updateCarToggles();
   void updateState(const UIState &s);
 
   std::set<QString> aolKeys = {"AlwaysOnLateralLKAS", "AlwaysOnLateralMain", "HideAOLStatusBar", "PauseAOLOnBrake"};

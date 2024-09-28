@@ -336,6 +336,8 @@ void ui_update_frogpilot_params(UIState *s, Params &params) {
   scene.hide_lead_marker = advanced_custom_onroad_ui && params.getBool("HideLeadMarker");
   scene.hide_speed = advanced_custom_onroad_ui && params.getBool("HideSpeed");
   scene.hide_speed_ui = scene.hide_speed && params.getBool("HideSpeedUI");
+  scene.show_stopping_point = advanced_custom_onroad_ui && params.getBool("ShowStoppingPoint");
+  scene.show_stopping_point_metrics = scene.show_stopping_point && params.getBool("ShowStoppingPointMetrics");
   scene.wheel_speed = advanced_custom_onroad_ui && params.getBool("WheelSpeed");
 
   bool always_on_lateral = params.getBool("AlwaysOnLateral");
@@ -374,7 +376,6 @@ void ui_update_frogpilot_params(UIState *s, Params &params) {
   scene.static_pedals_on_ui = scene.pedals_on_ui && params.getBool("StaticPedalsOnUI");
   scene.road_name_ui = custom_onroad_ui && params.getBool("RoadNameUI");
   scene.rotating_wheel = custom_onroad_ui && params.getBool("RotatingWheel");
-  scene.show_stopping_point_metrics = scene.show_stopping_point && params.getBool("ShowStoppingPointMetrics");
 
   bool developer_ui = params.getBool("DeveloperUI");
   bool border_metrics = developer_ui && params.getBool("BorderMetrics");
@@ -396,7 +397,6 @@ void ui_update_frogpilot_params(UIState *s, Params &params) {
   scene.is_memory = scene.sidebar_metrics && params.getBool("ShowMemoryUsage");
   scene.is_storage_left = scene.sidebar_metrics && params.getBool("ShowStorageLeft");
   scene.is_storage_used = scene.sidebar_metrics && params.getBool("ShowStorageUsed");
-  scene.show_stopping_point = developer_ui && params.getBool("ShowStoppingPoint");
   scene.use_si = developer_ui && params.getBool("UseSI");
 
   scene.disable_curve_speed_smoothing = params.getBool("CurveSpeedControl") && params.getBool("DisableCurveSpeedSmoothing");

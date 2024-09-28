@@ -20,7 +20,7 @@ private:
 
   void hideToggles();
   void setModels();
-  void showEvent(QShowEvent *event) override;
+  void updateCarToggles();
   void updateState(const UIState &s);
 
   ButtonControl *selectMakeButton;

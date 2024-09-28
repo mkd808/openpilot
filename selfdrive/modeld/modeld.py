@@ -38,6 +38,7 @@ MODEL_NAME = frogpilot_toggles.model
 DISABLE_NAV = frogpilot_toggles.navigationless_model
 DISABLE_POSE = frogpilot_toggles.poseless_model
 DISABLE_RADAR = frogpilot_toggles.radarless_model
+GAS_BRAKE = frogpilot_toggles.gas_brake_model
 SECRET_GOOD_OPENPILOT = frogpilot_toggles.secretgoodopenpilot_model
 USE_VELOCITY = frogpilot_toggles.velocity_model
 
@@ -47,6 +48,7 @@ MODEL_PATHS = {
 
 metadata_file = (
   'secret-good-openpilot_metadata.pkl' if SECRET_GOOD_OPENPILOT else
+  'gas-brake_metadata.pkl' if GAS_BRAKE else
   'poseless_metadata.pkl' if DISABLE_POSE else
   'supercombo_metadata.pkl'
 )
@@ -372,7 +374,7 @@ def main(demo=False):
       posenet_send = messaging.new_message('cameraOdometry')
       fill_model_msg(modelv2_send, model_output, publish_state, meta_main.frame_id, meta_extra.frame_id, frame_id, frame_drop_ratio,
                      meta_main.timestamp_eof, timestamp_llk, model_execution_time, live_calib_seen, nav_enabled,
-                     SECRET_GOOD_OPENPILOT, USE_VELOCITY)
+                     GAS_BRAKE, SECRET_GOOD_OPENPILOT, USE_VELOCITY)
 
       desire_state = modelv2_send.modelV2.meta.desireState
       l_lane_change_prob = desire_state[log.Desire.laneChangeLeft]

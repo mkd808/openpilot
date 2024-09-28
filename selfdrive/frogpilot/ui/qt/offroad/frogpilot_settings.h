@@ -39,12 +39,13 @@ signals:
   void openParentToggle();
   void openSubParentToggle();
   void openSubSubParentToggle();
+  void updateCarToggles();
   void updateMetric();
 
 private:
   void addPanelControl(FrogPilotListWidget *list, const QString &title, const QString &desc, const std::vector<QString> &button_labels, const QString &icon, const std::vector<QWidget*> &panels);
   void showEvent(QShowEvent *event) override;
-  void updateCarToggles();
+  void updateCarVariables();
 
   QStackedLayout *mainLayout;
 

@@ -207,9 +207,11 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
   if (!carMake.isEmpty()) {
     setModels();
   }
+
+  QObject::connect(parent, &FrogPilotSettingsWindow::updateCarToggles, this, &FrogPilotVehiclesPanel::updateCarToggles);
 }
 
-void FrogPilotVehiclesPanel::showEvent(QShowEvent *event) {
+void FrogPilotVehiclesPanel::updateCarToggles() {
   hasExperimentalOpenpilotLongitudinal = parent->hasExperimentalOpenpilotLongitudinal;
   hasOpenpilotLongitudinal = parent->hasOpenpilotLongitudinal;
   hasSNG = parent->hasSNG;

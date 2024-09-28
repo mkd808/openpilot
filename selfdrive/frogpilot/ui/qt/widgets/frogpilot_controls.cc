@@ -5,19 +5,21 @@ void updateFrogPilotToggles() {
   static std::atomic<bool> isUpdating(false);
   static std::thread resetThread;
 
-  if (isUpdating.exchange(true)) {
+  bool expected = false;
+  if (!isUpdating.compare_exchange_strong(expected, true)) {
     return;
   }
 
   paramsMemory.putBool("FrogPilotTogglesUpdated", true);
 
-  if (resetThread.joinable()) {
-    resetThread.join();
-  }
-
   resetThread = std::thread([&]() {
     util::sleep_for(1000);
     paramsMemory.putBool("FrogPilotTogglesUpdated", false);
+
+    if (resetThread.joinable()) {
+      resetThread.join();
+    }
+
     isUpdating.store(false);
   });
 }
@@ -32,18 +34,19 @@ QColor loadThemeColors(const QString &colorKey, bool clearCache) {
 
   if (cachedColorData.isEmpty()) {
     QFile file("../frogpilot/assets/active_theme/colors/colors.json");
-    if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
-      return QColor();
-    }
+    if (file.exists() && file.open(QIODevice::ReadOnly)) {
+      QJsonParseError parseError;
+      QByteArray fileData = file.readAll();
+      QJsonDocument doc = QJsonDocument::fromJson(fileData, &parseError);
 
-    QJsonParseError parseError;
-    QByteArray fileData = file.readAll();
-    QJsonDocument doc = QJsonDocument::fromJson(fileData, &parseError);
-    if (parseError.error != QJsonParseError::NoError || !doc.isObject()) {
-      return QColor();
+      if (parseError.error == QJsonParseError::NoError && doc.isObject()) {
+        cachedColorData = doc.object();
+      }
     }
+  }
 
-    cachedColorData = doc.object();
+  if (!cachedColorData.contains(colorKey)) {
+    return QColor();
   }
 
   QJsonObject colorObj = cachedColorData.value(colorKey).toObject();

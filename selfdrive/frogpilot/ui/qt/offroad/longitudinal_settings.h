@@ -19,8 +19,8 @@ private:
 
   void hideSubToggles();
   void hideToggles();
-  void showEvent(QShowEvent *event) override;
   void showToggles(const std::set<QString> &keys);
+  void updateCarToggles();
   void updateMetric();
 
   FrogPilotButtonsControl *curveDetectionBtn;

@@ -665,6 +665,7 @@ FrogPilotAdvancedDrivingPanel::FrogPilotAdvancedDrivingPanel(FrogPilotSettingsWi
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotAdvancedDrivingPanel::hideToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::closeSubParentToggle, this, &FrogPilotAdvancedDrivingPanel::hideSubToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::closeSubSubParentToggle, this, &FrogPilotAdvancedDrivingPanel::hideSubSubToggles);
+  QObject::connect(parent, &FrogPilotSettingsWindow::updateCarToggles, this, &FrogPilotAdvancedDrivingPanel::updateCarToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::updateMetric, this, &FrogPilotAdvancedDrivingPanel::updateMetric);
   QObject::connect(uiState(), &UIState::driveRated, this, &FrogPilotAdvancedDrivingPanel::updateModelLabels);
 
@@ -694,7 +695,9 @@ void FrogPilotAdvancedDrivingPanel::updateMetric() {
 void FrogPilotAdvancedDrivingPanel::showEvent(QShowEvent *event) {
   modelManagement = params.getBool("ModelManagement");
   modelRandomizer = params.getBool("ModelRandomizer");
+}
 
+void FrogPilotAdvancedDrivingPanel::updateCarToggles() {
   disableOpenpilotLongitudinal = parent->disableOpenpilotLongitudinal;
   hasAutoTune = parent->hasAutoTune;
   hasNNFFLog = parent->hasNNFFLog;

@@ -65,9 +65,10 @@ FrogPilotSoundsPanel::FrogPilotSoundsPanel(FrogPilotSettingsWindow *parent) : Fr
   }
 
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotSoundsPanel::hideToggles);
+  QObject::connect(parent, &FrogPilotSettingsWindow::updateCarToggles, this, &FrogPilotSoundsPanel::updateCarToggles);
 }
 
-void FrogPilotSoundsPanel::showEvent(QShowEvent *event) {
+void FrogPilotSoundsPanel::updateCarToggles() {
   hasBSM = parent->hasBSM;
 
   hideToggles();

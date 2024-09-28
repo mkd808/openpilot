@@ -145,7 +145,7 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
       ButtonParamControl *profileSelection = new ButtonParamControl(param, title, desc, icon, profileOptions);
       longitudinalToggle = profileSelection;
     } else if (param == "StoppingDistance") {
-      longitudinalToggle = new FrogPilotParamValueControl(param, title, desc, icon, 20, 30, tr(" feet"));
+      longitudinalToggle = new FrogPilotParamValueControl(param, title, desc, icon, 15, 30, tr(" feet"));
 
     } else if (param == "QOLControls") {
       FrogPilotParamManageControl *qolToggle = new FrogPilotParamManageControl(param, title, desc, icon);
@@ -312,12 +312,13 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
 
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotLongitudinalPanel::hideToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::closeSubParentToggle, this, &FrogPilotLongitudinalPanel::hideSubToggles);
+  QObject::connect(parent, &FrogPilotSettingsWindow::updateCarToggles, this, &FrogPilotLongitudinalPanel::updateCarToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::updateMetric, this, &FrogPilotLongitudinalPanel::updateMetric);
 
   updateMetric();
 }
 
-void FrogPilotLongitudinalPanel::showEvent(QShowEvent *event) {
+void FrogPilotLongitudinalPanel::updateCarToggles() {
   hasDashSpeedLimits = parent->hasDashSpeedLimits;
   hasPCMCruise = parent->hasPCMCruise;
   isGM = parent->isGM;
@@ -376,7 +377,7 @@ void FrogPilotLongitudinalPanel::updateMetric() {
     offset3Toggle->updateControl(-99, 99, tr("kph"));
     offset4Toggle->updateControl(-99, 99, tr("kph"));
 
-    stoppingDistanceToggle->updateControl(6, 10, tr(" meters"));
+    stoppingDistanceToggle->updateControl(5, 10, tr(" meters"));
   } else {
     offset1Toggle->setTitle(tr("Speed Limit Offset (0-34 mph)"));
     offset2Toggle->setTitle(tr("Speed Limit Offset (35-54 mph)"));
@@ -396,7 +397,7 @@ void FrogPilotLongitudinalPanel::updateMetric() {
     offset3Toggle->updateControl(-99, 99, tr("mph"));
     offset4Toggle->updateControl(-99, 99, tr("mph"));
 
-    stoppingDistanceToggle->updateControl(20, 30, tr(" feet"));
+    stoppingDistanceToggle->updateControl(15, 30, tr(" feet"));
   }
 }
 

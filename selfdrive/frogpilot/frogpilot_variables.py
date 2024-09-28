@@ -244,6 +244,8 @@ class FrogPilotVariables:
       toggle.part_model_param = ""
     e2e_longitudinal_models = self.params.get("E2ELongitudinalModels", encoding='utf-8') or ""
     toggle.e2e_longitudinal_model = e2e_longitudinal_models and toggle.model in e2e_longitudinal_models.split(',')
+    gas_brake_models = self.params.get("GasBrakeModels", encoding='utf-8') or ""
+    toggle.gas_brake_model = gas_brake_models and toggle.model in gas_brake_models.split(',')
     navigation_models = self.params.get("NavigationModels", encoding='utf-8') or ""
     toggle.navigationless_model = navigation_models and toggle.model not in navigation_models.split(',')
     radarless_models = self.params.get("RadarlessModels", encoding='utf-8') or ""

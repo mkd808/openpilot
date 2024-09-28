@@ -74,7 +74,7 @@ class ModelManager:
       return []
 
   def update_model_params(self, model_info, repo_url):
-    available_models, available_model_names, e2e_longitudinal_models, experimental_models, navigation_models, poseless_models, radarless_models, velocity_models = [], [], [], [], [], [], [], []
+    available_models, available_model_names, e2e_longitudinal_models, gas_brake_models, experimental_models, navigation_models, poseless_models, radarless_models, velocity_models = [], [], [], [], [], [], [], [], []
 
     for model in model_info:
       available_models.append(model['id'])
@@ -84,6 +84,8 @@ class ModelManager:
         e2e_longitudinal_models.append(model['id'])
       if model.get("experimental", False):
         experimental_models.append(model['id'])
+      if model.get("gas_brake", False):
+        gas_brake_models.append(model['id'])
       if model.get("poseless", False):
         poseless_models.append(model['id'])
       if model.get("velocity", False):
@@ -97,6 +99,7 @@ class ModelManager:
     self.params.put_nonblocking("AvailableModelsNames", ','.join(available_model_names))
     self.params.put_nonblocking("E2ELongitudinalModels", ','.join(e2e_longitudinal_models))
     self.params.put_nonblocking("ExperimentalModels", ','.join(experimental_models))
+    self.params.put_nonblocking("GasBrakeModels", ','.join(gas_brake_models))
     self.params.put_nonblocking("NavigationModels", ','.join(navigation_models))
     self.params.put_nonblocking("PoselessModels", ','.join(poseless_models))
     self.params.put_nonblocking("RadarlessModels", ','.join(radarless_models))

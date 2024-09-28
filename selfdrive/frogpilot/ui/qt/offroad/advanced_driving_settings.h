@@ -25,6 +25,7 @@ private:
   void showToggles(const std::set<QString> &keys);
   void startDownloadAllModels();
   void updateCalibrationDescription();
+  void updateCarToggles();
   void updateMetric();
   void updateModelLabels();
   void updateState(const UIState &s);

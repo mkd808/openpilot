@@ -15,7 +15,6 @@ FrogPilotAdvancedVisualsPanel::FrogPilotAdvancedVisualsPanel(FrogPilotSettingsWi
     {"LongitudinalMetrics", tr("Longitudinal Metrics"), tr("Display metrics related to acceleration, speed, and desired following distance at the top of the screen while driving."), ""},
     {"NumericalTemp", tr("Numerical Temperature Gauge"), tr("Show exact temperature readings instead of general status labels like 'GOOD', 'OK', or 'HIGH' in the sidebar."), ""},
     {"SidebarMetrics", tr("Sidebar"), tr("Display system information like CPU, GPU, RAM usage, IP address, and storage space in the sidebar."), ""},
-    {"ShowStoppingPoint", tr("Stopping Points"), tr("Display an image on the screen where openpilot is detecting a potential red light/stop sign."), ""},
     {"UseSI", tr("Use International System of Units"), tr("Display measurements using the 'International System of Units' (SI)."), ""},
 
     {"ModelUI", tr("Model UI"), tr("Customize the model visualizations on the screen."), "../frogpilot/assets/toggle_icons/icon_advanced_calibration.png"},
@@ -23,6 +22,7 @@ FrogPilotAdvancedVisualsPanel::FrogPilotAdvancedVisualsPanel(FrogPilotSettingsWi
     {"PathEdgeWidth", tr("Path Edges Width"), tr("Adjust the width of the edges of the driving path to represent different modes and statuses.\n\nDefault is 20% of the total path width.\n\nColor Guide:\n- Blue: Navigation\n- Light Blue: 'Always On Lateral'\n- Green: Default\n- Orange: 'Experimental Mode'\n- Red: 'Traffic Mode'\n- Yellow: 'Conditional Experimental Mode' Overridden"), ""},
     {"PathWidth", tr("Path Width"), tr("Set how wide the driving path appears on your screen.\n\nDefault (6.1 feet / 1.9 meters) matches the width of a 2019 Lexus ES 350."), ""},
     {"RoadEdgesWidth", tr("Road Edges Width"), tr("Adjust how thick the road edges appear on the display.\n\nDefault matches half of the MUTCD standard lane line width of 4 inches."), ""},
+    {"ShowStoppingPoint", tr("Stopping Points"), tr("Display an image on the screen where openpilot is detecting a potential red light/stop sign."), ""},
     {"UnlimitedLength", tr("'Unlimited' Road UI"), tr("Extend the display of the path, lane lines, and road edges as far as the model can see."), ""},
   };
 
@@ -43,6 +43,10 @@ FrogPilotAdvancedVisualsPanel::FrogPilotAdvancedVisualsPanel(FrogPilotSettingsWi
       std::vector<QString> hideSpeedToggles{"HideSpeedUI"};
       std::vector<QString> hideSpeedToggleNames{tr("Control Via UI")};
       advancedVisualToggle = new FrogPilotButtonToggleControl(param, title, desc, hideSpeedToggles, hideSpeedToggleNames);
+    } else if (param == "ShowStoppingPoint") {
+      std::vector<QString> stoppingPointToggles{"ShowStoppingPointMetrics"};
+      std::vector<QString> stoppingPointToggleNames{tr("Show Distance")};
+      advancedVisualToggle = new FrogPilotButtonToggleControl(param, title, desc, stoppingPointToggles, stoppingPointToggleNames);
 
     } else if (param == "DeveloperUI") {
       FrogPilotParamManageControl *developerUIToggle = new FrogPilotParamManageControl(param, title, desc, icon);
@@ -100,10 +104,6 @@ FrogPilotAdvancedVisualsPanel::FrogPilotAdvancedVisualsPanel(FrogPilotSettingsWi
         }
       });
       advancedVisualToggle = sidebarMetricsToggle;
-    } else if (param == "ShowStoppingPoint") {
-      std::vector<QString> stoppingPointToggles{"ShowStoppingPointMetrics"};
-      std::vector<QString> stoppingPointToggleNames{tr("Show Distance")};
-      advancedVisualToggle = new FrogPilotButtonToggleControl(param, title, desc, stoppingPointToggles, stoppingPointToggleNames);
 
     } else if (param == "ModelUI") {
       FrogPilotParamManageControl *modelUIToggle = new FrogPilotParamManageControl(param, title, desc, icon);
@@ -143,12 +143,13 @@ FrogPilotAdvancedVisualsPanel::FrogPilotAdvancedVisualsPanel(FrogPilotSettingsWi
   }
 
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotAdvancedVisualsPanel::hideToggles);
+  QObject::connect(parent, &FrogPilotSettingsWindow::updateCarToggles, this, &FrogPilotAdvancedVisualsPanel::updateCarToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::updateMetric, this, &FrogPilotAdvancedVisualsPanel::updateMetric);
 
   updateMetric();
 }
 
-void FrogPilotAdvancedVisualsPanel::showEvent(QShowEvent *event) {
+void FrogPilotAdvancedVisualsPanel::updateCarToggles() {
   disableOpenpilotLongitudinal = parent->disableOpenpilotLongitudinal;
   hasAutoTune = parent->hasAutoTune;
   hasBSM = parent->hasBSM;

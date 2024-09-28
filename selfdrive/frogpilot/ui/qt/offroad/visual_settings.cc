@@ -846,6 +846,7 @@ FrogPilotVisualsPanel::FrogPilotVisualsPanel(FrogPilotSettingsWindow *parent) : 
 
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotVisualsPanel::hideToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::closeSubParentToggle, this, &FrogPilotVisualsPanel::hideSubToggles);
+  QObject::connect(parent, &FrogPilotSettingsWindow::updateCarToggles, this, &FrogPilotVisualsPanel::updateCarToggles);
   QObject::connect(uiState(), &UIState::uiUpdate, this, &FrogPilotVisualsPanel::updateState);
 }
 
@@ -855,7 +856,9 @@ void FrogPilotVisualsPanel::showEvent(QShowEvent *event) {
   signalsDownloaded = params.get("DownloadableSignals").empty();
   soundsDownloaded = params.get("DownloadableSounds").empty();
   wheelsDownloaded = params.get("DownloadableWheels").empty();
+}
 
+void FrogPilotVisualsPanel::updateCarToggles() {
   disableOpenpilotLongitudinal = parent->disableOpenpilotLongitudinal;
   hasOpenpilotLongitudinal = parent->hasOpenpilotLongitudinal;
 

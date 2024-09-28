@@ -11,9 +11,9 @@
 
 #include "selfdrive/ui/qt/widgets/controls.h"
 
-void updateFrogPilotToggles();
-
 QColor loadThemeColors(const QString &colorKey, bool clearCache = false);
+
+void updateFrogPilotToggles();
 
 inline QString processModelName(const QString &modelName) {
   QString modelCleaned = modelName;
@@ -59,59 +59,41 @@ public:
 
 class FrogPilotListWidget : public QWidget {
   Q_OBJECT
-
-public:
-  explicit FrogPilotListWidget(QWidget *parent = nullptr) : QWidget(parent), outer_layout(this), inner_layout() {
+ public:
+  explicit FrogPilotListWidget(QWidget *parent = 0) : QWidget(parent), outer_layout(this) {
     outer_layout.setMargin(0);
     outer_layout.setSpacing(0);
     outer_layout.addLayout(&inner_layout);
-
     inner_layout.setMargin(0);
-    inner_layout.setSpacing(25);  // default spacing is 25
+    inner_layout.setSpacing(25); // default spacing is 25
     outer_layout.addStretch();
   }
-
-  inline void addItem(QWidget *w) {
-    inner_layout.addWidget(w);
-    adjustStretch();
-  }
-
-  inline void addItem(QLayout *layout) {
-    inner_layout.addLayout(layout);
-    adjustStretch();
-  }
-
-  inline void setSpacing(int spacing) {
-    inner_layout.setSpacing(spacing);
-  }
-
-protected:
-  void paintEvent(QPaintEvent *event) {
-    QPainter p(this);
-    p.setPen(Qt::gray);
-
-    std::vector<QRect> visibleRects;
-    for (int i = 0; i < inner_layout.count(); ++i) {
-      QWidget *widget = inner_layout.itemAt(i)->widget();
-      if (widget && widget->isVisible()) {
-        visibleRects.push_back(widget->geometry());
-      }
-    }
-
-    int lineOffset = inner_layout.spacing() / 2;
-    for (size_t i = 0; i + 1 < visibleRects.size(); ++i) {
-      int bottom = visibleRects[i].bottom() + lineOffset;
-      p.drawLine(visibleRects[i].left() + 40, bottom, visibleRects[i].right() - 40, bottom);
-    }
-  }
+  inline void addItem(QWidget *w) { inner_layout.addWidget(w); }
+  inline void addItem(QLayout *layout) { inner_layout.addLayout(layout); }
+  inline void setSpacing(int spacing) { inner_layout.setSpacing(spacing); }
 
 private:
-  void adjustStretch() {
-    if (inner_layout.count() > 3) {
-      outer_layout.addStretch();
+  void paintEvent(QPaintEvent *) override {
+    QPainter p(this);
+    p.setPen(Qt::gray);
+    for (int i = 0; i < inner_layout.count() - 1; ++i) {
+      QWidget *widget = inner_layout.itemAt(i)->widget();
+
+      QWidget *nextWidget = nullptr;
+      for (int j = i + 1; j < inner_layout.count(); ++j) {
+        nextWidget = inner_layout.itemAt(j)->widget();
+        if (nextWidget != nullptr && nextWidget->isVisible()) {
+          break;
+        }
+      }
+
+      if ((widget == nullptr || widget->isVisible()) && nextWidget != nullptr && nextWidget->isVisible()) {
+        QRect r = inner_layout.itemAt(i)->geometry();
+        int bottom = r.bottom() + inner_layout.spacing() / 2;
+        p.drawLine(r.left() + 40, bottom, r.right() - 40, bottom);
+      }
     }
   }
-
   QVBoxLayout outer_layout;
   QVBoxLayout inner_layout;
 };

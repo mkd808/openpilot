@@ -17,7 +17,6 @@ private:
   FrogPilotSettingsWindow *parent;
 
   void hideToggles();
-  void showEvent(QShowEvent *event);
   void showToggles(const std::set<QString> &keys);
   void updateState(const UIState &s);
 

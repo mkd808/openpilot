@@ -142,13 +142,14 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
   }
 
   QObject::connect(parent, &FrogPilotSettingsWindow::closeParentToggle, this, &FrogPilotLateralPanel::hideToggles);
+  QObject::connect(parent, &FrogPilotSettingsWindow::updateCarToggles, this, &FrogPilotLateralPanel::updateCarToggles);
   QObject::connect(parent, &FrogPilotSettingsWindow::updateMetric, this, &FrogPilotLateralPanel::updateMetric);
   QObject::connect(uiState(), &UIState::uiUpdate, this, &FrogPilotLateralPanel::updateState);
 
   updateMetric();
 }
 
-void FrogPilotLateralPanel::showEvent(QShowEvent *event) {
+void FrogPilotLateralPanel::updateCarToggles() {
   hasAutoTune = parent->hasAutoTune;
   hasNNFFLog = parent->hasNNFFLog;
   isSubaru = parent->isSubaru;
