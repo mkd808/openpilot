@@ -46,7 +46,7 @@ private:
   std::set<QString> longitudinalTuneKeys = {"LeadDetectionThreshold", "MaxDesiredAcceleration"};
   std::set<QString> modelManagementKeys = {"AutomaticallyUpdateModels", "DeleteModel", "DownloadModel", "DownloadAllModels", "ModelRandomizer", "ResetCalibrations", "SelectModel"};
   std::set<QString> modelRandomizerKeys = {"ManageBlacklistedModels", "ResetScores", "ReviewScores"};
-  std::set<QString> qolKeys = {"ForceStandstill", "SetSpeedOffset"};
+  std::set<QString> qolKeys = {"ForceStandstill", "ForceStops", "SetSpeedOffset"};
   std::set<QString> relaxedPersonalityKeys = {"RelaxedFollow", "RelaxedJerkAcceleration", "RelaxedJerkDanger", "RelaxedJerkSpeed", "ResetRelaxedPersonality"};
   std::set<QString> standardPersonalityKeys = {"StandardFollow", "StandardJerkAcceleration", "StandardJerkDanger", "StandardJerkSpeed", "ResetStandardPersonality"};
   std::set<QString> trafficPersonalityKeys = {"TrafficFollow", "TrafficJerkAcceleration", "TrafficJerkDanger", "TrafficJerkSpeed", "ResetTrafficPersonality"};

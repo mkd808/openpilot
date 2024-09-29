@@ -2,10 +2,6 @@
 
 #include <cmath>
 
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QJsonParseError>
-#include <QObject>
 #include <QRegularExpression>
 #include <QTimer>
 
@@ -18,11 +14,9 @@ void updateFrogPilotToggles();
 inline QString processModelName(const QString &modelName) {
   QString modelCleaned = modelName;
   modelCleaned = modelCleaned.remove(QRegularExpression("[🗺️👀📡]")).simplified();
-
-  QString scoreParam = modelCleaned;
-  scoreParam = scoreParam.remove(QRegularExpression("[^a-zA-Z0-9()-]"));
-  scoreParam = scoreParam.replace(" ", "").replace("(Default)", "").replace("-", "");
-  return scoreParam;
+  modelCleaned = modelCleaned.remove(QRegularExpression("[^a-zA-Z0-9()-]"));
+  modelCleaned = modelCleaned.replace(" ", "").replace("(Default)", "").replace("-", "");
+  return modelCleaned;
 }
 
 const QString buttonStyle = R"(
@@ -166,6 +160,7 @@ public:
   : ParamControl(param, title, desc, "", parent),
   key(param.toStdString()), buttonParams(buttonParams), buttonGroup(new QButtonGroup(this)) {
     buttonGroup->setExclusive(exclusive);
+
     for (int i = 0; i < buttonLabels.size(); ++i) {
       QPushButton *button = new QPushButton(buttonLabels[i], this);
       button->setCheckable(true);
@@ -175,12 +170,7 @@ public:
       buttonGroup->addButton(button, i);
     }
 
-    int toggleIndex = hlayout->indexOf(&toggle);
-    if (toggleIndex > 0) {
-      for (int i = 0; i < buttonGroup->buttons().size(); ++i) {
-        hlayout->insertWidget(toggleIndex - 1, buttonGroup->button(i));
-      }
-    }
+    hlayout->addWidget(&toggle);
 
     QObject::connect(buttonGroup, QOverload<int>::of(&QButtonGroup::buttonClicked), [=](int id) {
       bool checked = buttonGroup->button(id)->isChecked();
@@ -246,8 +236,15 @@ public:
     QObject::connect(this, &ToggleControl::toggleFlipped, this, &FrogPilotParamManageControl::refresh);
   }
 
+  void setEnabled(bool enabled) {
+    manageButton->setEnabled(enabled && params.getBool(key));
+
+    toggle.setEnabled(enabled);
+    toggle.update();
+  }
+
   void refresh() {
-    manageButton->setEnabled(this->isEnabled() && params.getBool(key));
+    manageButton->setEnabled(params.getBool(key));
   }
 
 signals:
@@ -332,7 +329,7 @@ private slots:
 
   void onButtonReleased() {
     if (instantUpdate) {
-      params.putFloat(key, value);
+      params.putFloatNonBlocking(key, value);
     }
 
     float lastValue = value;
@@ -436,7 +433,8 @@ public:
                                    const bool checkable = true, const int minimumButtonWidth = 225)
     : FrogPilotParamValueControl(param, title, desc, icon, minValue, maxValue, label, valueLabels, interval, true),
       buttonParams(buttonParams),
-      buttonGroup(new QButtonGroup(this)) {
+      buttonGroup(new QButtonGroup(this)),
+      checkable(checkable) {
 
     buttonGroup->setExclusive(false);
 
@@ -451,8 +449,10 @@ public:
     }
 
     QObject::connect(buttonGroup, QOverload<int>::of(&QButtonGroup::buttonClicked), [=](int id) {
-      bool checked = buttonGroup->button(id)->isChecked();
-      params.putBool(buttonParams[id].toStdString(), checked);
+      if (checkable) {
+        bool checked = buttonGroup->button(id)->isChecked();
+        params.putBool(buttonParams[id].toStdString(), checked);
+      }
       emit buttonClicked(id);
     });
 
@@ -460,13 +460,16 @@ public:
   }
 
   void refresh() {
-    const QList<QAbstractButton *> buttons = buttonGroup->buttons();
-    for (int i = 0; i < buttons.size(); ++i) {
-      QAbstractButton *button = buttons[i];
-      if (button) {
-        button->setChecked(params.getBool(buttonParams[i].toStdString()));
+    if (checkable) {
+      const QList<QAbstractButton *> buttons = buttonGroup->buttons();
+      for (int i = 0; i < buttons.size(); ++i) {
+        QAbstractButton *button = buttons[i];
+        if (button) {
+          button->setChecked(params.getBool(buttonParams[i].toStdString()));
+        }
       }
     }
+    FrogPilotParamValueControl::refresh();
   }
 
 signals:
@@ -482,6 +485,8 @@ private:
   Params params;
 
   QButtonGroup *buttonGroup;
+
+  bool checkable;
 
   std::vector<QString> buttonParams;
 };

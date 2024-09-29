@@ -10,6 +10,7 @@
 #include "selfdrive/frogpilot/ui/qt/offroad/lateral_settings.h"
 #include "selfdrive/frogpilot/ui/qt/offroad/longitudinal_settings.h"
 #include "selfdrive/frogpilot/ui/qt/offroad/sounds_settings.h"
+#include "selfdrive/frogpilot/ui/qt/offroad/theme_settings.h"
 #include "selfdrive/frogpilot/ui/qt/offroad/utilities.h"
 #include "selfdrive/frogpilot/ui/qt/offroad/vehicle_settings.h"
 #include "selfdrive/frogpilot/ui/qt/offroad/visual_settings.h"
@@ -61,47 +62,49 @@ FrogPilotSettingsWindow::FrogPilotSettingsWindow(SettingsWindow *parent) : QFram
   FrogPilotSoundsPanel *frogpilotSoundsPanel = new FrogPilotSoundsPanel(this);
   QObject::connect(frogpilotSoundsPanel, &FrogPilotSoundsPanel::openParentToggle, this, &FrogPilotSettingsWindow::openParentToggle);
 
+  FrogPilotThemesPanel *frogpilotThemesPanel = new FrogPilotThemesPanel(this);
+  QObject::connect(frogpilotThemesPanel, &FrogPilotThemesPanel::openParentToggle, this, &FrogPilotSettingsWindow::openParentToggle);
+
   FrogPilotVisualsPanel *frogpilotVisualsPanel = new FrogPilotVisualsPanel(this);
   QObject::connect(frogpilotVisualsPanel, &FrogPilotVisualsPanel::openParentToggle, this, &FrogPilotSettingsWindow::openParentToggle);
-  QObject::connect(frogpilotVisualsPanel, &FrogPilotVisualsPanel::openSubParentToggle, this, &FrogPilotSettingsWindow::openSubParentToggle);
 
   std::vector<std::pair<QString, std::vector<QWidget*>>> panels = {
     {tr("Advanced Settings"), {frogpilotAdvancedDrivingPanel, frogpilotAdvancedVisualsPanel}},
     {tr("Alerts and Sounds"), {frogpilotSoundsPanel}},
-    {tr("Display Settings"), {frogpilotVisualsPanel}},
     {tr("Driving Controls"), {frogpilotLongitudinalPanel, frogpilotLateralPanel}},
     {tr("Navigation"), {new FrogPilotNavigationPanel(this)}},
     {tr("System Management"), {new FrogPilotDataPanel(this), frogpilotDevicePanel, new UtilitiesPanel(this)}},
+    {tr("Theme and Appearance"), {frogpilotVisualsPanel, frogpilotThemesPanel}},
     {tr("Vehicle Controls"), {new FrogPilotVehiclesPanel(this)}}
   };
 
   std::vector<QString> icons = {
     "../frogpilot/assets/toggle_icons/icon_advanced.png",
     "../frogpilot/assets/toggle_icons/icon_sound.png",
-    "../frogpilot/assets/toggle_icons/icon_screen.png",
     "../frogpilot/assets/toggle_icons/icon_steering.png",
     "../frogpilot/assets/toggle_icons/icon_map.png",
     "../frogpilot/assets/toggle_icons/icon_system.png",
+    "../frogpilot/assets/toggle_icons/icon_display.png",
     "../frogpilot/assets/toggle_icons/icon_vehicle.png",
   };
 
   std::vector<QString> descriptions = {
-    tr("Advanced FrogPilot features for experienced users."),
+    tr("Advanced FrogPilot features for more experienced users."),
     tr("Control FrogPilot's sounds and alerts."),
-    tr("Modify the appearance of FrogPilot."),
     tr("Control how FrogPilot handles your vehicle's acceleration, braking, and steering."),
     tr("Download offline maps and manage 'Navigate On openpilot (NOO)' settings."),
     tr("Tools and system utilities for maintaining and troubleshooting FrogPilot."),
+    tr("Customize the theme in FrogPilot and enable some unique onroad UI widgets."),
     tr("Configure settings specific to your vehicle's make and model.")
   };
 
   std::vector<std::vector<QString>> buttonLabels = {
     {tr("DRIVING"), tr("VISUALS")},
     {tr("MANAGE")},
-    {tr("MANAGE")},
     {tr("GAS / BRAKE"), tr("STEERING")},
     {tr("MANAGE")},
     {tr("DATA"), tr("DEVICE"), tr("UTILITIES")},
+    {tr("APPEARANCE"), tr("THEME")},
     {tr("MANAGE")}
   };
 

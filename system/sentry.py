@@ -103,7 +103,7 @@ def capture_fingerprint(candidate, params, blocked=False):
 def capture_tmux(process, params) -> None:
   updated = params.get("Updated", encoding='utf-8')
 
-  result = subprocess.run(['tmux', 'capture-pane', '-p', '-S', '-500'], stdout=subprocess.PIPE)
+  result = subprocess.run(['tmux', 'capture-pane', '-p', '-S', '-50'], stdout=subprocess.PIPE)
   lines = result.stdout.decode('utf-8').splitlines()
 
   if lines:

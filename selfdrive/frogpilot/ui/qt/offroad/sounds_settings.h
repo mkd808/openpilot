@@ -21,7 +21,7 @@ private:
   void updateCarToggles();
 
   std::set<QString> alertVolumeControlKeys = {"DisengageVolume", "EngageVolume", "PromptDistractedVolume", "PromptVolume", "RefuseVolume", "WarningImmediateVolume", "WarningSoftVolume"};
-  std::set<QString> customAlertsKeys = {"GreenLightAlert", "LeadDepartingAlert", "LoudBlindspotAlert"};
+  std::set<QString> customAlertsKeys = {"GoatScream", "GreenLightAlert", "LeadDepartingAlert", "LoudBlindspotAlert"};
 
   std::map<QString, AbstractControl*> toggles;
 

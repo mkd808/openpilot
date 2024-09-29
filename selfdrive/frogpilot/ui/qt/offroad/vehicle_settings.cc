@@ -160,7 +160,8 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
       vehicleToggle = new FrogPilotButtonToggleControl(param, title, desc, lockToggles, lockToggleNames);
 
     } else if (param == "ClusterOffset") {
-      vehicleToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1.000, 1.050, "x", std::map<int, QString>(), 0.001);
+      std::vector<QString> clusterOffsetToggleNames{"Reset"};
+      vehicleToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, 1.000, 1.050, "x", std::map<int, QString>(), 0.001, {}, clusterOffsetToggleNames, false);
 
     } else {
       vehicleToggle = new ParamControl(param, title, desc, icon);
@@ -176,6 +177,13 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
       update();
     });
   }
+
+  FrogPilotParamValueButtonControl *clusterOffsetToggle = static_cast<FrogPilotParamValueButtonControl*>(toggles["ClusterOffset"]);
+  QObject::connect(clusterOffsetToggle, &FrogPilotParamValueButtonControl::buttonClicked, [=]() {
+    params.putFloat("ClusterOffset", 1.015);
+    clusterOffsetToggle->refresh();
+    updateFrogPilotToggles();
+  });
 
   std::set<QString> rebootKeys = {"CrosstrekTorque"};
   for (const QString &key : rebootKeys) {

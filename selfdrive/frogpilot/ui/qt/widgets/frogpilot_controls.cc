@@ -1,3 +1,7 @@
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
+
 #include "selfdrive/ui/ui.h"
 
 void updateFrogPilotToggles() {

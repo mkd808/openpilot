@@ -171,10 +171,9 @@ class ThemeManager:
     if not os.path.exists(THEME_SAVE_PATH):
       return
 
-    bonus_content = self.params.get_bool("BonusContent")
-    holiday_themes = bonus_content and self.params.get_bool("HolidayThemes")
+    holiday_themes = self.params.get_bool("HolidayThemes")
     current_holiday_theme = self.previous_assets.get("holiday_theme") if holiday_themes else None
-    personalize_openpilot = bonus_content and self.params.get_bool("PersonalizeOpenpilot")
+    personalize_openpilot = self.params.get_bool("PersonalizeOpenpilot")
 
     default_value = "stock"
     asset_mappings = {

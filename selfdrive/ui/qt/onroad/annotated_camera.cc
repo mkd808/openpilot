@@ -439,7 +439,7 @@ void AnnotatedCameraWidget::drawLaneLines(QPainter &painter, const UIState *s) {
   }
 
   // Paint adjacent lane paths
-  if (scene.adjacent_path && (laneWidthLeft != 0 || laneWidthRight != 0)) {
+  if ((scene.adjacent_path || scene.adjacent_path_metrics) && (laneWidthLeft != 0 || laneWidthRight != 0)) {
     const float minLaneWidth = laneDetectionWidth * 0.5f;
     const float maxLaneWidth = laneDetectionWidth * 1.5f;
 

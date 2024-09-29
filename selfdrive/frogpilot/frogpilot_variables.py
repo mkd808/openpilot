@@ -99,6 +99,7 @@ class FrogPilotVariables:
     toggle.force_auto_tune = advanced_quality_of_life_driving and self.params.get_bool("ForceAutoTune")
     toggle.force_auto_tune_off = advanced_quality_of_life_driving and self.params.get_bool("ForceAutoTuneOff")
     toggle.force_standstill = advanced_quality_of_life_driving and self.params.get_bool("ForceStandstill")
+    toggle.force_stops = advanced_quality_of_life_driving and self.params.get_bool("ForceStops")
     toggle.set_speed_offset = self.params.get_int("SetSpeedOffset") * (1. if toggle.is_metric else CV.MPH_TO_KPH) if advanced_quality_of_life_driving and not pcm_cruise else 0
 
     toggle.alert_volume_control = self.params.get_bool("AlertVolumeControl")
@@ -116,15 +117,6 @@ class FrogPilotVariables:
     toggle.always_on_lateral_pause_speed = self.params.get_int("PauseAOLOnBrake") if toggle.always_on_lateral else 0
 
     toggle.automatic_updates = self.params.get_bool("AutomaticUpdates")
-
-    bonus_content = self.params.get_bool("BonusContent")
-    toggle.goat_scream = bonus_content and self.params.get_bool("GoatScream")
-    holiday_themes = bonus_content and self.params.get_bool("HolidayThemes")
-    toggle.current_holiday_theme = self.params.get("CurrentHolidayTheme", encoding='utf-8') if holiday_themes else None
-    toggle.personalize_openpilot = bonus_content and self.params.get_bool("PersonalizeOpenpilot")
-    toggle.sound_pack = self.params.get("CustomSignals", encoding='utf-8') if toggle.personalize_openpilot else "stock"
-    toggle.wheel_image = self.params.get("WheelIcon", encoding='utf-8') if toggle.personalize_openpilot else "stock"
-    toggle.random_events = bonus_content and self.params.get_bool("RandomEvents")
 
     toggle.cluster_offset = self.params.get_float("ClusterOffset") if car_make == "toyota" else 1
 
@@ -154,6 +146,7 @@ class FrogPilotVariables:
     toggle.turn_aggressiveness = self.params.get_int("TurnAggressiveness") / 100. if toggle.vision_turn_controller else 1
 
     custom_alerts = self.params.get_bool("CustomAlerts")
+    toggle.goat_scream = custom_alerts and self.params.get_bool("GoatScream")
     toggle.green_light_alert = custom_alerts and self.params.get_bool("GreenLightAlert")
     toggle.lead_departing_alert = custom_alerts and self.params.get_bool("LeadDepartingAlert")
     toggle.loud_blindspot_alert = custom_alerts and self.params.get_bool("LoudBlindspotAlert")
@@ -162,6 +155,10 @@ class FrogPilotVariables:
     custom_paths = custom_ui and self.params.get_bool("CustomPaths")
     toggle.adjacent_lanes = custom_paths and self.params.get_bool("AdjacentPath")
     toggle.blind_spot_path = custom_paths and self.params.get_bool("BlindSpotPath")
+
+    developer_ui = self.params.get_bool("DeveloperUI")
+    show_lateral = developer_ui and self.params.get_bool("LateralMetrics")
+    toggle.adjacent_path_metrics = show_lateral and self.params.get_bool("AdjacentPathMetrics")
 
     toggle.device_management = self.params.get_bool("DeviceManagement")
     device_shutdown_setting = self.params.get_int("DeviceShutdown") if toggle.device_management else 33
@@ -198,6 +195,9 @@ class FrogPilotVariables:
     toggle.experimental_mode_via_press = toggle.openpilot_longitudinal and self.params.get_bool("ExperimentalModeActivation")
     toggle.experimental_mode_via_distance = toggle.experimental_mode_via_press and self.params.get_bool("ExperimentalModeViaDistance")
     toggle.experimental_mode_via_lkas = not toggle.always_on_lateral_lkas and toggle.experimental_mode_via_press and car_make != "subaru" and self.params.get_bool("ExperimentalModeViaLKAS")
+
+    holiday_themes = self.params.get_bool("HolidayThemes")
+    toggle.current_holiday_theme = self.params.get("CurrentHolidayTheme", encoding='utf-8') if holiday_themes else None
 
     lane_change_customizations = self.params.get_bool("LaneChangeCustomizations")
     toggle.lane_change_delay = self.params.get_int("LaneChangeTime") if lane_change_customizations else 0
@@ -256,16 +256,21 @@ class FrogPilotVariables:
     velocity_models = self.params.get("VelocityModels", encoding='utf-8') or ""
     toggle.velocity_model = velocity_models and toggle.model in velocity_models.split(',')
 
+    toggle.personalize_openpilot = self.params.get_bool("PersonalizeOpenpilot")
+    toggle.sound_pack = self.params.get("CustomSignals", encoding='utf-8') if toggle.personalize_openpilot else "stock"
+    toggle.wheel_image = self.params.get("WheelIcon", encoding='utf-8') if toggle.personalize_openpilot else "stock"
+
     quality_of_life_controls = self.params.get_bool("QOLControls")
     toggle.custom_cruise_increase = self.params.get_int("CustomCruise") if quality_of_life_controls and not pcm_cruise else 1
     toggle.custom_cruise_increase_long = self.params.get_int("CustomCruiseLong") if quality_of_life_controls and not pcm_cruise else 5
-    toggle.force_stops = toggle.force_standstill and self.params.get_bool("ForceStops")
     map_gears = quality_of_life_controls and self.params.get_bool("MapGears")
     toggle.map_acceleration = map_gears and self.params.get_bool("MapAcceleration")
     toggle.map_deceleration = map_gears and self.params.get_bool("MapDeceleration")
     toggle.pause_lateral_below_speed = self.params.get_int("PauseLateralSpeed") * speed_conversion if quality_of_life_controls else 0
     toggle.pause_lateral_below_signal = toggle.pause_lateral_below_speed != 0 and self.params.get_bool("PauseLateralOnSignal")
     toggle.reverse_cruise_increase = quality_of_life_controls and pcm_cruise and self.params.get_bool("ReverseCruise")
+
+    toggle.random_events = self.params.get_bool("RandomEvents")
 
     toggle.sng_hack = toggle.openpilot_longitudinal and car_make == "toyota" and self.params.get_bool("SNGHack")
 

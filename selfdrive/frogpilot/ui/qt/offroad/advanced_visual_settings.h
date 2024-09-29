@@ -23,7 +23,7 @@ private:
 
   FrogPilotButtonToggleControl *borderMetricsBtn;
 
-  std::set<QString> advancedCustomOnroadUIKeys = {"CameraView", "HideLeadMarker", "HideSpeed", "ShowStoppingPoint", "WheelSpeed"};
+  std::set<QString> advancedCustomOnroadUIKeys = {"CameraView", "HideLeadMarker", "HideSpeed", "HideUIElements", "ShowStoppingPoint", "WheelSpeed"};
   std::set<QString> developerUIKeys = {"BorderMetrics", "FPSCounter", "LateralMetrics", "LongitudinalMetrics", "NumericalTemp", "SidebarMetrics", "UseSI"};
   std::set<QString> modelUIKeys = {"LaneLinesWidth", "PathEdgeWidth", "PathWidth", "RoadEdgesWidth", "UnlimitedLength"};
 
