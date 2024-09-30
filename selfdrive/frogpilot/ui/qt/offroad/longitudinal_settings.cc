@@ -30,10 +30,11 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
     {"HumanFollowing", tr("Human-Like Following Distance"), tr("Tweaks the following distance dynamically to be more 'human-like' when coming up behind slower/stopped leads or following faster leads."), ""},
     {"StoppingDistance", tr("Stopped Distance From Lead"), tr("Control the stopped distance behind lead vehicles."), ""},
 
-    {"QOLControls", tr("Quality of Life"), tr("Miscellaneous quality of life changes to improve your overall openpilot experience."), "../frogpilot/assets/toggle_icons/quality_of_life.png"},
+    {"QOLLongitudinal", tr("Quality of Life"), tr("Miscellaneous quality of life changes to improve your overall openpilot experience."), "../frogpilot/assets/toggle_icons/quality_of_life.png"},
     {"CustomCruise", tr("Cruise Increase Interval"), tr("Set a custom interval to increase the max set speed by."), ""},
     {"CustomCruiseLong", tr("Cruise Increase Interval (Long Press)"), tr("Set a custom interval to increase the max set speed by when holding down the cruise increase button."), ""},
     {"MapGears", tr("Map Accel/Decel To Gears"), tr("Map your acceleration/deceleration profile to your 'Eco' and/or 'Sport' gears."), ""},
+    {"OnroadDistanceButton", tr("Onroad Personality Button"), tr("Displays the current driving personality on the onroad screen. Tap to switch between personalities, or long press for 2.5 seconds to activate 'Traffic Mode'."), ""},
     {"ReverseCruise", tr("Reverse Cruise Increase"), tr("Reverses the 'long press' functionality logic to increase the max set speed by 5 instead of 1. Useful to increase the max speed quickly."), ""},
 
     {"SpeedLimitController", tr("Speed Limit Controller"), tr("Automatically adjust the max speed to match the current speed limit using 'Open Street Maps', 'Navigate On openpilot', or your car's dashboard (Toyotas/Lexus/HKG only)."), "../assets/offroad/icon_speed_limit.png"},
@@ -147,9 +148,9 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
     } else if (param == "StoppingDistance") {
       longitudinalToggle = new FrogPilotParamValueControl(param, title, desc, icon, 15, 30, tr(" feet"));
 
-    } else if (param == "QOLControls") {
-      FrogPilotParamManageControl *qolToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(qolToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
+    } else if (param == "QOLLongitudinal") {
+      FrogPilotParamManageControl *qolLongitudinalToggle = new FrogPilotParamManageControl(param, title, desc, icon);
+      QObject::connect(qolLongitudinalToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
         std::set<QString> modifiedQolKeys = qolKeys;
 
         if (!hasPCMCruise) {
@@ -165,7 +166,7 @@ FrogPilotLongitudinalPanel::FrogPilotLongitudinalPanel(FrogPilotSettingsWindow *
 
         showToggles(modifiedQolKeys);
       });
-      longitudinalToggle = qolToggle;
+      longitudinalToggle = qolLongitudinalToggle;
     } else if (param == "CustomCruise") {
       longitudinalToggle = new FrogPilotParamValueControl(param, title, desc, icon, 1, 99, tr("mph"));
     } else if (param == "CustomCruiseLong") {

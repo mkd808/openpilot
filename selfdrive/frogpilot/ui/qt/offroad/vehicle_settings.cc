@@ -148,6 +148,7 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
 
     {"ToyotaDoors", tr("Automatically Lock/Unlock Doors"), tr("Automatically lock the doors when in drive and unlock when in park."), ""},
     {"ClusterOffset", tr("Cluster Offset"), tr("Set the cluster offset openpilot uses to try and match the speed displayed on the dash."), ""},
+    {"NewToyotaTune", tr("comma's New Toyota Tune"), tr("Activate Comma's latest Toyota tuning, expertly crafted by Shane for enhanced vehicle performance."), ""},
     {"SNGHack", tr("Stop and Go Hack"), tr("Enable the 'Stop and Go' hack for vehicles without stock stop and go functionality."), ""},
   };
 
@@ -158,10 +159,13 @@ FrogPilotVehiclesPanel::FrogPilotVehiclesPanel(FrogPilotSettingsWindow *parent) 
       std::vector<QString> lockToggles{"LockDoors", "UnlockDoors"};
       std::vector<QString> lockToggleNames{tr("Lock"), tr("Unlock")};
       vehicleToggle = new FrogPilotButtonToggleControl(param, title, desc, lockToggles, lockToggleNames);
-
     } else if (param == "ClusterOffset") {
       std::vector<QString> clusterOffsetToggleNames{"Reset"};
       vehicleToggle = new FrogPilotParamValueButtonControl(param, title, desc, icon, 1.000, 1.050, "x", std::map<int, QString>(), 0.001, {}, clusterOffsetToggleNames, false);
+    } else if (param == "NewToyotaTune") {
+      std::vector<QString> toyotaTuneToggles{"FrogsGoMoosTweak"};
+      std::vector<QString> toyotaTuneToggleNames{tr("FrogsGoMoo's Personal Tweaks")};
+      vehicleToggle = new FrogPilotButtonToggleControl(param, title, desc, toyotaTuneToggles, toyotaTuneToggleNames);
 
     } else {
       vehicleToggle = new ParamControl(param, title, desc, icon);

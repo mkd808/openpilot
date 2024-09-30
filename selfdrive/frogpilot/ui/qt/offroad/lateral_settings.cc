@@ -19,7 +19,7 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
     {"NNFF", tr("NNFF"), tr("Use Twilsonco's Neural Network Feedforward for enhanced precision in lateral control."), ""},
     {"NNFFLite", tr("Smoother Entry and Exit for Curves"), tr("Uses Twilsonco's steering torque tweak to provide smoother handling when entering and exiting curves."), ""},
 
-    {"QOLControls", tr("Quality of Life"), tr("Miscellaneous quality of life changes to improve your overall openpilot experience."), "../frogpilot/assets/toggle_icons/quality_of_life.png"},
+    {"QOLLateral", tr("Quality of Life"), tr("Miscellaneous quality of life changes to improve your overall openpilot experience."), "../frogpilot/assets/toggle_icons/quality_of_life.png"},
     {"PauseLateralSpeed", tr("Pause Lateral Below"), tr("Pause lateral control on all speeds below the set speed."), ""},
   };
 
@@ -57,12 +57,12 @@ FrogPilotLateralPanel::FrogPilotLateralPanel(FrogPilotSettingsWindow *parent) : 
       });
       lateralToggle = lateralTuneToggle;
 
-    } else if (param == "QOLControls") {
-      FrogPilotParamManageControl *qolToggle = new FrogPilotParamManageControl(param, title, desc, icon);
-      QObject::connect(qolToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
+    } else if (param == "QOLLateral") {
+      FrogPilotParamManageControl *qolLateralToggle = new FrogPilotParamManageControl(param, title, desc, icon);
+      QObject::connect(qolLateralToggle, &FrogPilotParamManageControl::manageButtonClicked, [this]() {
         showToggles(qolKeys);
       });
-      lateralToggle = qolToggle;
+      lateralToggle = qolLateralToggle;
     } else if (param == "PauseLateralSpeed") {
       std::vector<QString> pauseLateralToggles{"PauseLateralOnSignal"};
       std::vector<QString> pauseLateralToggleNames{"Turn Signal Only"};

@@ -60,7 +60,7 @@ class CarInterface(CarInterfaceBase):
     ret.enableDsu = len(found_ecus) > 0 and Ecu.dsu not in found_ecus and candidate not in (NO_DSU_CAR | UNSUPPORTED_DSU_CAR) \
                                         and not (ret.flags & ToyotaFlags.SMART_DSU)
 
-    if candidate == CAR.LEXUS_ES_TSS2 and Ecu.hybrid not in found_ecus:
+    if candidate == CAR.LEXUS_ES_TSS2 and Ecu.hybrid not in found_ecus or params.get_bool("NewToyotaTune"):
       ret.flags |= ToyotaFlags.RAISED_ACCEL_LIMIT.value
 
     if candidate == CAR.TOYOTA_PRIUS:
@@ -142,7 +142,7 @@ class CarInterface(CarInterfaceBase):
       tune.kiV = [0.5]
       ret.vEgoStopping = 0.25
       ret.vEgoStarting = 0.25
-      ret.stoppingDecelRate = 0.1  # reach stopping target smoothly
+      ret.stoppingDecelRate = 0.3  # reach stopping target smoothly
 
       # Since we compensate for imprecise acceleration in carcontroller, we can be less aggressive with tuning
       # This also prevents unnecessary request windup due to internal car jerk limits
@@ -151,6 +151,11 @@ class CarInterface(CarInterfaceBase):
     else:
       tune.kiBP = [0., 5., 35.]
       tune.kiV = [3.6, 2.4, 1.5]
+
+    if params.get_bool("FrogsGoMoosTweak"):
+      ret.vEgoStopping = 0.15
+      ret.vEgoStarting = 0.15
+      ret.stoppingDecelRate = 0.1  # reach stopping target smoothly
 
     return ret
 

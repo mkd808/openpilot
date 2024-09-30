@@ -21,33 +21,41 @@ FrogPilotAdvancedDrivingPanel::FrogPilotAdvancedDrivingPanel(FrogPilotSettingsWi
     {"ForceStops", tr("Force Stop For Detected Stop Lights/Signs"), tr("Whenever openpilot 'detects' a potential stop light/stop sign, force a stop where it originally detected it to prevent running the potential red light/stop sign."), ""},
     {"SetSpeedOffset", tr("Set Speed Offset"), tr("Adjust how much higher or lower the set speed should be compared to your current set speed. For example, if you prefer to drive 5 mph above the speed limit, this setting will automatically add that difference when you engage cruise control."), ""},
 
-    {"CustomPersonalities", tr("Customize Driving Personalities"), tr("Customize the driving personality profiles."), "../frogpilot/assets/toggle_icons/icon_advanced_personality.png"},
-    {"TrafficPersonalityProfile", tr("Traffic Personality"), tr("Customize the 'Traffic' personality profile."), "../frogpilot/assets/stock_theme/distance_icons/traffic.png"},
-    {"TrafficFollow", tr("Following Distance"), tr("Set the minimum following distance in 'Traffic Mode'. The distance adjusts dynamically between this value and the 'Aggressive' profile's distance based on your speed."), ""},
-    {"TrafficJerkAcceleration", tr("Acceleration Change Sensitivity"), tr("Controls the penalty applied for changes in acceleration while in 'Traffic Mode'. Higher values make acceleration and deceleration smoother but slower, while lower values allow quicker changes but may feel jerky."), ""},
-    {"TrafficJerkDanger", tr("Hazard Sensitivity"), tr("Adjusts the penalty for getting too close to other vehicles or obstacles while in 'Traffic Mode'. Higher values make openpilot more cautious, maintaining a safer distance and prioritizing safety, while lower values reduce the likelihood of sudden braking but increase the risk of following too closely."), ""},
-    {"TrafficJerkSpeed", tr("Speed Change Smoothness"), tr("Controls the penalty on the rate of change of acceleration while in 'Traffic Mode'. Higher values result in smoother but slower speed changes, while lower values make speed adjustments quicker but potentially more abrupt."), ""},
+    {"CustomPersonalities", tr("Customize Driving Personalities"), tr("Create and customize your own driving personality profiles to suit your preferences."), "../frogpilot/assets/toggle_icons/icon_advanced_personality.png"},
+    {"TrafficPersonalityProfile", tr("Traffic Personality"), tr("Customize the 'Traffic' personality profile, tailored for navigating through traffic."), "../frogpilot/assets/stock_theme/distance_icons/traffic.png"},
+    {"TrafficFollow", tr("Following Distance"), tr("Set the minimum following distance in 'Traffic Mode.' The system will adjust dynamically between this value and the 'Aggressive' profile distance based on your speed."), ""},
+    {"TrafficJerkAcceleration", tr("Acceleration Sensitivity"), tr("Sets how sensitive the system is to changes in acceleration in 'Traffic Mode.' Higher values result in smoother, more gradual acceleration and deceleration, while lower values allow for faster changes that may feel more abrupt."), ""},
+    {"TrafficJerkDeceleration", tr("Deceleration Sensitivity"), tr("Controls how sensitive the system is to changes in deceleration in 'Traffic Mode.' Higher values result in smoother, more gradual braking, while lower values allow for quicker, more responsive braking that may feel abrupt."), ""},
+    {"TrafficJerkDanger", tr("Safety Distance Sensitivity"), tr("Adjusts how cautious the system is around other vehicles or obstacles in 'Traffic Mode.' Higher values increase following distances and prioritize safety, leading to more cautious driving, while lower values allow for closer following but may reduce reaction time."), ""},
+    {"TrafficJerkSpeed", tr("Speed Increase Responsiveness"), tr("Controls how quickly the system adjusts speed in 'Traffic Mode.' Higher values ensure smoother, more gradual speed changes, while lower values enable quicker adjustments that might feel sharper or less smooth."), ""},
+    {"TrafficJerkSpeedDecrease", tr("Speed Decrease Responsiveness"), tr("Sets how quickly the system adjusts to decreasing speeds in 'Traffic Mode.' Higher values ensure smoother transitions when slowing down, while lower values allow for quicker, more responsive speed reductions that might feel sharper."), ""},
     {"ResetTrafficPersonality", tr("Reset Settings"), tr("Restore the 'Traffic Mode' settings to their default values."), ""},
 
-    {"AggressivePersonalityProfile", tr("Aggressive Personality"), tr("Customize the 'Aggressive' personality profile."), "../frogpilot/assets/stock_theme/distance_icons/aggressive.png"},
-    {"AggressiveFollow", tr("Following Distance"), tr("Set the following distance for 'Aggressive' mode. This represents how many seconds you follow behind the car ahead.\n\nDefault: 1.25 seconds."), ""},
-    {"AggressiveJerkAcceleration", tr("Acceleration Change Sensitivity"), tr("Controls the penalty applied for changes in acceleration while using the 'Aggressive' profile personality. Higher values make acceleration and deceleration smoother but slower, while lower values allow quicker changes but may feel jerky.\n\nDefault: 0.5."), ""},
-    {"AggressiveJerkDanger", tr("Hazard Sensitivity"), tr("Adjusts the penalty for getting too close to other vehicles or obstacles while using the 'Aggressive' personality profile. Higher values make openpilot more cautious, maintaining a safer distance and prioritizing safety, while lower values reduce the likelihood of sudden braking but increase the risk of following too closely.\n\nDefault: 1.0."), ""},
-    {"AggressiveJerkSpeed", tr("Speed Change Smoothness"), tr("Controls the penalty on the rate of change of acceleration while using the 'Standard' personality profile. Higher values result in smoother but slower speed changes, while lower values make speed adjustments quicker but potentially more abrupt.\n\nDefault: 0.5."), ""},
+    {"AggressivePersonalityProfile", tr("Aggressive Personality"), tr("Customize the 'Aggressive' personality profile, designed for a more assertive driving style."), "../frogpilot/assets/stock_theme/distance_icons/aggressive.png"},
+    {"AggressiveFollow", tr("Following Distance"), tr("Set the following distance for 'Aggressive' mode. This determines how many seconds you'll follow behind the car ahead.\n\nDefault: 1.25 seconds."), ""},
+    {"AggressiveJerkAcceleration", tr("Acceleration Sensitivity"), tr("Controls how sensitive the system is to acceleration changes in 'Aggressive' mode. Higher values make acceleration and deceleration smoother but slower, while lower values allow quicker changes that may feel jerky.\n\nDefault: 0.5."), ""},
+    {"AggressiveJerkDeceleration", tr("Deceleration Sensitivity"), tr("Controls how sensitive the system is to deceleration in 'Aggressive' mode. Higher values result in smoother braking, while lower values allow for more immediate braking that may feel abrupt.\n\nDefault: 0.5."), ""},
+    {"AggressiveJerkDanger", tr("Safety Distance Sensitivity"), tr("Adjusts how cautious the system is around vehicles or obstacles in 'Aggressive' mode. Higher values make it more cautious, while lower values allow for closer following, increasing the risk of sudden braking.\n\nDefault: 1.0."), ""},
+    {"AggressiveJerkSpeed", tr("Speed Increase Responsiveness"), tr("Controls how quickly the system adjusts speed in 'Aggressive' mode. Higher values result in smoother but slower speed changes, while lower values make speed adjustments quicker but potentially more abrupt.\n\nDefault: 0.5."), ""},
+    {"AggressiveJerkSpeedDecrease", tr("Speed Decrease Responsiveness"), tr("Sets how quickly the system adjusts to speed reductions in 'Aggressive' mode. Higher values ensure smoother transitions when slowing down, while lower values allow for quicker, more responsive speed decreases that may feel sharp.\n\nDefault: 0.5."), ""},
     {"ResetAggressivePersonality", tr("Reset Settings"), tr("Restore the 'Aggressive' settings to their default values."), ""},
 
-    {"StandardPersonalityProfile", tr("Standard Personality"), tr("Customize the 'Standard' personality profile."), "../frogpilot/assets/stock_theme/distance_icons/standard.png"},
-    {"StandardFollow", tr("Following Distance"), tr("Set the following distance for 'Standard' mode. This represents how many seconds you follow behind the car ahead.\n\nDefault: 1.45 seconds."), ""},
-    {"StandardJerkAcceleration", tr("Acceleration Change Sensitivity"), tr("Controls the penalty applied for changes in acceleration while using the 'Standard' profile personality. Higher values make acceleration and deceleration smoother but slower, while lower values allow quicker changes but may feel jerky.\n\nDefault: 1.0."), ""},
-    {"StandardJerkDanger", tr("Hazard Sensitivity"), tr("Adjusts the penalty for getting too close to other vehicles or obstacles while using the 'Standard' personality profile. Higher values make openpilot more cautious, maintaining a safer distance and prioritizing safety, while lower values reduce the likelihood of sudden braking but increase the risk of following too closely.\n\nDefault: 1.0."), ""},
-    {"StandardJerkSpeed", tr("Speed Change Smoothness"), tr("Controls the penalty on the rate of change of acceleration while using the 'Standard' personality profile. Higher values result in smoother but slower speed changes, while lower values make speed adjustments quicker but potentially more abrupt.\n\nDefault: 1.0."), ""},
+    {"StandardPersonalityProfile", tr("Standard Personality"), tr("Customize the 'Standard' personality profile, optimized for balanced driving."), "../frogpilot/assets/stock_theme/distance_icons/standard.png"},
+    {"StandardFollow", tr("Following Distance"), tr("Set the following distance for 'Standard' mode. This determines how many seconds you'll follow behind the car ahead.\n\nDefault: 1.45 seconds."), ""},
+    {"StandardJerkAcceleration", tr("Acceleration Sensitivity"), tr("Controls how sensitive the system is to acceleration changes in 'Standard' mode. Higher values make acceleration and deceleration smoother but slower, while lower values allow quicker changes that may feel jerky.\n\nDefault: 1.0."), ""},
+    {"StandardJerkDeceleration", tr("Deceleration Sensitivity"), tr("Controls how sensitive the system is to deceleration in 'Standard' mode. Higher values result in smoother braking, while lower values allow for quicker, more immediate braking that may feel abrupt.\n\nDefault: 1.0."), ""},
+    {"StandardJerkDanger", tr("Safety Distance Sensitivity"), tr("Adjusts how cautious the system is around vehicles or obstacles in 'Standard' mode. Higher values make it more cautious, while lower values allow for closer following, increasing the risk of sudden braking.\n\nDefault: 1.0."), ""},
+    {"StandardJerkSpeed", tr("Speed Increase Responsiveness"), tr("Controls how quickly the system adjusts speed in 'Standard' mode. Higher values result in smoother but slower speed changes, while lower values make speed adjustments quicker but potentially more abrupt.\n\nDefault: 1.0."), ""},
+    {"StandardJerkSpeedDecrease", tr("Speed Decrease Responsiveness"), tr("Sets how quickly the system adjusts to speed reductions in 'Standard' mode. Higher values ensure smoother transitions when slowing down, while lower values allow for quicker, more responsive speed decreases that may feel sharp.\n\nDefault: 1.0."), ""},
     {"ResetStandardPersonality", tr("Reset Settings"), tr("Restore the 'Standard' settings to their default values."), ""},
 
-    {"RelaxedPersonalityProfile", tr("Relaxed Personality"), tr("Customize the 'Relaxed' personality profile."), "../frogpilot/assets/stock_theme/distance_icons/relaxed.png"},
-    {"RelaxedFollow", tr("Following Distance"), tr("Set the following distance for 'Relaxed' mode. This represents how many seconds you follow behind the car ahead.\n\nDefault: 1.75 seconds."), ""},
-    {"RelaxedJerkAcceleration", tr("Acceleration Change Sensitivity"), tr("Controls the penalty applied for changes in acceleration while using the 'Relaxed' profile personality. Higher values make acceleration and deceleration smoother but slower, while lower values allow quicker changes but may feel jerky.\n\nDefault: 1.0."), ""},
-    {"RelaxedJerkDanger", tr("Hazard Sensitivity"), tr("Adjusts the penalty for getting too close to other vehicles or obstacles while using the 'Relaxed' personality profile. Higher values make openpilot more cautious, maintaining a safer distance and prioritizing safety, while lower values reduce the likelihood of sudden braking but increase the risk of following too closely.\n\nDefault: 1.0."), ""},
-    {"RelaxedJerkSpeed", tr("Speed Change Smoothness"), tr("Controls the penalty on the rate of change of acceleration while using the 'Relaxed' personality profile. Higher values result in smoother but slower speed changes, while lower values make speed adjustments quicker but potentially more abrupt.\n\nDefault: 1.0."), ""},
+    {"RelaxedPersonalityProfile", tr("Relaxed Personality"), tr("Customize the 'Relaxed' personality profile, ideal for a more laid-back driving style."), "../frogpilot/assets/stock_theme/distance_icons/relaxed.png"},
+    {"RelaxedFollow", tr("Following Distance"), tr("Set the following distance for 'Relaxed' mode. This determines how many seconds you'll follow behind the car ahead.\n\nDefault: 1.75 seconds."), ""},
+    {"RelaxedJerkAcceleration", tr("Acceleration Sensitivity"), tr("Controls how sensitive the system is to acceleration changes in 'Relaxed' mode. Higher values make acceleration and deceleration smoother but slower, while lower values allow quicker changes that may feel jerky.\n\nDefault: 1.0."), ""},
+    {"RelaxedJerkDeceleration", tr("Deceleration Sensitivity"), tr("Controls how sensitive the system is to deceleration in 'Relaxed' mode. Higher values result in smoother braking, while lower values allow for quicker, more immediate braking that may feel abrupt.\n\nDefault: 1.0."), ""},
+    {"RelaxedJerkDanger", tr("Safety Distance Sensitivity"), tr("Adjusts how cautious the system is around vehicles or obstacles in 'Relaxed' mode. Higher values make it more cautious, while lower values allow for closer following, increasing the risk of sudden braking.\n\nDefault: 1.0."), ""},
+    {"RelaxedJerkSpeed", tr("Speed Increase Responsiveness"), tr("Controls how quickly the system adjusts speed in 'Relaxed' mode. Higher values result in smoother but slower speed changes, while lower values make speed adjustments quicker but potentially more abrupt.\n\nDefault: 1.0."), ""},
+    {"RelaxedJerkSpeedDecrease", tr("Speed Decrease Responsiveness"), tr("Sets how quickly the system adjusts to speed reductions in 'Relaxed' mode. Higher values ensure smoother transitions when slowing down, while lower values allow for quicker, more responsive speed decreases that may feel sharp.\n\nDefault: 1.0."), ""},
     {"ResetRelaxedPersonality", tr("Reset Settings"), tr("Restore the 'Relaxed' settings to their default values."), ""},
 
     {"ModelManagement", tr("Model Management"), tr("Manage the driving models used by openpilot."), "../frogpilot/assets/toggle_icons/icon_advanced_model.png"},
@@ -581,76 +589,100 @@ FrogPilotAdvancedDrivingPanel::FrogPilotAdvancedDrivingPanel(FrogPilotSettingsWi
 
   FrogPilotParamValueControl *trafficFollowToggle = static_cast<FrogPilotParamValueControl*>(toggles["TrafficFollow"]);
   FrogPilotParamValueControl *trafficAccelerationToggle = static_cast<FrogPilotParamValueControl*>(toggles["TrafficJerkAcceleration"]);
+  FrogPilotParamValueControl *trafficDecelerationToggle = static_cast<FrogPilotParamValueControl*>(toggles["TrafficJerkDeceleration"]);
   FrogPilotParamValueControl *trafficDangerToggle = static_cast<FrogPilotParamValueControl*>(toggles["TrafficJerkDanger"]);
   FrogPilotParamValueControl *trafficSpeedToggle = static_cast<FrogPilotParamValueControl*>(toggles["TrafficJerkSpeed"]);
+  FrogPilotParamValueControl *trafficSpeedDecreaseToggle = static_cast<FrogPilotParamValueControl*>(toggles["TrafficJerkSpeedDecrease"]);
   FrogPilotButtonsControl *trafficResetButton = static_cast<FrogPilotButtonsControl*>(toggles["ResetTrafficPersonality"]);
   QObject::connect(trafficResetButton, &FrogPilotButtonsControl::buttonClicked, this, [=]() {
     if (FrogPilotConfirmationDialog::yesorno(tr("Are you sure you want to completely reset your settings for the 'Traffic Mode' personality?"), this)) {
       params.putFloat("TrafficFollow", 0.5);
       params.putFloat("TrafficJerkAcceleration", 50);
+      params.putFloat("TrafficJerkDeceleration", 50);
       params.putFloat("TrafficJerkDanger", 100);
       params.putFloat("TrafficJerkSpeed", 50);
+      params.putFloat("TrafficJerkSpeedDecrease", 50);
       trafficFollowToggle->refresh();
       trafficAccelerationToggle->refresh();
+      trafficDecelerationToggle->refresh();
       trafficDangerToggle->refresh();
       trafficSpeedToggle->refresh();
+      trafficSpeedDecreaseToggle->refresh();
       updateFrogPilotToggles();
     }
   });
 
   FrogPilotParamValueControl *aggressiveFollowToggle = static_cast<FrogPilotParamValueControl*>(toggles["AggressiveFollow"]);
   FrogPilotParamValueControl *aggressiveAccelerationToggle = static_cast<FrogPilotParamValueControl*>(toggles["AggressiveJerkAcceleration"]);
+  FrogPilotParamValueControl *aggressiveDecelerationToggle = static_cast<FrogPilotParamValueControl*>(toggles["AggressiveJerkDeceleration"]);
   FrogPilotParamValueControl *aggressiveDangerToggle = static_cast<FrogPilotParamValueControl*>(toggles["AggressiveJerkDanger"]);
   FrogPilotParamValueControl *aggressiveSpeedToggle = static_cast<FrogPilotParamValueControl*>(toggles["AggressiveJerkSpeed"]);
+  FrogPilotParamValueControl *aggressiveSpeedDecreaseToggle = static_cast<FrogPilotParamValueControl*>(toggles["AggressiveJerkSpeedDecrease"]);
   FrogPilotButtonsControl *aggressiveResetButton = static_cast<FrogPilotButtonsControl*>(toggles["ResetAggressivePersonality"]);
   QObject::connect(aggressiveResetButton, &FrogPilotButtonsControl::buttonClicked, this, [=]() {
     if (FrogPilotConfirmationDialog::yesorno(tr("Are you sure you want to completely reset your settings for the 'Aggressive' personality?"), this)) {
       params.putFloat("AggressiveFollow", 1.25);
       params.putFloat("AggressiveJerkAcceleration", 50);
+      params.putFloat("AggressiveJerkDeceleration", 50);
       params.putFloat("AggressiveJerkDanger", 100);
       params.putFloat("AggressiveJerkSpeed", 50);
+      params.putFloat("AggressiveJerkSpeedDecrease", 50);
       aggressiveFollowToggle->refresh();
       aggressiveAccelerationToggle->refresh();
+      aggressiveDecelerationToggle->refresh();
       aggressiveDangerToggle->refresh();
       aggressiveSpeedToggle->refresh();
+      aggressiveSpeedDecreaseToggle->refresh();
       updateFrogPilotToggles();
     }
   });
 
   FrogPilotParamValueControl *standardFollowToggle = static_cast<FrogPilotParamValueControl*>(toggles["StandardFollow"]);
   FrogPilotParamValueControl *standardAccelerationToggle = static_cast<FrogPilotParamValueControl*>(toggles["StandardJerkAcceleration"]);
+  FrogPilotParamValueControl *standardDecelerationToggle = static_cast<FrogPilotParamValueControl*>(toggles["StandardJerkDeceleration"]);
   FrogPilotParamValueControl *standardDangerToggle = static_cast<FrogPilotParamValueControl*>(toggles["StandardJerkDanger"]);
   FrogPilotParamValueControl *standardSpeedToggle = static_cast<FrogPilotParamValueControl*>(toggles["StandardJerkSpeed"]);
+  FrogPilotParamValueControl *standardSpeedDecreaseToggle = static_cast<FrogPilotParamValueControl*>(toggles["StandardJerkSpeedDecrease"]);
   FrogPilotButtonsControl *standardResetButton = static_cast<FrogPilotButtonsControl*>(toggles["ResetStandardPersonality"]);
   QObject::connect(standardResetButton, &FrogPilotButtonsControl::buttonClicked, this, [=]() {
     if (FrogPilotConfirmationDialog::yesorno(tr("Are you sure you want to completely reset your settings for the 'Standard' personality?"), this)) {
       params.putFloat("StandardFollow", 1.45);
       params.putFloat("StandardJerkAcceleration", 100);
+      params.putFloat("StandardJerkDeceleration", 100);
       params.putFloat("StandardJerkDanger", 100);
       params.putFloat("StandardJerkSpeed", 100);
+      params.putFloat("StandardJerkSpeedDecrease", 100);
       standardFollowToggle->refresh();
       standardAccelerationToggle->refresh();
+      standardDecelerationToggle->refresh();
       standardDangerToggle->refresh();
       standardSpeedToggle->refresh();
+      standardSpeedDecreaseToggle->refresh();
       updateFrogPilotToggles();
     }
   });
 
   FrogPilotParamValueControl *relaxedFollowToggle = static_cast<FrogPilotParamValueControl*>(toggles["RelaxedFollow"]);
   FrogPilotParamValueControl *relaxedAccelerationToggle = static_cast<FrogPilotParamValueControl*>(toggles["RelaxedJerkAcceleration"]);
+  FrogPilotParamValueControl *relaxedDecelerationToggle = static_cast<FrogPilotParamValueControl*>(toggles["RelaxedJerkDeceleration"]);
   FrogPilotParamValueControl *relaxedDangerToggle = static_cast<FrogPilotParamValueControl*>(toggles["RelaxedJerkDanger"]);
   FrogPilotParamValueControl *relaxedSpeedToggle = static_cast<FrogPilotParamValueControl*>(toggles["RelaxedJerkSpeed"]);
+  FrogPilotParamValueControl *relaxedSpeedDecreaseToggle = static_cast<FrogPilotParamValueControl*>(toggles["RelaxedJerkSpeedDecrease"]);
   FrogPilotButtonsControl *relaxedResetButton = static_cast<FrogPilotButtonsControl*>(toggles["ResetRelaxedPersonality"]);
   QObject::connect(relaxedResetButton, &FrogPilotButtonsControl::buttonClicked, this, [=]() {
     if (FrogPilotConfirmationDialog::yesorno(tr("Are you sure you want to completely reset your settings for the 'Relaxed' personality?"), this)) {
       params.putFloat("RelaxedFollow", 1.75);
       params.putFloat("RelaxedJerkAcceleration", 100);
+      params.putFloat("RelaxedJerkDeceleration", 100);
       params.putFloat("RelaxedJerkDanger", 100);
       params.putFloat("RelaxedJerkSpeed", 100);
+      params.putFloat("RelaxedJerkSpeedDecrease", 100);
       relaxedFollowToggle->refresh();
       relaxedAccelerationToggle->refresh();
+      relaxedDecelerationToggle->refresh();
       relaxedDangerToggle->refresh();
       relaxedSpeedToggle->refresh();
+      relaxedSpeedDecreaseToggle->refresh();
       updateFrogPilotToggles();
     }
   });

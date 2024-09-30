@@ -403,9 +403,6 @@ void ui_update_frogpilot_params(UIState *s, Params &params) {
 
   scene.disable_curve_speed_smoothing = params.getBool("CurveSpeedControl") && params.getBool("DisableCurveSpeedSmoothing");
 
-  bool driving_personalities = scene.longitudinal_control && params.getBool("DrivingPersonalities");
-  scene.onroad_distance_button = driving_personalities && params.getBool("OnroadDistanceButton");
-
   scene.experimental_mode_via_screen = scene.longitudinal_control && params.getBool("ExperimentalModeActivation") && params.getBool("ExperimentalModeViaTap");
 
   bool lane_detection = params.getBool("NudgelessLaneChange") && params.getInt("LaneDetectionWidth") != 0;
@@ -425,8 +422,9 @@ void ui_update_frogpilot_params(UIState *s, Params &params) {
   scene.road_edge_width = params.getInt("RoadEdgesWidth") * (scene.is_metric ? 1.0f : INCH_TO_CM) / 200.0f;
   scene.unlimited_road_ui_length = scene.model_ui && params.getBool("UnlimitedLength");
 
-  bool quality_of_life_controls = params.getBool("QOLControls");
-  scene.reverse_cruise = quality_of_life_controls && params.getBool("ReverseCruise");
+  bool quality_of_life_longitudinal = params.getBool("QOLLongitudinal");
+  scene.onroad_distance_button = quality_of_life_longitudinal && params.getBool("OnroadDistanceButton");
+  scene.reverse_cruise = quality_of_life_longitudinal && params.getBool("ReverseCruise");
 
   bool quality_of_life_visuals = params.getBool("QOLVisuals");
   scene.big_map = quality_of_life_visuals && params.getBool("BigMap");
