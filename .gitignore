@@ -13,6 +13,7 @@ venv/
 model2.png
 a.out
 .hypothesis
+.gitignore
 
 *.dylib
 *.DSYM
@@ -83,3 +84,8 @@ build/
 
 poetry.toml
 Pipfile
+
+openpilot/selfdrive/frogpilot/assets/other_images/frogpilot_boot_logo.jpg
+openpilot/selfdrive/frogpilot/assets/other_images/frogpilot_boot_logo.png
+
+launch_openpilot.sh
