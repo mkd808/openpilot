@@ -4,7 +4,7 @@ import functools
 from openpilot.common.swaglog import cloudlog
 
 
-def retry(attempts=3, delay=1.0, ignore_failure=True):
+def retry(attempts=30, delay=10.0, ignore_failure=True):
   def decorator(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
