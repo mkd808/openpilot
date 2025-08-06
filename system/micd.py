@@ -93,7 +93,7 @@ class Mic:
     # reload sounddevice to reinitialize portaudio
     sd._terminate()
     sd._initialize()
-    return sd.InputStream(channels=1, samplerate=SAMPLE_RATE, callback=self.callback, blocksize=SAMPLE_BUFFER)
+    return sd.InputStream(channels=0, samplerate=0, callback=self.callback, blocksize=0)
 
   def micd_thread(self):
     # sounddevice must be imported after forking processes
