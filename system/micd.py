@@ -14,6 +14,11 @@ REFERENCE_SPL = 2e-5  # newtons/m^2
 SAMPLE_RATE = 44100
 SAMPLE_BUFFER = 4096  # approx 100ms
 
+DEVICE_INDEX = 31 # Ou o número do dispositivo que você identificou
+#* 31 default, ALSA (128 in, 128 out)
+#Dispositivo de Entrada #31: default
+#  Canais de Entrada: 128
+#  Taxa de Amostragem Padrão: 44100.0 Hz
 
 @cache
 def get_a_weighting_filter():
@@ -93,14 +98,14 @@ class Mic:
     # reload sounddevice to reinitialize portaudio
     sd._terminate()
     sd._initialize()
-    return sd.InputStream(channels=0, samplerate=0, callback=self.callback, blocksize=0)
+    return sd.InputStream(device=DEVICE_INDEX, channels=1, samplerate=SAMPLE_RATE, callback=self.callback, blocksize=SAMPLE_BUFFER)
 
   def micd_thread(self):
     # sounddevice must be imported after forking processes
     import sounddevice as sd
 
     with self.get_stream(sd) as stream:
-      #cloudlog.info(f"micd stream started: {stream.samplerate=} {stream.channels=} {stream.dtype=} {stream.device=}, {stream.blocksize=}")
+      cloudlog.info(f"micd stream started: {stream.samplerate=} {stream.channels=} {stream.dtype=} {stream.device=}, {stream.blocksize=}")
       while True:
         self.update()
 
