@@ -1,3 +1,4 @@
+from cereal import custom
 from opendbc.can import CANParser
 from opendbc.car import Bus, ButtonType, create_button_events, structs
 from opendbc.car.common.conversions import Conversions as CV
@@ -8,15 +9,15 @@ GearShifter = structs.CarState.GearShifter
 
 
 class CarState(CarStateBase):
-  def __init__(self, CP):
-    super().__init__(CP)
+  def __init__(self, CP, FPCP):
+    super().__init__(CP, FPCP)
     self.c1_msg_pscm = {}
     self.c1_lka_torque = 0
     self.c1_button_states = dict.fromkeys(
       ("ACCOnOffBtn", "ACCStopBtn", "ACCSetBtn", "ACCResumeBtn", "ACCMinusBtn", "TimeGapIncreaseBtn", "TimeGapDecreaseBtn"), False
     )
 
-  def update(self, can_parsers):
+  def update(self, can_parsers, starpilot_toggles):
     cp = can_parsers[Bus.pt]
     cp_cam = can_parsers[Bus.cam]
     ret = structs.CarState()
@@ -72,14 +73,13 @@ class CarState(CarStateBase):
     lka_state = bool(cp.vl["CEM0"]["LKA_State"])
 
     # Always on lateral follows the driver's LKA on/off.
-    # TODO: match the GM carstate.py in this fork. Create fp_ret the same way
-    # it does, change the signature and return to match, then use:
-    #   fp_ret.alwaysOnLateralAllowed = lka_state
+    fp_ret = custom.StarPilotCarState.new_message()
+    fp_ret.alwaysOnLateralAllowed = lka_state
 
     self.c1_msg_pscm = cp.vl["PSCM1"]
     self.c1_lka_torque = int(cp.vl["PSCM1"]["LKATorque"])
 
-    return ret
+    return ret, fp_ret
 
   @staticmethod
   def get_can_parsers(CP):
