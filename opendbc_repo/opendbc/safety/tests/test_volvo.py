@@ -12,7 +12,8 @@ by ``safetyParam``:
 
 CMA and SPA share LCA/PSCM/etc. addresses on the main and party buses but use
 different PT-bus addresses and signal scales. C1 uses the V40's legacy CAN
-layout and its own safety allowlist. The tests exercise all three through the
+layout and its own safety allowlist (including CEM0 0x210 for the dash
+LKA button). The tests exercise all three through the
 generic ``CarSafetyTest`` harness so divergence between ``carstate.py`` and
 ``volvo.h`` is caught before running in a car.
 
@@ -59,6 +60,9 @@ VOLVO_PSCM          = 0x16
 VOLVO_PSCM_RELATED  = 0x17
 VOLVO_SAS           = 0x55
 VOLVO_DRIVER_INPUT  = 0x15
+
+# C1 (V40) CEM0: byte 0 bit 2 is LKA_State, the dash Lane Keep Assist button
+VOLVO_C1_CEM0       = 0x210
 
 # Addresses panda TX'd with .check_relay = true, grouped by bus
 _TX_PARTY_BUS_ADDRS = (
@@ -516,6 +520,25 @@ class TestVolvoC1(common.CarSafetyTest, common.AngleSteeringSafetyTest):
     self._set_prev_desired_angle(0)
     address, data, bus = create_c1_steering_control(self.packer, 0, True)
     self.assertTrue(self._tx(libsafety_py.make_CANPacket(address, bus, data)))
+
+  def _cem0_lka_msg(self, lka_state):
+    # CEM0 (0x210) byte 0 bit 2: the driver's LKA on/off, read by volvo.h as lkas_on.
+    # Not named _toggle_aol on purpose: the C1 tx hook does not use aol_allowed yet.
+    return self.packer.make_can_msg_safety(
+      "CEM0", VOLVO_MAIN_BUS, {"LKA_State": 1 if lka_state else 0})
+
+  def test_cem0_lka_state_bit_position(self):
+    # volvo.h reads GET_BIT(msg, 2U) from CEM0; the DBC must put LKA_State at the same bit
+    on = self._cem0_lka_msg(True)
+    off = self._cem0_lka_msg(False)
+    self.assertEqual(VOLVO_C1_CEM0, on[0].addr)
+    self.assertEqual(0x04, on[0].data[0])
+    self.assertEqual(0x00, off[0].data[0])
+
+  def test_cem0_rx_accepted(self):
+    # CEM0 is in the C1 rx checks on the main bus, so the safety must accept it
+    for lka_state in (False, True):
+      self.assertTrue(self._rx(self._cem0_lka_msg(lka_state)), f"{lka_state=}")
 
 
 class TestVolvoEUCD(common.CarSafetyTest, common.AngleSteeringSafetyTest):
