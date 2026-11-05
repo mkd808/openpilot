@@ -199,6 +199,7 @@ BO_ 464 DIM0: 8 DIM
 BO_ 480 BCM0: 8 BCM
 
 BO_ 528 CEM0: 8 CEM
+ SG_ LKA_State : 2|1@0+ (1,0) [0|1] "" XXX
 
 BO_ 608 CVM0: 8 CVM
  SG_ NEW_SIGNAL_1 : 7|8@0+ (1,0) [0|255] "" XXX
@@ -208,8 +209,8 @@ BO_ 608 CVM0: 8 CVM
 BO_ 624 FSM3: 8 FSM
  SG_ Byte_0 : 7|8@0+ (1,0) [0|255] "" XXX
  SG_ Byte_1 : 15|8@0+ (1,0) [0|255] "" XXX
- SG_ ACC_Word_2_3 : 23|16@0+ (1,0) [0|65535] "" XXX
- SG_ ACC_State : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ ACC_LeadDecelRaw : 23|16@0- (1,0) [-32768|32767] "" XXX
+ SG_ Byte_4 : 39|8@0+ (1,0) [0|255] "" XXX
  SG_ Byte_5 : 47|8@0+ (1,0) [0|255] "" XXX
  SG_ Byte_6 : 55|8@0+ (1,0) [0|255] "" XXX
  SG_ Byte_7 : 63|8@0+ (1,0) [0|255] "" XXX
@@ -221,7 +222,10 @@ BO_ 640 FSM4: 8 FSM
  SG_ Byte_3 : 31|8@0+ (1,0) [0|255] "" XXX
  SG_ Byte_4 : 39|8@0+ (1,0) [0|255] "" XXX
  SG_ SpeedTarget : 47|8@0+ (1,0) [0|255] "" XXX
- SG_ ACC_BrakeTargetRaw : 55|16@0+ (1,0) [0|65535] "" XXX
+ SG_ Byte_6_b7_6 : 55|2@0+ (1,0) [0|3] "" XXX
+ SG_ Byte_6_b5_3 : 53|3@0+ (1,0) [0|7] "" XXX
+ SG_ Byte_6_b2 : 50|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACC_TractionRequest : 49|10@0+ (1,0) [0|1023] "" XXX
 
 BO_ 648 SRS0: 8 SRS
 
@@ -239,6 +243,7 @@ BO_ 693 ECM7: 8 ECM
 
 BO_ 709 ACC: 8 ECM
  SG_ SpeedTargetACC : 0|9@0+ (0.5,0) [0|511] "" XXX
+ SG_ ACC_PropulsionFeedback : 63|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 853 FSM5: 8 FSM
  SG_ TargetSpeedOdo : 23|8@0+ (1,0) [0|63] "kph" XXX
@@ -346,7 +351,7 @@ CM_ SG_ 681 TurnSignal "0 = Nothing, 1= Left, 3=Right";
 CM_ SG_ 681 HighBeamOn "1=HighBeam On, 0=HighBeam Off";
 CM_ SG_ 48 ACCStatusTracking "ACC Tracking vehicle, distance control.";
 CM_ SG_ 48 ACCStatusOnOff "Turns one after pressing on/off button on steering wheel";
-CM_ SG_ 48 ACCStatusActive "ACC Active";
+CM_ SG_ 48 ACCStatusActive "ACC Active. Byte 7 of 0x30 in the dashcam route: 0x8A = ACC standby, 0x8F = active tracking, 0x8E = active no tracking, 0x9F = active (bit 4 also set), 0x88 = off. In the 15 km/h route with openpilot running it stayed 0x88 throughout, unexplained.";
 CM_ SG_ 48 FCWSomething "All bit set during fcw";
 CM_ SG_ 48 StatusSomething "Some status changes when zeroing DTCs";
 CM_ SG_ 208 TrqLim "Used in checksum calculation, Limit directional torque based on the number.";
@@ -354,16 +359,20 @@ CM_ SG_ 208 Checksum "Checksum calculated as a one-complement addition of LKAAng
 CM_ SG_ 208 SET_X_02 "Bit 0 = Vibrate steering wheel., Bit 1 = Heartbeat";
 CM_ SG_ 352 LkaDimLine "Not true, but follows lka steer direction.";
 CM_ SG_ 352 NEW_SIGNAL_1 "Turned one. Got LKA service needed can this be the one?";
-CM_ SG_ 640 ACC_BrakeTargetRaw "UNCONFIRMED brake request/target candidate (low-medium confidence). Idle bytes5-7 = FC DC 00; ACC engaged no brake = 43 DA xx; at ACC braking byte5 -> 0 then counts up 1,2.. and 16-bit bytes6-7 ramps D9E4 -> D800 (~-14 per 100 ms). Form changes ~0.5 s before BrakePress0 rises. Pattern differs in the second ACC braking event, so may be a status echo.";
+CM_ SG_ 640 ACC_TractionRequest "Low 10 bits of the bytes 6-7 word (the original NEW_SIGNAL_1 49|10 restored). ACC drive/coast demand, medium-low confidence. ~490-600 at cruise, ~610-650 when accelerating (+0.8 to +1.5 m/s2), 0 in braking/decel (brake mode, incl. coasting down). Fit ~83-84 counts per m/s2 (accel 0.5 s ahead) in two routes (15 km/h route R2 0.80; highway route R2 0.30, speed term unstable). Resembles V60 traction request (97*a - 6, 0 in brake mode). Saturates near ~630. Hydraulic brake target not yet identified; brake request flag is in 0x160.";
+CM_ SG_ 640 Byte_6_b7_6 "Always 3 (bits 15-14 of the word = 11), matching the V60 FSM4 brake word flags (0x8000 and 0x4000).";
+CM_ SG_ 640 Byte_6_b5_3 "Bits 13-11 of the word, observed constant at 3 (011). Meaning unknown.";
+CM_ SG_ 640 Byte_6_b2 "Bit 10 of the word. Clear whenever 0x270 byte 4 = 175 (11,700 of 11,708 frames in a manual drive; 10,540 of 10,544 in a highway ACC route), set otherwise. 175 is NOT ACC (seen with no ACC at all); most likely tied to openpilot being engaged, unproven. Explains the 0xD800 vs 0xDC00 floors seen in different routes.";
 CM_ SG_ 640 SpeedTarget "SpeedTarget ACC (noisy bf starting acc Jumps from 0->252->0)";
 CM_ BO_ 352 "0x160, camera to car (bus 2 -> relayed to bus 0), 50 Hz. Every ~4th-5th frame is a masked variant (Byte_0=0, Byte_2=0/32, Byte_3~20, Byte_5=0/33). No simple counter/checksum found (byte 7/4 are not XOR or sum of the others).";
-CM_ SG_ 352 ACC_BrakeRequest "UNCONFIRMED (medium-low). Set ~0.44 s before hydraulic pressure rises at both ACC braking events (586.3 s, 873.2 s). Not set on driver braking while moving. Also stays set at standstill with brake held. One 0.5 s false blip seen at 751 s with no braking. Also set in masked frames.";
+CM_ SG_ 352 ACC_BrakeRequest "UNCONFIRMED (medium-low). Set ~0.44 s before hydraulic pressure rises at both ACC braking events (586.3 s, 873.2 s). Not set on driver braking while moving. Also stays set at standstill with brake held. One 0.5 s false blip seen at 751 s with no braking. Also set in masked frames. Confirmed again in dashcam route (stock ACC stop 34-51 s) and 15 km/h route (decels at 110 s and 126 s): flag precedes hydraulic pressure and appears on ACC decel even without hydraulic braking.";
 CM_ SG_ 352 ACC_BrakeRequest_B "UNCONFIRMED. Same behaviour as ACC_BrakeRequest. Always set when ACC_BrakeRequest is set, and also sometimes alone (2270 frames).";
 CM_ SG_ 352 Byte_4 "Sawtooth sweep (~-40 per 100 ms, wrapping 255 to 0) while ACC brakes. Otherwise mostly holds steady (idle values 3-7). Ramp, not a plain target or counter. Replaces old NEW_SIGNAL_4 (36|5).";
 CM_ SG_ 352 Byte_3 "84 -> 83 -> 82 drifts down during ACC braking. Masked frames ~20/19/18.";
 CM_ SG_ 352 Byte_2_b4_0 "Byte 2 is 213 idle, 245 once ACC braking starts (only bit 5 differs). Replaces old NEW_SIGNAL_3 (7|24).";
-CM_ SG_ 624 ACC_State "ACC state from camera (bus 2, ~40 Hz). 0x87 off; 0xAF, 0x9F, 0xA7 engaged; alternate frames read 0x00/masked. High confidence.";
-CM_ SG_ 624 ACC_Word_2_3 "16-bit, 0xFFFF idle. NOT an accel request: active without ACC, tracks actual accel (r~0.65), leads it by ~0.6 s; dips ~5 s before ACC braking. Low confidence.";
+CM_ SG_ 624 Byte_4 "Reads 0x87 or 0x00 with stock ACC engaged, so it is NOT the ACC engaged state. 0xAF (175) appears with no ACC at all (e.g. 4 stretches in a 2238 s manual drive) and begins before ACC is switched on, then continues after it ends; most likely tied to openpilot being engaged, unproven. Other values seen: 0x28 (40), 0x9F, 0xA7. Bit 10 of the 0x280 word (Byte_6_b2) is clear exactly when this reads 175.";
+CM_ SG_ 528 LKA_State "0x210 byte 0 bit 2, 40 Hz, bus 0. Confirmed working as intended on the volvo_redlight branch. Seen in logs: on for the whole of a 1335 s manual drive and a highway route, never on in the 15 km/h set-speed route (likely LKA switched off for that drive). Follows the LKA enabled setting, not activity.";
+CM_ SG_ 624 ACC_LeadDecelRaw "Signed 16-bit, -1 idle (about -230 steady with a lead in some logs). Goes strongly negative (to -3300 and lower) when a lead car ahead is braking, and stayed -1 during ACC own set-speed decels (-1.8 m/s2), so it is a lead-related decel demand, NOT the ACC decel request. Never positive. Low confidence.";
 CM_ SG_ 624 Byte_0 "Always 0";
 CM_ SG_ 624 Byte_1 "Always 0";
 CM_ SG_ 624 Byte_5 "0 or 2; 2 seen when throttle is on";
@@ -374,6 +383,7 @@ CM_ SG_ 864 ACC_DemandChangeFlag "10 Hz. Idle 164 (163 in manual). Under ACC it 
 CM_ SG_ 853 TargetSpeedOdo "Probably target speed odo";
 CM_ SG_ 853 LaneMarkingsOdo "Bit 3=Left lane, Bit 2=Right lane, Bit 1=LKA on?, Bit 0=?";
 CM_ SG_ 709 SpeedTargetACC "SpeedTargetACC";
+CM_ SG_ 709 ACC_PropulsionFeedback "0x2C5 byte 7, ECM to camera (bus 0, echoed on bus 130), 16.7 Hz. Follows accelerator pedal (r~0.8). Pedal at zero: ~0 in manual driving, ~21 under ACC (ACC torque). Reads 0 during braking, ~25 at cruise, 160+ at +1.5 m/s2 (fit ~70*a+25). ECM output / feedback, NOT a request. Medium-low confidence.";
 CM_ SG_ 224 rate_of_something "Seems to be some kind of torque rather than rate.";
 CM_ SG_ 224 OneDuringDriving "Set to 1 when vehicle is rolling.";
 CM_ SG_ 293 byte7 "Bit0=0 when gearshift in park, else 1";
@@ -404,5 +414,4 @@ CM_ SG_ 608 Distance "Distance to object in front. 1908 = no lead.";
 CM_ SG_ 968 PassengerSeatBelt "1 = Seatbelt latched";
 CM_ SG_ 968 DriverSeatBelt "1=Seatbelt latched";
 VAL_ 64 GearShifter 0 "P" 1 "R" 2 "N" 3 "D" ;
-VAL_ 624 ACC_State 135 "Off" 159 "Engaged" 167 "Engaged" 175 "Engaged" ;
-VAL_ 432 BrakeStatus 1 "Standstill" 5 "ACC braking" ;%        
+VAL_ 432 BrakeStatus 1 "Standstill" 5 "ACC braking" ;%    
