@@ -329,3 +329,10 @@ def volvo_c1_acc_self_braking_mode(car_fingerprint, pcm_cruise: bool,
     acc_self_braking and
     not controls_enabled
   )
+
+
+def volvo_c1_stock_acc_owns_cruise(car_fingerprint, pcm_cruise: bool, controls_enabled: bool) -> bool:
+  # V40 is lateral-only: stock ACC owns speed, OP never needs to cancel it. Route logs showed OP's cancel
+  # (sent when ACC braking ends after the brake-pressure bits disengaged OP) dropping ACC in 6 of 8 bursts.
+  # A driver brake still drops stock ACC by itself. Sends fewer frames than before; panda allow-list unchanged.
+  return car_fingerprint == CAR.VOLVO_V40 and pcm_cruise and not controls_enabled
