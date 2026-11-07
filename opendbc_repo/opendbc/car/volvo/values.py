@@ -192,3 +192,15 @@ FW_QUERY_CONFIG = FwQueryConfig(
 )
 
 DBC = CAR.create_dbc_map()
+
+
+def volvo_c1_aol_stock_acc_mode(car_fingerprint, pcm_cruise: bool,
+                                controls_enabled: bool, always_on_lateral_enabled: bool) -> bool:
+  # V40 lateral-only fork: while always on lateral is active and OP is not engaged, stock ACC keeps running.
+  # OP's ACCStopBtn cancel is skipped, mirroring the Pacifica hybrid AOL exemption.
+  return (
+    car_fingerprint == CAR.VOLVO_V40 and
+    pcm_cruise and
+    always_on_lateral_enabled and
+    not controls_enabled
+  )

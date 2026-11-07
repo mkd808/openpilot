@@ -14,6 +14,7 @@ from opendbc.car.chrysler.values import pacifica_hybrid_aol_stock_acc_mode
 from opendbc.car.gm.values import GMFlags
 from opendbc.car.hyundai.values import CAR as HYUNDAI_CAR
 from opendbc.car.nissan.values import CAR as NISSAN_CAR
+from opendbc.car.volvo.values import volvo_c1_aol_stock_acc_mode
 
 from openpilot.common.params import Params
 from openpilot.common.realtime import config_realtime_process, Priority, Ratekeeper, DT_CTRL
@@ -744,6 +745,12 @@ class SelfdriveD:
         self.enabled,
         self.sm['starpilotCarState'].alwaysOnLateralEnabled,
       )
+      volvo_c1_aol = volvo_c1_aol_stock_acc_mode(
+        self.CP.carFingerprint,
+        self.CP.pcmCruise,
+        self.enabled,
+        self.sm['starpilotCarState'].alwaysOnLateralEnabled,
+      )
       preap_software_cruise = (
         self.CP.brand == "tesla" and self.CP.carFingerprint == "TESLA_MODEL_S_PREAP" and
         self.CP.openpilotLongitudinalControl and not self.CP.pcmCruise
@@ -751,7 +758,7 @@ class SelfdriveD:
       effective_pcm_cruise = self.CP.pcmCruise or preap_software_cruise
       jeep_brake_hold = self.CP.brand == "chrysler" and getattr(CS, "brakeHoldActive", False)
       cruise_mismatch = should_flag_cruise_mismatch(self.CP, CS.cruiseState.enabled, self.enabled,
-                                                    effective_pcm_cruise) and not pacifica_hybrid_aol and not jeep_brake_hold
+                                                    effective_pcm_cruise) and not pacifica_hybrid_aol and not volvo_c1_aol and not jeep_brake_hold
       self.cruise_mismatch_counter = self.cruise_mismatch_counter + 1 if cruise_mismatch else 0
       if self.cruise_mismatch_counter > int(6. / DT_CTRL):
         self.events.add(EventName.cruiseMismatch)
