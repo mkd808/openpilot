@@ -1,0 +1,421 @@
+VERSION ""
+
+
+NS_ :
+    NS_DESC_
+    CM_
+    BA_DEF_
+    BA_
+    VAL_
+    CAT_DEF_
+    CAT_
+    FILTER
+    BA_DEF_DEF_
+    EV_DATA_
+    ENVVAR_DATA_
+    SGTYPE_
+    SGTYPE_VAL_
+    BA_DEF_SGTYPE_
+    BA_SGTYPE_
+    SIG_TYPE_REF_
+    VAL_TABLE_
+    SIG_GROUP_
+    SIG_VALTYPE_
+    SIGTYPE_VALTYPE_
+    BO_TX_BU_
+    BA_DEF_REL_
+    BA_REL_
+    BA_DEF_DEF_REL_
+    BU_SG_REL_
+    BU_EV_REL_
+    BU_BO_REL_
+    SG_MUL_VAL_
+
+BS_:
+
+BU_: XXX BCM CEM CVM DIM ECM FSM PSCM SAS SRS TCM
+
+BO_ 8 SAS0: 8 SAS
+ SG_ SteeringDirection : 42|1@0+ (1,0) [0|1] "" XXX
+ SG_ RelativeTurnDirection : 43|1@0+ (1,0) [0|1] "" XXX
+ SG_ SteeringAngle : 53|14@0+ (0.04395,0) [0|65535] "degrees" XXX
+ SG_ NEW_SIGNAL_1 : 47|4@0+ (1,0) [0|15] "" XXX
+ SG_ NEW_SIGNAL_2 : 39|4@0+ (1,0) [0|15] "" XXX
+ SG_ AngleRate : 21|14@0+ (0.075,0) [0|1500] "deg/S" XXX
+
+BO_ 16 CCButtons: 8 CEM
+ SG_ byte0 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte1 : 15|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte2 : 23|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte3 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte4 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte6 : 55|5@0+ (1,0) [0|31] "" XXX
+ SG_ B7b0 : 56|1@0+ (1,0) [0|1] "" XXX
+ SG_ B7b1 : 57|1@0+ (1,0) [0|1] "" XXX
+ SG_ B7b6 : 62|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACCOnOffBtn : 58|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACCSetBtn : 63|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACCStopBtn : 60|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACCResumeBtn : 61|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACCMinusBtn : 48|1@0+ (1,0) [0|1] "" XXX
+ SG_ TimeGapIncreaseBtn : 49|1@0+ (1,0) [0|1] "" XXX
+ SG_ TimeGapDecreaseBtn : 50|1@0+ (1,0) [0|1] "" XXX
+ SG_ byte5 : 47|8@0+ (1,0) [0|255] "" XXX
+ SG_ B7b3 : 59|1@0+ (1,0) [0|1] "" XXX
+
+BO_ 48 FSM0: 8 FSM
+ SG_ ACCStatusTracking : 56|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACCStatusOnOff : 57|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACCStatusActive : 58|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACCStatus_TimeGapFeedback : 60|1@0+ (1,0) [0|1] "" XXX
+ SG_ FCWSomething : 25|3@0+ (1,0) [0|3] "" XXX
+ SG_ StatusSomething : 55|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 64 TCM0: 8 TCM
+ SG_ RPMSomething : 42|11@0+ (1,0) [0|2047] "" XXX
+ SG_ GearShifter : 46|2@0+ (1,0) [0|3] "" XXX
+
+BO_ 85 PedalandBrake: 8 ECM
+ SG_ AccPedal : 9|10@0+ (0.1,0) [0|1023] "%" XXX
+ SG_ BrakePedalActive2 : 24|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_1 : 35|12@0+ (1,0) [0|4095] "" XXX
+ SG_ BrakePedalActive : 38|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_3 : 55|8@0+ (1,0) [0|255] "" XXX
+ SG_ NEW_SIGNAL_2 : 63|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 101 EngineInfo: 8 XXX
+ SG_ NEW_SIGNAL_1 : 17|10@0+ (1,-512) [0|1023] "" XXX
+ SG_ EngineSpeed : 52|13@0+ (1,0) [0|1023] "" XXX
+
+BO_ 112 NEW_MSG_4: 8 XXX
+ SG_ NEW_SIGNAL_1 : 39|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 114 ECM1: 8 ECM
+ SG_ NEW_SIGNAL_1 : 23|8@0+ (1,0) [0|255] "" XXX
+ SG_ ECM_ACC_ONOFF_INV : 43|1@0+ (1,0) [0|1] "" XXX
+ SG_ ECM_ACC_RESUME_INV : 45|1@0+ (1,0) [0|1] "" XXX
+ SG_ ECM_ACC_SET_INV : 47|1@0+ (1,0) [0|1] "" XXX
+ SG_ ECM_ACC_TIMEGAP_INC_INV : 33|1@0+ (1,0) [0|1] "" XXX
+ SG_ ECM_ACC_DEC_INV : 32|1@0+ (1,0) [0|1] "" XXX
+ SG_ ECM_ACC_TIMEGAP_DEC_INV : 34|1@0+ (1,0) [0|1] "" XXX
+
+BO_ 117 ECM1_2: 8 ECM
+
+BO_ 128 NEW_MSG_5: 8 XXX
+ SG_ NEW_SIGNAL_2 : 26|11@0+ (1,0) [0|2047] "" XXX
+ SG_ NEW_SIGNAL_1 : 52|13@0+ (1,0) [0|8191] "" XXX
+
+BO_ 176 ECM2: 8 ECM
+ SG_ NEW_SIGNAL_1 : 50|11@0+ (1,0) [0|2047] "" XXX
+ SG_ NEW_SIGNAL_2 : 47|8@0+ (1,0) [0|63] "" XXX
+
+BO_ 192 Gear: 8 XXX
+ SG_ TransmissionGear : 36|3@0+ (1,1) [0|7] "" XXX
+
+BO_ 208 FSM1: 8 FSM
+ SG_ SET_X_E3 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ SET_X_B4 : 15|8@0+ (1,0) [0|255] "" XXX
+ SG_ SET_X_08 : 23|8@0+ (1,0) [0|255] "" XXX
+ SG_ TrqLim : 31|8@0+ (1,-128) [0|255] "" XXX
+ SG_ Checksum : 55|8@0+ (1,0) [0|255] "" XXX
+ SG_ LKASteerDirection : 57|2@0+ (1,0) [0|2] "" XXX
+ SG_ SET_X_25 : 63|6@0+ (1,0) [0|63] "" XXX
+ SG_ LKAAngleReq : 37|14@0+ (0.04395,-360.0384) [-360.0384|359.99445] "degrees" XXX
+ SG_ SET_X_02 : 39|2@0+ (1,0) [0|3] "" XXX
+
+BO_ 224 PSCM0: 8 PSCM
+ SG_ NEW_SIGNAL_2 : 12|5@0+ (1,0) [0|31] "" XXX
+ SG_ counter_07 : 15|3@0+ (1,0) [0|7] "" XXX
+ SG_ counter2_07 : 37|3@0+ (1,0) [0|16383] "" XXX
+ SG_ rate_of_something : 46|7@0+ (1,0) [0|62] "" XXX
+ SG_ OneDuringDriving : 49|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_1 : 63|1@0+ (1,0) [0|1] "" XXX
+
+BO_ 245 wheelspeed0: 8 BCM
+ SG_ counter1 : 21|6@0+ (1,0) [0|65535] "" XXX
+ SG_ counter0 : 7|16@0+ (1,0) [0|65535] "" XXX
+ SG_ WhlSpdLF : 39|16@0+ (1,0) [0|65535] "" XXX
+ SG_ WhlSpdRF : 55|16@0+ (1,0) [0|65535] "" XXX
+
+BO_ 272 SpeedSignal0: 8 XXX
+ SG_ VehicleSpeedSignal : 55|16@0+ (0.01,0) [0|65535] "" XXX
+
+BO_ 288 wheel_speed1: 8 BCM
+ SG_ WhlSpdLR : 39|16@0+ (1,0) [0|65535] "" XXX
+ SG_ WhlSpdRR : 55|16@0+ (1,0) [0|65535] "" XXX
+
+BO_ 293 PSCM1: 8 PSCM
+ SG_ byte0 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte3 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte4 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte7 : 63|8@0+ (1,0) [0|255] "" XXX
+ SG_ LKATorque : 11|12@0+ (1,-2000) [0|4095] "" XXX
+ SG_ SteeringAngleServo : 47|16@0+ (0.04395,-1440.1536) [0|65535] "deg" XXX
+ SG_ LKAActive : 15|4@0+ (1,0) [0|15] "" XXX
+
+BO_ 304 VehicleSpeed0: 8 BCM
+ SG_ NEW_SIGNAL_2 : 15|16@0+ (1,0) [0|65535] "" XXX
+ SG_ VehicleSpeed : 31|16@0+ (0.01,0) [0|65535] "km/h" XXX
+ SG_ NEW_SIGNAL_1 : 55|16@0+ (1,0) [0|65535] "" XXX
+
+BO_ 325 ECM3: 8 ECM
+
+BO_ 336 VehicleSpeed1: 8 BCM
+ SG_ NEW_SIGNAL_2 : 31|16@0+ (1,0) [0|65535] "" XXX
+ SG_ NEW_SIGNAL_1 : 15|16@0+ (1,0) [0|65535] "" XXX
+ SG_ VehicleSpeed : 55|16@0+ (0.01,0) [0|65535] "" XXX
+
+BO_ 352 FSM2: 8 FSM
+ SG_ LkaDimLine : 51|2@1+ (1,0) [0|127] "" XXX
+ SG_ NEW_SIGNAL_2 : 56|7@1+ (1,0) [0|255] "" XXX
+ SG_ NEW_SIGNAL_1 : 55|1@0+ (1,0) [0|1] "" XXX
+ SG_ Byte_0 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_1 : 15|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_2_b7_6 : 23|2@0+ (1,0) [0|3] "" XXX
+ SG_ ACC_BrakeRequest : 21|1@0+ (1,0) [0|1] "" XXX
+ SG_ Byte_2_b4_0 : 20|5@0+ (1,0) [0|31] "" XXX
+ SG_ Byte_3 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_4 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_5_b7_6 : 47|2@0+ (1,0) [0|3] "" XXX
+ SG_ ACC_BrakeRequest_B : 45|1@0+ (1,0) [0|1] "" XXX
+ SG_ Byte_5_b4_0 : 44|5@0+ (1,0) [0|31] "" XXX
+ SG_ ACC_AccelRequest : 63|8@0+ (0.0556,-10.72) [-10.7|3.4] "m/s2" XXX
+
+BO_ 432 BrakeMessages: 8 BCM
+ SG_ BrakePress0 : 1|10@0+ (1,0) [0|1023] "" XXX
+ SG_ BrakePress1 : 33|10@0+ (1,0) [0|1023] "" XXX
+ SG_ BrakeStatus : 18|3@0+ (1,0) [0|7] "" XXX
+
+BO_ 437 BrakeInfo: 8 XXX
+ SG_ Byte_0 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_1 : 15|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_2 : 23|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_3 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_4 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_5 : 47|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_6 : 55|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_7 : 63|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 464 DIM0: 8 DIM
+
+BO_ 480 BCM0: 8 BCM
+
+BO_ 528 CEM0: 8 CEM
+ SG_ LKA_State : 2|1@0+ (1,0) [0|1] "" XXX
+
+BO_ 608 CVM0: 8 CVM
+ SG_ NEW_SIGNAL_1 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ NEW_SIGNAL_2 : 15|5@0+ (1,0) [0|32] "" XXX
+ SG_ Distance : 10|11@0+ (1,0) [0|2048] "" XXX
+
+BO_ 624 FSM3: 8 FSM
+ SG_ Byte_0 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_1 : 15|8@0+ (1,0) [0|255] "" XXX
+ SG_ ACC_LeadDecelRaw : 23|16@0- (1,0) [-32768|32767] "" XXX
+ SG_ Byte_4 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_5 : 47|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_6 : 55|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_7 : 63|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 640 FSM4: 8 FSM
+ SG_ Byte_0 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_1 : 15|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_2 : 23|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_3 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_4 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ SpeedTarget : 47|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_6_b7_6 : 55|2@0+ (1,0) [0|3] "" XXX
+ SG_ Byte_6_b5_3 : 53|3@0+ (1,0) [0|7] "" XXX
+ SG_ Byte_6_b2 : 50|1@0+ (1,0) [0|1] "" XXX
+ SG_ ACC_TractionRequest : 49|10@0+ (1,0) [0|1023] "" XXX
+
+BO_ 648 SRS0: 8 SRS
+
+BO_ 652 ECM4: 8 ECM
+
+BO_ 656 ECM5: 8 ECM
+
+BO_ 657 ECM6: 8 ECM
+
+BO_ 681 MiscCarInfo: 8 CEM
+ SG_ TurnSignal : 1|2@0+ (1,0) [0|3] "" XXX
+ SG_ HighBeamOn : 52|1@0+ (1,0) [0|1] "" XXX
+
+BO_ 693 ECM7: 8 ECM
+
+BO_ 709 ACC: 8 ECM
+ SG_ SpeedTargetACC : 0|9@0+ (0.5,0) [0|511] "" XXX
+ SG_ ACC_PropulsionFeedback : 63|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 853 FSM5: 8 FSM
+ SG_ TargetSpeedOdo : 23|8@0+ (1,0) [0|63] "kph" XXX
+ SG_ SpeedSign : 36|5@0+ (5,0) [0|32] "" XXX
+ SG_ TextUnderSign : 37|1@0+ (1,0) [0|1] "" XXX
+ SG_ NEW_SIGNAL_6 : 39|3@0+ (1,0) [0|3] "" XXX
+ SG_ NEW_SIGNAL_5 : 47|8@0+ (1,0) [0|255] "" XXX
+ SG_ NEW_SIGNAL_3 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ LaneMarkingsOdo : 15|4@0+ (1,0) [0|7] "" XXX
+ SG_ NEW_SIGNAL_2 : 11|4@0+ (1,0) [0|15] "" XXX
+ SG_ NEW_SIGNAL_1 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ NEW_SIGNAL_4 : 55|16@0+ (1,0) [0|65535] "" XXX
+
+BO_ 864 CEM1: 8 CEM
+ SG_ ACC_DemandChangeFlag : 39|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 912 DIM1: 8 DIM
+
+BO_ 968 SRS1: 8 SRS
+ SG_ PassengerSeatBelt : 22|1@0+ (1,0) [0|1] "" XXX
+ SG_ DriverSeatBelt : 19|1@0+ (1,0) [0|1] "" XXX
+
+BO_ 1029 CEMBCM0: 8 CEM
+
+BO_ 1344 NEW_MSG_1: 8 XXX
+ SG_ NEW_SIGNAL_1 : 4|13@0+ (1,0) [0|8191] "" XXX
+
+BO_ 1830 diagCEMReq: 8 XXX
+ SG_ byte0 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte1 : 15|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte2 : 23|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte3 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte4 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte5 : 47|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte6 : 55|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte7 : 63|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 1838 diagCEMResp: 8 XXX
+ SG_ byte03 : 7|32@0+ (1,0) [0|4294967295] "" XXX
+ SG_ byte47 : 39|32@0+ (1,0) [0|4294967295] "" XXX
+
+BO_ 1840 diagPSCMReq: 8 XXX
+ SG_ byte0 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte1 : 15|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte2 : 23|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte3 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte4 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte5 : 47|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte6 : 55|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte7 : 63|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 1848 diagPSCMResp: 8 XXX
+ SG_ byte03 : 7|32@0+ (1,0) [0|4294967295] "" XXX
+ SG_ byte47 : 39|32@0+ (1,0) [0|4294967295] "" XXX
+
+BO_ 1892 diagFSMReq: 8 XXX
+ SG_ byte0 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte1 : 15|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte2 : 23|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte3 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte4 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte5 : 47|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte6 : 55|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte7 : 63|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 1900 diagFSMResp: 8 XXX
+ SG_ byte03 : 7|32@0+ (1,0) [0|4294967295] "" XXX
+ SG_ byte47 : 39|32@0+ (1,0) [0|4294967295] "" XXX
+
+BO_ 1939 diagCVMReq: 8 XXX
+ SG_ byte0 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte1 : 15|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte2 : 23|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte3 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte4 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte5 : 47|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte6 : 55|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte7 : 63|8@0+ (1,0) [0|255] "" XXX
+
+BO_ 1947 diagCVMResp: 8 XXX
+ SG_ byte03 : 7|32@0+ (1,0) [0|4294967295] "" XXX
+ SG_ byte47 : 39|32@0+ (1,0) [0|4294967295] "" XXX
+
+BO_ 2015 diagGlobalReq: 8 XXX
+ SG_ byte0 : 7|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte1 : 15|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte2 : 23|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte3 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte4 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte5 : 47|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte6 : 55|8@0+ (1,0) [0|255] "" XXX
+ SG_ byte7 : 63|8@0+ (1,0) [0|255] "" XXX
+
+
+
+
+CM_ SG_ 85 BrakePedalActive2 "Active during braking";
+CM_ SG_ 85 NEW_SIGNAL_1 "Not yet figured out.";
+CM_ SG_ 85 BrakePedalActive "Brake pedal pushed. Behaves like a pressure threshold (~75-100 on 0x1B0 BrakePress0), not a switch.";
+CM_ SG_ 8 SteeringDirection "1=Right turn, 0=Left turn. Steering wheel pointing left or right from center (0 deg).";
+CM_ SG_ 8 RelativeTurnDirection "1=Right turn, 0=Left turn. Steering wheel currently turning the way.";
+CM_ SG_ 101 NEW_SIGNAL_1 "Rate of something?";
+CM_ SG_ 192 TransmissionGear "0 = 1st gear, 1= 2nd gear...";
+CM_ SG_ 681 TurnSignal "0 = Nothing, 1= Left, 3=Right";
+CM_ SG_ 681 HighBeamOn "1=HighBeam On, 0=HighBeam Off";
+CM_ SG_ 48 ACCStatusTracking "ACC Tracking vehicle, distance control.";
+CM_ SG_ 48 ACCStatusOnOff "Turns one after pressing on/off button on steering wheel";
+CM_ SG_ 48 ACCStatusActive "ACC status. Byte 7 of 0x30 as sent by the camera on bus 2 (not bus 0; the bus 0 copy is a different slow message). Values: 0x88 = off, 0x8A = standby (seen up to about 57 km/h, so not only at standstill), 0x8F = active tracking, 0x8E = active no tracking, 0x9x = same states with the time gap feedback bit (bit 4, ACCStatus_TimeGapFeedback) set. Transitions seen with button presses in 0x10: ACCOnOffBtn 0x88 <-> 0x8A, ACCSetBtn or ACCMinusBtn 0x8A -> 0x8E, ACCResumeBtn 0x8A -> 0x8F (with a lead tracked), ACCStopBtn 0x8F -> 0x8A. The OP-forwarded copy on bus 128 matches the camera frame, so OP is not rewriting it. Earlier note that it stays 0x88 under openpilot was a misread of bus 0.";
+CM_ SG_ 48 ACCStatus_TimeGapFeedback "Short pulse (about 5.1 s, re-triggers if the button is pressed again) set 0.01-0.03 s after TimeGapIncreaseBtn or TimeGapDecreaseBtn in 0x10 byte 6 is pressed. 28 of 28 onsets in 5 routes plus 6 of 6 in route 00000024. Not caused by Set, Minus, Resume, On/Off or Stop. Likely the time gap display timer. Confirmed from logs, untested by transmitting.";
+CM_ SG_ 48 FCWSomething "All bit set during fcw";
+CM_ SG_ 48 StatusSomething "Some status changes when zeroing DTCs";
+CM_ SG_ 208 TrqLim "Used in checksum calculation, Limit directional torque based on the number.";
+CM_ SG_ 208 Checksum "Checksum calculated as a one-complement addition of LKAAngleRequest+LKADirection+Unkown, Zeros used to pad missing bits.";
+CM_ SG_ 208 SET_X_02 "Bit 0 = Vibrate steering wheel., Bit 1 = Heartbeat";
+CM_ SG_ 352 LkaDimLine "Not true, but follows lka steer direction.";
+CM_ SG_ 352 NEW_SIGNAL_1 "Turned one. Got LKA service needed can this be the one?";
+CM_ SG_ 640 ACC_TractionRequest "Low 10 bits of the bytes 6-7 word (the original NEW_SIGNAL_1 49|10 restored). ACC drive/coast demand, medium confidence. Zero-accel point about 503; about 490-600 at cruise, about 610-650 when accelerating, 0 in brake mode (including coasting down). Stop-and-go dashcam route 00000026, ACC driving with no brake: accel (m/s2) about 0.0091 x (value - 503), i.e. about 110 counts per m/s2, R2 0.71 over 1123 samples (value leads measured accel by about 0.5 s; the speed term drops to about 0). Earlier routes gave 83-84 counts per m/s2 (highway R2 0.30, 15 km/h route R2 0.80), so scale is still uncertain. Saturates near 630. Resembles the V60 traction request (97 x a - 6, 0 in brake mode). Hydraulic brake target not yet identified; brake request flag is in 0x160.";
+CM_ SG_ 640 Byte_6_b7_6 "Always 3 (bits 15-14 of the word = 11), matching the V60 FSM4 brake word flags (0x8000 and 0x4000).";
+CM_ SG_ 640 Byte_6_b5_3 "Bits 13-11 of the word, observed constant at 3 (011). Meaning unknown.";
+CM_ SG_ 640 Byte_6_b2 "Bit 10 of the word. Clear whenever 0x270 byte 4 = 175 (11,700 of 11,708 frames in a manual drive; 10,540 of 10,544 in a highway ACC route), set otherwise. 175 is NOT ACC (seen with no ACC at all); most likely tied to openpilot being engaged, unproven. Explains the 0xD800 vs 0xDC00 floors seen in different routes.";
+CM_ SG_ 640 SpeedTarget "SpeedTarget ACC (noisy bf starting acc Jumps from 0->252->0)";
+CM_ BO_ 352 "0x160, camera to car (bus 2 -> relayed to bus 0), 50 Hz. Every ~4th-5th frame is a masked variant (Byte_0=0, Byte_2=0/32, Byte_3~20, Byte_5=0/33). No simple counter/checksum found (byte 7/4 are not XOR or sum of the others).";
+CM_ SG_ 352 ACC_BrakeRequest "ACC brake request flag, medium-high confidence. Turns on about 0.41 s (range 0.35-0.55 s, 12 of 16 clean onsets in the stop-and-go dashcam route 00000026) before hydraulic pressure rises at ACC braking; same 0.44 s seen in 3 earlier routes. Not set on driver braking while moving. Zero onsets in a 2238 s manual drive. Also set in masked frames. Not a brake target: strength is not encoded here. Standstill sightings: flag was set 22 percent of the time during one 3.7 s standstill (tail of the braking), so it is not a pure hold flag either. Untested by transmitting.";
+CM_ SG_ 352 ACC_BrakeRequest_B "Same behaviour as ACC_BrakeRequest. Always set when ACC_BrakeRequest is set, and sometimes alone (agree 96 percent of frames in route 00000026). Medium-high, untested by transmitting.";
+CM_ SG_ 352 ACC_AccelRequest "Candidate ACC acceleration request, low-medium confidence. Byte 7 of 0x160 (main frames only, i.e. byte 3 at 81-87). Overlaps NEW_SIGNAL_2 (56|7), which is kept unchanged. About 193 = 0 m/s2, about 18 counts per m/s2 (0.056 m/s2 per count); per-route fits gave zero at 191.3-194.4 and 14-28 counts per m/s2, so the scale is uncertain. Signed in one field: about 178-189 in ACC brake mode (-1 to -2 m/s2), above 205 when ACC accelerates (+1). While ACC is driving, r with measured accel is 0.59-0.93 over 7 routes (0.93 stop-and-go dashcam, 0.87 resume-button route); read about 0.3 s earlier than the accel. Leave-one-route-out prediction of accel from byte 7: RMSE 0.19-0.56 m/s2. With ACC off it still moves near 190-192 but does not track accel. Correlates 0.84-0.99 with the 0x280 ACC_TractionRequest in drive mode (0.99 in the dashcam stop route), so the two are probably linked; byte 7 also continues in brake mode where 0x280 is 0, so it may be the upstream demand. Not tested by transmitting; the ECM may act on 0x280 instead. Factor and offset are fitted values, not exact.";
+CM_ SG_ 352 Byte_4 "Sawtooth sweep (~-40 per 100 ms, wrapping 255 to 0) while ACC brakes. Otherwise mostly holds steady (idle values 3-7). Ramp, not a plain target or counter. Replaces old NEW_SIGNAL_4 (36|5).";
+CM_ SG_ 352 Byte_3 "Measured longitudinal acceleration feedback, medium confidence. Main frames hold 81-87 (masked frames about 18-21 are excluded). Mean measured accel by value: 82 about -1.4, 83 about -0.35, 84 about +0.3, 85 about +1.2, 86 about +2.0, 87 about +3.0 m/s2, roughly 1 m/s2 per count, zero near 83.6. r 0.88 in two routes and still 0.88 with ACC off, so it follows the car and is not an ACC request. Matches best when read about 0.2 s later than the accel, so it lags motion. Masked frames about 20/19/18.";
+CM_ SG_ 352 Byte_2_b4_0 "Byte 2 is 213 idle, 245 once ACC braking starts (only bit 5 differs). Replaces old NEW_SIGNAL_3 (7|24).";
+CM_ SG_ 624 Byte_4 "Reads 0x87 or 0x00 with stock ACC engaged, so it is NOT the ACC engaged state. 0xAF (175) appears with no ACC at all (e.g. 4 stretches in a 2238 s manual drive) and begins before ACC is switched on, then continues after it ends; most likely tied to openpilot being engaged, unproven. Other values seen: 0x28 (40), 0x9F, 0xA7. Bit 10 of the 0x280 word (Byte_6_b2) is clear exactly when this reads 175.";
+CM_ SG_ 528 LKA_State "0x210 byte 0 bit 2, 40 Hz, bus 0. Confirmed working as intended on the volvo_redlight branch. Seen in logs: on for the whole of a 1335 s manual drive and a highway route, never on in the 15 km/h set-speed route (likely LKA switched off for that drive). Follows the LKA enabled setting, not activity.";
+CM_ SG_ 624 ACC_LeadDecelRaw "Signed 16-bit, -1 idle (about -230 steady with a lead in some logs). Goes strongly negative (to -3300 and lower) when a lead car ahead is braking, and stayed -1 during ACC own set-speed decels (-1.8 m/s2), so it is a lead-related decel demand, NOT the ACC decel request. Never positive. Low confidence.";
+CM_ SG_ 624 Byte_0 "Always 0";
+CM_ SG_ 624 Byte_1 "Always 0";
+CM_ SG_ 624 Byte_5 "0 or 2; 2 seen when throttle is on";
+CM_ SG_ 624 Byte_6 "Always 0";
+CM_ SG_ 624 Byte_7 "Always 0";
+CM_ SG_ 640 Byte_0 "0x40, bit 3 sometimes set";
+CM_ SG_ 864 ACC_DemandChangeFlag "10 Hz. Idle 164 (163 in manual). Under ACC it spikes high (~244-254) as ACC begins re-accelerating and low (0-21) when it begins decelerating. Event marker, not a request value. Medium confidence.";
+CM_ SG_ 853 TargetSpeedOdo "Probably target speed odo";
+CM_ SG_ 853 LaneMarkingsOdo "Bit 3=Left lane, Bit 2=Right lane, Bit 1=LKA on?, Bit 0=?";
+CM_ SG_ 709 SpeedTargetACC "SpeedTargetACC";
+CM_ SG_ 709 ACC_PropulsionFeedback "0x2C5 byte 7, ECM to camera (bus 0, echoed on bus 130), 16.7 Hz. Follows accelerator pedal (r~0.8). Pedal at zero: ~0 in manual driving, ~21 under ACC (ACC torque). Reads 0 during braking, ~25 at cruise, 160+ at +1.5 m/s2 (fit ~70*a+25). ECM output / feedback, NOT a request. Medium-low confidence.";
+CM_ SG_ 224 rate_of_something "Seems to be some kind of torque rather than rate.";
+CM_ SG_ 224 OneDuringDriving "Set to 1 when vehicle is rolling.";
+CM_ SG_ 293 byte7 "Bit0=0 when gearshift in park, else 1";
+CM_ SG_ 293 LKAActive "Bit0=0 when gear in park otherwise =1, Bit1=1 when LKA Active, 0 when not active. Bit2=? Bit3=?";
+CM_ SG_ 16 ACCOnOffBtn "Cruise control on/off button pressed. Confirmed in route 00000024: 0x88 -> 0x8A (off to standby) and 0x8E/0x9E -> 0x88 (active to off) on press.";
+CM_ SG_ 16 ACCSetBtn "Acc Set button (+) pressed. Confirmed in route 00000024: 0x8A -> 0x8E (standby to active) on press.";
+CM_ SG_ 16 ACCStopBtn "ACC Stop button pressed. Confirmed in route 00000024: 0x8F -> 0x8A (active to standby) on press.";
+CM_ SG_ 16 ACCResumeBtn "ACC Resume button pressed. Confirmed in route 00000024: 0x8A -> 0x8F at 100.9 s with a lead car tracked; later presses at 28-32 km/h left ACC in standby (probably below the 30 km/h minimum set speed, unconfirmed).";
+CM_ SG_ 16 ACCMinusBtn "ACC Minus (-) button pressed. Seen once in route 00000024 (208.3 s): 0x8A -> 0x8E. No 0x30 bit 4 pulse.";
+CM_ SG_ 16 TimeGapIncreaseBtn "Increase the time gap on ACC. Press is followed within 0.03 s by the 0x30 byte 7 bit 4 pulse (ACCStatus_TimeGapFeedback).";
+CM_ SG_ 16 TimeGapDecreaseBtn "Decrease the time gap on ACC. Press is followed within 0.03 s by the 0x30 byte 7 bit 4 pulse (ACCStatus_TimeGapFeedback).";
+CM_ SG_ 245 counter0 "Speed based counter";
+CM_ SG_ 245 WhlSpdLF "Wheel speed left front";
+CM_ SG_ 245 WhlSpdRF "Wheel speed right front";
+CM_ SG_ 288 WhlSpdLR "Wheel speed left rear";
+CM_ SG_ 288 WhlSpdRR "Wheel speed right rear";
+CM_ SG_ 64 RPMSomething "TransmissionOutput?";
+CM_ SG_ 64 GearShifter "P=0, R=1, N=2, D=3";
+CM_ SG_ 272 VehicleSpeedSignal "km/h";
+CM_ SG_ 432 BrakePress0 "Brake pressure. (byte0&3)<<8 | byte1. Rises about 0.4 s after the 0x160 brake request flag under ACC braking with the pedal flag off. During ACC braking (BrakeStatus 5) measured decel (m/s2) is about -0.015 x pressure - 0.25, r -0.91 over 571 samples: pressure 15 = -0.5, 45 = -0.9, 80 = -1.5, over 100 = about -2. Peak seen 147 in ACC braking. Confirmed.";
+CM_ SG_ 432 BrakePress1 "Brake pressure, second copy. (byte4&3)<<8 | byte5.";
+CM_ SG_ 432 BrakeStatus "5 during ACC braking (16 events in route 00000026, every one with the 0x160 flag), 1 at standstill with the brake held. 0 otherwise. Other values not seen.";
+CM_ BO_ 437 "0x1B5. Brake related, 10 ms, identical on bus 0 and bus 2 (camera sees it). Idle 2F FF C0 00 00 00 00 F8. Original Counter0-3 guesses (one per wheel?) not placed: bit layout unverified.";
+CM_ SG_ 114 NEW_SIGNAL_1 "Jumped from 0 -> 120 during start. Makes triangle from time to time";
+CM_ SG_ 608 NEW_SIGNAL_1 "Status?";
+CM_ SG_ 608 NEW_SIGNAL_2 "Classification of object?";
+CM_ SG_ 608 Distance "Distance to object in front. 1908 = no lead.";
+CM_ SG_ 968 PassengerSeatBelt "1 = Seatbelt latched";
+CM_ SG_ 968 DriverSeatBelt "1=Seatbelt latched";
+VAL_ 64 GearShifter 0 "P" 1 "R" 2 "N" 3 "D" ;
+VAL_ 432 BrakeStatus 1 "Standstill" 5 "ACC braking" ;
