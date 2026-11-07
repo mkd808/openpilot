@@ -34,6 +34,7 @@
 #define VOLVO_C1_PSCM_1            0x125U
 #define VOLVO_C1_PEDAL_AND_BRAKE   0x55U
 #define VOLVO_C1_SPEED             0x150U
+#define VOLVO_C1_CEM0              0x210U  // CEM0, dash LKA button
 
 // CMA-specific PT bus addresses
 #define VOLVO_CMA_BUS1_SPEED          0x70U   // RX vehicle speed
@@ -156,6 +157,11 @@ static void volvo_rx_hook(const CANPacket_t *msg) {
     if (msg->bus == VOLVO_MAIN_BUS) {
       if (msg->addr == VOLVO_C1_PSCM_1) {
         update_sample(&angle_meas, volvo_c1_pscm_angle(msg));
+      }
+
+      if (msg->addr == VOLVO_C1_CEM0) {
+        // Signal: LKA_State (CEM0 byte 0 bit 2), the driver's LKA on/off (always on lateral)
+        lkas_on = GET_BIT(msg, 2U);
       }
 
       if (msg->addr == VOLVO_C1_SPEED) {
@@ -407,6 +413,7 @@ static safety_config volvo_init(uint16_t param) {
       {.msg = {{VOLVO_C1_FSM_0, VOLVO_PARTY_BUS, 8, 100U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
       {.msg = {{VOLVO_C1_PEDAL_AND_BRAKE, VOLVO_MAIN_BUS, 8, 100U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
       {.msg = {{VOLVO_C1_SPEED, VOLVO_MAIN_BUS, 8, 50U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
+      {.msg = {{VOLVO_C1_CEM0, VOLVO_MAIN_BUS, 8, 40U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
     };
     return BUILD_SAFETY_CFG(volvo_c1_rx_checks, VOLVO_C1_TX_MSGS);
   }

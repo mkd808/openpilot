@@ -150,7 +150,10 @@ class CarState(CarStateBase):
 
     self.pilot_assist_engaged = cp_main.vl['LCA_2']['PILOT_ASSIST_ENGAGED'] == 1
 
+    # Dash Lane Keep Assist button, read from CEM0 (0x210) byte 0 bit 2.
+    # Always on lateral follows the driver's LKA on/off.
     fp_ret = custom.StarPilotCarState.new_message()
+    fp_ret.alwaysOnLateralAllowed = bool(cp.vl["CEM0"]["LKA_State"])
     return ret, fp_ret
 
   def _update_c1(self, can_parsers):
@@ -223,6 +226,7 @@ class CarState(CarStateBase):
           ("TCM0", 10),
           ("ACC", 17),
           ("MiscCarInfo", 25),
+          ("CEM0", 40),
         ], 0),
         Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.cam], [
           ("FSM0", 100),
