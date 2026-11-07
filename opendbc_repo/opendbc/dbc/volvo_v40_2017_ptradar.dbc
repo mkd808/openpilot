@@ -1,4 +1,4 @@
-VERSION "2-17volvov40radartest"
+VERSION "volvo_v40_2017_ptradar"
 
 
 NS_ :
@@ -1443,7 +1443,7 @@ CM_ SG_ 608 Distance "Distance to object in front. 1908 = no lead.";
 CM_ SG_ 968 PassengerSeatBelt "1 = Seatbelt latched";
 CM_ SG_ 968 DriverSeatBelt "1=Seatbelt latched";
 VAL_ 64 GearShifter 0 "P" 1 "R" 2 "N" 3 "D" ;
-CM_ "2-17volvov40radartest.dbc - Volvo V40 (C1, 2017) test DBC. Base: volvo_v40_2017_pt.dbc + Delphi ESR radar (bus 1) + findings from the 2026-11-08 drives (r1/r2/r3). REFERENCE ONLY: the code does not load this file. Bus map in the CSV logs: 0 = car/pt, 2 = camera, 1 = radar (Delphi ESR), 128/130 = panda echoes, 192/194 = OP tx. ID CLASH: 0x540 (1344) was NEW_MSG_1 on the car side in the base DBC; on bus 1 it is the radar Track_Sensor counter. The base NEW_MSG_1 (4|13@0+) was removed here, and the radar definition kept. Load radar messages with the radar bus only.";
+CM_ "volvo_v40_2017_ptradar.dbc - Volvo V40 (C1, 2017) test DBC. Base: volvo_v40_2017_pt.dbc + Delphi ESR radar (bus 1) + findings from the 2026-11-08 drives (r1/r2/r3). REFERENCE ONLY: the code does not load this file. Bus map in the CSV logs: 0 = car/pt, 2 = camera, 1 = radar (Delphi ESR), 128/130 = panda echoes, 192/194 = OP tx. ID CLASH: 0x540 (1344) was NEW_MSG_1 on the car side in the base DBC; on bus 1 it is the radar Track_Sensor counter. The base NEW_MSG_1 (4|13@0+) was removed here, and the radar definition kept. Load radar messages with the radar bus only.";
 
 CM_ BO_ 1280 "Radar track 1 (0x500). 0x500-0x53F = Target1..Target64, same layout, 20 Hz each, bus 1. In route 3 only ~39% of track-slot samples held a valid target; median 27 valid tracks per 50 ms frame (max 64). Most tracks are stationary scenery (closing speed median -6.5 m/s at own speed), so they must be filtered by the in-path IDs of 0x4E3 or by range/angle/width.";
 CM_ SG_ 1280 CAN_TX_TRACK_STATUS "0 no target, 1 new, 2 new updated, 3 updated, 4 coasted, 5 merged, 6 invalid coasted, 7 new coasted (per Delphi ESR ICD, not verified on this car). Route 3 counts: 0 = 571k, 3 = 180k, 4 = 104k, 1 = 42k, 2 = 28k, 7 = 9k, 5 = 2k samples.";
