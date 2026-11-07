@@ -314,3 +314,16 @@ def volvo_c1_aol_stock_acc_mode(car_fingerprint, pcm_cruise: bool,
     always_on_lateral_enabled and
     not controls_enabled
   )
+
+
+def volvo_c1_acc_self_braking_mode(car_fingerprint, pcm_cruise: bool,
+                                   controls_enabled: bool, acc_self_braking: bool) -> bool:
+  # V40: stock ACC is braking or holding the car by itself (BrakeStatus 5 = ACC braking, 1 = standstill hold).
+  # The brake-pressure bits that feed brakePressed also trip here, so OP drops out and would cancel ACC.
+  # Skip OP's ACCStopBtn cancel in that state only; a real driver brake outside it still cancels.
+  return (
+    car_fingerprint == CAR.VOLVO_V40 and
+    pcm_cruise and
+    acc_self_braking and
+    not controls_enabled
+  )
