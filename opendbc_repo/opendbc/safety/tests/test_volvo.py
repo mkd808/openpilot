@@ -538,6 +538,59 @@ class TestVolvoC1(common.CarSafetyTest, common.AngleSteeringSafetyTest):
     self.assertEqual(0x04, on[0].data[0])
     self.assertEqual(0x00, off[0].data[0])
 
+  def _brake_status_msg(self, status):
+    return self.packer.make_can_msg_safety("BrakeMessages", VOLVO_MAIN_BUS, {"BrakeStatus": status})
+
+  def _pressure_bits_msg(self, active):
+    return self.packer.make_can_msg_safety(
+      "PedalandBrake", VOLVO_MAIN_BUS, {"BrakePedalActive2": int(active), "BrakePedalActive": int(active)})
+
+  def test_brake_status_byte_position(self):
+    # volvo.h reads byte 2 & 7 of 0x1B0; byte 2 was 0xA5 during ACC braking in the logs
+    self.assertEqual(5, self._brake_status_msg(5)[0].data[2] & 0x7)
+
+  def test_acc_braking_masks_pressure_bits(self):
+    # stock ACC braking trips the 0x55 pressure bits; that must not drop controls
+    self.safety.set_controls_allowed(True)
+    self._rx(self._speed_msg(15))
+    self._rx(self._brake_status_msg(5))
+    self._rx(self._pressure_bits_msg(True))
+    self.assertFalse(self.safety.get_brake_pressed_prev())
+    self.assertTrue(self.safety.get_controls_allowed())
+
+  def test_pedal_without_acc_braking_drops_controls(self):
+    for status in (0, 1):
+      self.safety.set_controls_allowed(True)
+      self._rx(self._speed_msg(15))
+      self._rx(self._brake_status_msg(status))
+      self._rx(self._pressure_bits_msg(True))
+      self.assertTrue(self.safety.get_brake_pressed_prev(), status)
+      self.assertFalse(self.safety.get_controls_allowed(), status)
+      self._rx(self._pressure_bits_msg(False))
+
+  def test_pedal_tap_during_acc_braking_drops_controls(self):
+    # ACC braking, then the driver taps the pedal: stock ACC cancels, status leaves 5, bits are still set
+    self.safety.set_controls_allowed(True)
+    self._rx(self._speed_msg(15))
+    self._rx(self._brake_status_msg(5))
+    self._rx(self._pressure_bits_msg(True))
+    self.assertTrue(self.safety.get_controls_allowed())
+    self._rx(self._brake_status_msg(0))
+    self.assertFalse(self.safety.get_controls_allowed())
+
+  def test_brake_status_not_sticky_after_init(self):
+    self._rx(self._brake_status_msg(5))
+    self.safety.set_safety_hooks(SAFETY_VOLVO, VOLVO_FLAG_C1)
+    self.safety.init_tests()
+    self.safety.set_controls_allowed(True)
+    self._rx(self._speed_msg(15))
+    self._rx(self._pressure_bits_msg(True))
+    self.assertFalse(self.safety.get_controls_allowed())
+
+  def test_brake_messages_rx_accepted(self):
+    self.assertTrue(self._rx(self._brake_status_msg(0)))
+    self.assertTrue(self._rx(self._brake_status_msg(5)))
+
   def test_cem0_rx_accepted(self):
     # CEM0 is in the C1 rx checks on the main bus, so the safety must accept it
     for lka_state in (False, True):

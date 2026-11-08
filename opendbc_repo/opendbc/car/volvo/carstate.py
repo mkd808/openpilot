@@ -31,9 +31,13 @@ class CarState(CarStateBase):
     ret.steeringPressed = False
 
     ret.gasPressed = cp.vl["PedalandBrake"]["AccPedal"] > 5.0
-    ret.brakePressed = bool(cp.vl["PedalandBrake"]["BrakePedalActive2"] or cp.vl["PedalandBrake"]["BrakePedalActive"])
-    # BrakeStatus: 5 = stock ACC braking, 1 = standstill hold. Used only to skip OP's ACC cancel; not a pedal signal.
-    ret.brakeHoldActive = int(cp.vl["BrakeMessages"]["BrakeStatus"]) in (1, 5)
+    # BrakeStatus 5 = stock ACC braking (byte 2 = 0xA5, never set by the pedal). ACC braking trips the same pressure
+    # bits as the pedal, so ignore them while it is 5, same as volvo.h. A pedal tap makes ACC cancel and the status drop.
+    brake_status = int(cp.vl["BrakeMessages"]["BrakeStatus"])
+    pressure_bits = bool(cp.vl["PedalandBrake"]["BrakePedalActive2"] or cp.vl["PedalandBrake"]["BrakePedalActive"])
+    ret.brakePressed = pressure_bits and brake_status != 5
+    # 5 = ACC braking, 1 = ACC hold/transition (0xA1 around a braking event, 0xE1 at standstill). Only used to skip OP's ACC cancel.
+    ret.brakeHoldActive = brake_status in (1, 5)
 
     ret.gearShifter = {
       0: GearShifter.park,
