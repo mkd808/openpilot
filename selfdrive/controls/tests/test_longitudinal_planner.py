@@ -17,6 +17,8 @@ from opendbc.car.ford.interface import CarInterface as FordCarInterface
 from opendbc.car.ford.values import CAR as FORD_CAR
 from opendbc.car.toyota.interface import CarInterface as ToyotaCarInterface
 from opendbc.car.toyota.values import CAR as TOYOTA_CAR
+from opendbc.car.volvo.interface import CarInterface as VolvoCarInterface
+from opendbc.car.volvo.values import CAR as VOLVO_CAR
 import openpilot.selfdrive.controls.lib.longitudinal_planner as longitudinal_planner_module
 from openpilot.selfdrive.controls.lib.longcontrol import LongCtrlState
 from openpilot.selfdrive.controls.lib.drive_helpers import CONTROL_N
@@ -270,6 +272,36 @@ def test_honda_crv_5g_vision_lead_gap_settle_is_bounded(model_version):
   assert planner.radar_standstill_gap_settle_active
   assert not planner.output_should_stop
   assert planner.output_a_target == pytest.approx(longitudinal_planner_module.RADAR_STANDSTILL_GAP_SETTLE_ACCEL)
+
+
+def _shadow_planner_filter_after_update(CP, selfdrive_enabled, acc_enabled):
+  """Run one planner update with the speed filter parked far from v_ego; return the filter state afterwards.
+
+  A reset snaps the filter to v_ego, no reset leaves it close to where it was parked."""
+  v_ego = 15.0
+  planner = LongitudinalPlanner(CP, init_v=v_ego)
+  sm = make_sm(v_ego, desired_accel=0.0, min_accel=-1.0, experimental_mode=False)
+  sm["selfdriveState"].enabled = selfdrive_enabled
+  sm["carState"].cruiseState = SimpleNamespace(enabled=acc_enabled)
+  planner.v_desired_filter.x = 99.0
+  planner.update(sm, make_toggles())
+  return planner.v_desired_filter.x
+
+
+def test_volvo_v40_shadow_planner_keeps_running_while_stock_acc_active():
+  CP = VolvoCarInterface.get_non_essential_params(VOLVO_CAR.VOLVO_V40)
+  assert CP.pcmCruise and not CP.openpilotLongitudinalControl
+  assert _shadow_planner_filter_after_update(CP, selfdrive_enabled=False, acc_enabled=True) > 90.0
+
+
+def test_volvo_v40_shadow_planner_resets_when_stock_acc_off():
+  CP = VolvoCarInterface.get_non_essential_params(VOLVO_CAR.VOLVO_V40)
+  assert _shadow_planner_filter_after_update(CP, selfdrive_enabled=False, acc_enabled=False) < 50.0
+
+
+def test_shadow_planner_still_resets_on_other_cars_with_acc_active():
+  CP = CarInterface.get_non_essential_params(CAR.HONDA_CRV_5G)
+  assert _shadow_planner_filter_after_update(CP, selfdrive_enabled=False, acc_enabled=True) < 50.0
 
 
 def test_mpc_duplicate_vision_filter_smooths_distance_jumps_per_track():
