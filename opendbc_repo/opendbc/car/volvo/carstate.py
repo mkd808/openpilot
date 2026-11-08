@@ -32,6 +32,8 @@ class CarState(CarStateBase):
 
     ret.gasPressed = cp.vl["PedalandBrake"]["AccPedal"] > 5.0
     ret.brakePressed = bool(cp.vl["PedalandBrake"]["BrakePedalActive2"] or cp.vl["PedalandBrake"]["BrakePedalActive"])
+    # BrakeStatus: 5 = stock ACC braking, 1 = standstill hold. Used only to skip OP's ACC cancel; not a pedal signal.
+    ret.brakeHoldActive = int(cp.vl["BrakeMessages"]["BrakeStatus"]) in (1, 5)
 
     ret.gearShifter = {
       0: GearShifter.park,
@@ -91,6 +93,7 @@ class CarState(CarStateBase):
           ("CCButtons", 100),
           ("PSCM1", 50),
           ("PedalandBrake", 100),
+          ("BrakeMessages", 50),
           ("TCM0", 10),
           ("ACC", 17),
           ("MiscCarInfo", 25),

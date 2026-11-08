@@ -302,3 +302,35 @@ FW_QUERY_CONFIG = FwQueryConfig(
 )
 
 DBC = CAR.create_dbc_map()
+
+
+def volvo_c1_aol_stock_acc_mode(car_fingerprint, pcm_cruise: bool,
+                                controls_enabled: bool, always_on_lateral_enabled: bool) -> bool:
+  # V40 lateral-only fork: while always on lateral is active and OP is not engaged, stock ACC keeps running.
+  # OP's ACCStopBtn cancel is skipped, mirroring the Pacifica hybrid AOL exemption.
+  return (
+    car_fingerprint == CAR.VOLVO_V40 and
+    pcm_cruise and
+    always_on_lateral_enabled and
+    not controls_enabled
+  )
+
+
+def volvo_c1_acc_self_braking_mode(car_fingerprint, pcm_cruise: bool,
+                                   controls_enabled: bool, acc_self_braking: bool) -> bool:
+  # V40: stock ACC is braking or holding the car by itself (BrakeStatus 5 = ACC braking, 1 = standstill hold).
+  # The brake-pressure bits that feed brakePressed also trip here, so OP drops out and would cancel ACC.
+  # Skip OP's ACCStopBtn cancel in that state only; a real driver brake outside it still cancels.
+  return (
+    car_fingerprint == CAR.VOLVO_V40 and
+    pcm_cruise and
+    acc_self_braking and
+    not controls_enabled
+  )
+
+
+def volvo_c1_stock_acc_owns_cruise(car_fingerprint, pcm_cruise: bool, controls_enabled: bool) -> bool:
+  # V40 is lateral-only: stock ACC owns speed, so OP never needs to cancel it. A cancel sent after OP disengages
+  # (for example when stock ACC braking trips the brake-pressure bits) can drop stock ACC.
+  # A driver brake still drops stock ACC by itself. Sends fewer frames than before; panda allow-list unchanged.
+  return car_fingerprint == CAR.VOLVO_V40 and pcm_cruise and not controls_enabled

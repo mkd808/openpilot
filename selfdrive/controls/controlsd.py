@@ -16,6 +16,7 @@ from opendbc.car.chrysler.values import pacifica_hybrid_aol_stock_acc_mode
 from opendbc.car.gm.values import CAR as GM_CAR
 from opendbc.car.honda.values import CAR as HONDA_CAR
 from opendbc.car.hyundai.values import CAR as HYUNDAI_CAR
+from opendbc.car.volvo.values import volvo_c1_aol_stock_acc_mode, volvo_c1_acc_self_braking_mode, volvo_c1_stock_acc_owns_cruise
 from opendbc.car.nissan.values import CAR as NISSAN_CAR
 from opendbc.car.vehicle_model import VehicleModel
 from openpilot.selfdrive.controls.lib.drive_helpers import (
@@ -846,7 +847,19 @@ class Controls:
       self.sm['starpilotCarState'].alwaysOnLateralEnabled,
     )
     cancel_requested = should_cancel_stock_cruise(self.CP, CS.cruiseState.enabled, CC.enabled)
-    CC.cruiseControl.cancel = cancel_requested and not pacifica_hybrid_aol
+    volvo_c1_aol = volvo_c1_aol_stock_acc_mode(
+      self.CP.carFingerprint,
+      self.CP.pcmCruise,
+      CC.enabled,
+      self.sm['starpilotCarState'].alwaysOnLateralEnabled,
+    )
+    volvo_c1_self_braking = volvo_c1_acc_self_braking_mode(
+      self.CP.carFingerprint,
+      self.CP.pcmCruise,
+      CC.enabled,
+      CS.brakeHoldActive,
+    )
+    CC.cruiseControl.cancel = cancel_requested and not pacifica_hybrid_aol and not volvo_c1_aol and not volvo_c1_self_braking and not volvo_c1_stock_acc_owns_cruise(self.CP.carFingerprint, self.CP.pcmCruise, CC.enabled)
 
     legacy_resume_hack = False
     if len(long_plan.speeds):
