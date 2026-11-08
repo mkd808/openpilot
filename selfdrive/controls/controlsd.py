@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import math
 from numbers import Number
 import os
@@ -16,7 +17,7 @@ from opendbc.car.chrysler.values import pacifica_hybrid_aol_stock_acc_mode
 from opendbc.car.gm.values import CAR as GM_CAR
 from opendbc.car.honda.values import CAR as HONDA_CAR
 from opendbc.car.hyundai.values import CAR as HYUNDAI_CAR
-from opendbc.car.volvo.values import volvo_c1_aol_stock_acc_mode, volvo_c1_acc_self_braking_mode, volvo_c1_stock_acc_owns_cruise
+from opendbc.car.volvo.values import CAR as VOLVO_CAR, volvo_c1_aol_stock_acc_mode, volvo_c1_acc_self_braking_mode, volvo_c1_stock_acc_owns_cruise
 from opendbc.car.nissan.values import CAR as NISSAN_CAR
 from opendbc.car.vehicle_model import VehicleModel
 from openpilot.selfdrive.controls.lib.drive_helpers import (
@@ -27,6 +28,7 @@ from openpilot.selfdrive.controls.lib.drive_helpers import (
   update_lateral_fault_latch,
 )
 from openpilot.selfdrive.controls.lib.lane_centering import LaneCenteringController
+from openpilot.selfdrive.controls.lib.volvo_resume_shadow import VolvoResumeShadow
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl
 from openpilot.selfdrive.controls.lib.latcontrol_pid import LatControlPID
 from openpilot.selfdrive.controls.lib.latcontrol_angle import LatControlAngle
@@ -410,6 +412,8 @@ class Controls:
     self.turn_hold_done = False
     self.turn_blinker_swept = 0.0
     self.twitch_guard_remaining = 0.0
+    # Volvo V40 stop-and-go resume, logging only (see volvo_resume_shadow.py)
+    self.volvo_resume_shadow = VolvoResumeShadow() if self.CP.carFingerprint == VOLVO_CAR.VOLVO_V40 and self.CP.pcmCruise else None
     self.kona_non_scc_lateral_active = False
     self.elantra_hev_2024_lateral_faulted = False
     self.elantra_hev_2024_previous_cruise_enabled = False
@@ -860,6 +864,18 @@ class Controls:
       CS.brakeHoldActive,
     )
     CC.cruiseControl.cancel = cancel_requested and not pacifica_hybrid_aol and not volvo_c1_aol and not volvo_c1_self_braking and not volvo_c1_stock_acc_owns_cruise(self.CP.carFingerprint, self.CP.pcmCruise, CC.enabled)
+
+    if self.volvo_resume_shadow is not None:
+      try:
+        lead = self.sm['radarState'].leadOne
+        resume_pressed = any(str(be.type) == 'resumeCruise' and be.pressed for be in CS.buttonEvents)
+        for event in self.volvo_resume_shadow.update(time.monotonic(), bool(CS.standstill), bool(CS.cruiseState.enabled),
+                                                     bool(lead.status), float(lead.dRel), float(lead.vLead), resume_pressed):
+          cloudlog.info("volvo_resume_shadow " + json.dumps(event))
+      except Exception:
+        # Logging only: a bug here must never disturb the controls loop
+        cloudlog.exception("volvo_resume_shadow failed, disabled")
+        self.volvo_resume_shadow = None
 
     legacy_resume_hack = False
     if len(long_plan.speeds):
