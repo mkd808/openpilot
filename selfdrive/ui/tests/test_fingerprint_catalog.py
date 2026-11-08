@@ -101,3 +101,12 @@ def test_extract_keeps_empty_result_when_selected_source_cannot_be_read(tmp_path
 
   assert catalog._extract_fingerprint_models_for_make('honda') == []
   assert reads == [tmp_path / 'opendbc' / 'car' / 'honda' / 'values.py']
+
+
+def test_volvo_make_and_models_are_available_for_manual_fingerprinting():
+  makes, models_by_make, _, make_by_model = get_fingerprint_catalog()
+
+  assert "Volvo" in makes
+  volvo_values = {option.value for option in models_by_make["Volvo"]}
+  assert {"VOLVO_V40", "VOLVO_V60"} <= volvo_values
+  assert make_by_model["VOLVO_V40"] == "Volvo"

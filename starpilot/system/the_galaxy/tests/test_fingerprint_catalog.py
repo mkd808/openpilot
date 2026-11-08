@@ -105,3 +105,13 @@ def test_fingerprint_diagnostic_flags_a_stale_label_value_mismatch(monkeypatch):
   assert "Mismatch" in text
   assert "TESLA_MODEL_S_PREAP" in text
   assert "reselect" in text.lower()
+
+
+def test_galaxy_lists_volvo_make_and_models_for_manual_fingerprinting():
+  catalog = the_galaxy._get_fingerprint_catalog()
+  assert {"value": "Volvo", "label": "Volvo"} in catalog["makes"]
+
+  volvo_models = the_galaxy._extract_fingerprint_models_for_make("volvo")
+  assert {"value": "VOLVO_V40", "label": "Volvo V40 2013-19"} in volvo_models
+  assert {"value": "VOLVO_V60", "label": "Volvo V60 2010-18"} in volvo_models
+  assert catalog["label_to_model"]["Volvo V40 2013-19"] == "VOLVO_V40"

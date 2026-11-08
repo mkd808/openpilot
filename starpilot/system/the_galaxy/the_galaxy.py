@@ -1714,6 +1714,7 @@ FINGERPRINT_MAKE_LABELS = [
   "Tesla",
   "Toyota",
   "Volkswagen",
+  "Volvo",
 ]
 
 FINGERPRINT_MAKE_TO_VALUES_DIR = {
