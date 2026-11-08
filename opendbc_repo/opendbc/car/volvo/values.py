@@ -209,6 +209,8 @@ class VolvoC1PlatformConfig(PlatformConfig):
   dbc_dict: DbcDict = field(default_factory=lambda: {
     Bus.pt: 'volvo_v40_2017_pt',
     Bus.cam: 'volvo_v40_2017_pt',
+    # Delphi ESR tracks (0x500..0x53F, 20 Hz) are on bus 1; read-only, nothing is sent to the radar.
+    Bus.radar: RADAR_ESR,
   })
 
 
