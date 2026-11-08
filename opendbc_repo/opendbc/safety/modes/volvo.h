@@ -423,6 +423,29 @@ static void volvo_c1_update_brake_pressed(void) {
   brake_pressed = volvo_c1_pressure_bits && !acc_owns_brake;
 }
 
+// Resume button (0x10 byte 7 = 0x20) for stop and go. Stock ACC holds the car at standstill (0x1B0 hold flag)
+// and waits for the driver's Resume once the lead has been gone a while. A Resume frame is only let through
+// while stock ACC is active and holding, the car is stationary, controls are allowed and the driver is not on
+// the pedals, and at most VOLVO_C1_RESUME_MAX_FRAMES per hold. The budget is restored when the hold ends, the
+// car moves or ACC drops, so one hold gets one burst.
+#define VOLVO_C1_RESUME_MAX_FRAMES 40U  // 0.4 s at 100 Hz, the car side sends 0.3 s
+static uint8_t volvo_c1_resume_budget = 0U;
+
+static void volvo_c1_resume_rearm(void) {
+  if (!volvo_c1_brake_hold || !volvo_c1_acc_active || vehicle_moving) {
+    volvo_c1_resume_budget = VOLVO_C1_RESUME_MAX_FRAMES;
+  }
+}
+
+static bool volvo_c1_resume_allowed(void) {
+  const bool ok = controls_allowed && volvo_c1_acc_active && volvo_c1_brake_hold && !vehicle_moving &&
+                  !gas_pressed && !brake_pressed && (volvo_c1_resume_budget > 0U);
+  if (ok) {
+    volvo_c1_resume_budget--;
+  }
+  return ok;
+}
+
 static void volvo_c1_rx_hook(const CANPacket_t *msg) {
   if (msg->bus == VOLVO_MAIN_BUS) {
     if (msg->addr == VOLVO_C1_PSCM_1) {
@@ -439,6 +462,7 @@ static void volvo_c1_rx_hook(const CANPacket_t *msg) {
       const float speed = ((float)speed_raw * 0.01f) / 3.6f;
       vehicle_moving = speed > 0.1f;
       UPDATE_VEHICLE_SPEED(speed);
+      volvo_c1_resume_rearm();
     }
 
     if (msg->addr == VOLVO_C1_PEDAL_AND_BRAKE) {
@@ -452,12 +476,14 @@ static void volvo_c1_rx_hook(const CANPacket_t *msg) {
       volvo_c1_brake_status = msg->data[2] & 0x7U;
       volvo_c1_brake_hold = GET_BIT(msg, 22U);
       volvo_c1_update_brake_pressed();
+      volvo_c1_resume_rearm();
     }
   }
 
   if ((msg->bus == VOLVO_PARTY_BUS) && (msg->addr == VOLVO_C1_FSM_0)) {
     volvo_c1_acc_active = GET_BIT(msg, 58U);
     volvo_c1_update_brake_pressed();
+    volvo_c1_resume_rearm();
     pcm_cruise_check(GET_BIT(msg, 58U));
   }
 }
@@ -593,9 +619,14 @@ static bool volvo_c1_tx_hook(const CANPacket_t *msg) {
     tx &= !safety_max_limit_check(relayed_angle, measured_max, measured_min);
   }
 
-  // Only ACC cancel (byte 7 bit 4) may be synthesized.
+  // Only ACC cancel (byte 7 = 0x10) and, at a held standstill, Resume (byte 7 = 0x20) may be synthesized.
   if (msg->addr == VOLVO_C1_BUTTONS) {
-    tx &= ((msg->data[7] & 0xEFU) == 0U) && (msg->data[6] == 0U);
+    const bool cancel_or_none = ((msg->data[7] & 0xEFU) == 0U);
+    bool resume_ok = false;
+    if (msg->data[7] == 0x20U) {
+      resume_ok = volvo_c1_resume_allowed();
+    }
+    tx &= (msg->data[6] == 0U) && (cancel_or_none || resume_ok);
   }
   return tx;
 }
@@ -736,6 +767,7 @@ static safety_config volvo_c1_init(void) {
   volvo_c1_brake_status = 0U;
   volvo_c1_brake_hold = false;
   volvo_c1_acc_active = false;
+  volvo_c1_resume_budget = VOLVO_C1_RESUME_MAX_FRAMES;
   static const CanMsg VOLVO_C1_TX_MSGS[] = {
     {VOLVO_C1_FSM_1, VOLVO_MAIN_BUS, 8, .check_relay = true},
     {VOLVO_C1_PSCM_1, VOLVO_PARTY_BUS, 8, .check_relay = true},

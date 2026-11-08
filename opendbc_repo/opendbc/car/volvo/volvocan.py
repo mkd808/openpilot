@@ -46,6 +46,11 @@ def create_c1_cancel(packer):
   return packer.make_can_msg("CCButtons", 0, {"ACCStopBtn": 1})
 
 
+def create_c1_resume(packer):
+  # Same shape as the cancel frame (all other bytes 0), with the Resume button instead
+  return packer.make_can_msg("CCButtons", 0, {"ACCResumeBtn": 1})
+
+
 def create_lca_message(packer, lat_active: bool, apply_angle: float, msg_lca: dict,
                        authority_pos: int = 614, authority_neg: int = -614,
                        overrides: dict | None = None):

@@ -1,5 +1,5 @@
 from openpilot.selfdrive.controls.lib.volvo_resume_shadow import (
-  BASELINE_S, LEAD_GAP_GROW_M, STOCK_GRACE_S, VolvoResumeShadow,
+  BASELINE_S, FLAG_CHECK_S, LEAD_GAP_GROW_M, STOCK_GRACE_S, ResumeAssistFlag, VolvoResumeShadow,
 )
 
 DT = 0.05
@@ -88,3 +88,34 @@ def test_acc_off_stop_is_not_tracked():
 
 def test_stop_shorter_than_baseline_is_not_logged():
   assert run(held(BASELINE_S - 0.3) + moving()) == []
+
+
+def test_resume_requested_only_between_would_resume_and_hold_end():
+  shadow = VolvoResumeShadow()
+  seen = []
+  steps = held(BASELINE_S + 0.5) + leaving(STOCK_GRACE_S + 1.5) + moving(0.5)
+  for i, s in enumerate(steps):
+    shadow.update(i * DT, *s)
+    seen.append(shadow.resume_requested)
+  assert not any(seen[:int((BASELINE_S + 0.5) / DT)])
+  assert seen[int((BASELINE_S + 0.5 + STOCK_GRACE_S + 1.0) / DT)]
+  assert not shadow.resume_requested  # hold ended, car moving
+
+
+def test_resume_not_requested_when_lead_stays():
+  shadow = VolvoResumeShadow()
+  for i, s in enumerate(held(10.0)):
+    shadow.update(i * DT, *s)
+    assert not shadow.resume_requested
+
+
+def test_resume_flag_follows_file_and_caches(tmp_path):
+  path = tmp_path / "flag"
+  flag = ResumeAssistFlag(str(path))
+  assert not flag.enabled(0.0)
+  path.write_text("")
+  assert not flag.enabled(FLAG_CHECK_S / 2)  # cached
+  assert flag.enabled(FLAG_CHECK_S + 0.1)
+  path.unlink()
+  assert flag.enabled(FLAG_CHECK_S + 0.2)  # cached
+  assert not flag.enabled(2 * FLAG_CHECK_S + 0.2)

@@ -1,4 +1,5 @@
-"""Volvo V40 stop-and-go resume, shadow mode. Logging only: nothing is sent to the car.
+"""Volvo V40 stop-and-go resume timing. The logging always runs; the optional Resume send is switched by the flag
+file below and handled in controlsd, this class only decides when a Resume would be due.
 
 Stock ACC holds the car at a standstill behind a lead. If the lead sits for a few seconds, stock ACC stops
 resuming by itself and waits for the driver's Resume press. This class watches for that situation and logs
@@ -11,6 +12,7 @@ Events (dicts, the caller logs them):
   would_resume  lead has been gone for STOCK_GRACE_S and the car is still held: a sender would fire here
   stop_end      the hold ended, with how it ended: acc_auto_resume, driver_resume, no_lead_departure, acc_off
 """
+import os
 from dataclasses import dataclass
 
 BASELINE_S = 1.0          # held this long before the lead gap is taken as the baseline
@@ -20,6 +22,28 @@ LEAD_MIN_SPEED = 0.5      # m/s, lead speed that counts as pulling away
 LEAD_MOVED_CONFIRM_S = 0.2
 STOCK_GRACE_S = 1.0       # time stock ACC gets to resume by itself before a sender would act
 MIN_LOGGED_STOP_S = 1.0   # shorter stops are not logged
+
+
+# The Resume send is on only while this file exists (touch it over SSH, remove it to turn it off). A Params key would
+# need the prebuilt params library rebuilt, so a file is used until that is done.
+RESUME_ASSIST_FLAG = "/data/volvo_c1_resume_assist"
+FLAG_CHECK_S = 1.0
+
+
+class ResumeAssistFlag:
+  def __init__(self, path: str = RESUME_ASSIST_FLAG):
+    self.path = path
+    self._checked_at: float | None = None
+    self._on = False
+
+  def enabled(self, now: float) -> bool:
+    if self._checked_at is None or now - self._checked_at >= FLAG_CHECK_S:
+      self._checked_at = now
+      try:
+        self._on = os.path.isfile(self.path)
+      except OSError:
+        self._on = False
+    return self._on
 
 
 @dataclass
@@ -36,6 +60,11 @@ class _Stop:
 class VolvoResumeShadow:
   def __init__(self):
     self.stop: _Stop | None = None
+
+  @property
+  def resume_requested(self) -> bool:
+    """True from would_resume until the hold ends: the lead is gone and stock ACC is still holding the car."""
+    return self.stop is not None and self.stop.would_fired
 
   def update(self, t: float, standstill: bool, acc_enabled: bool, lead_ok: bool, d_rel: float, v_lead: float,
              resume_pressed: bool) -> list[dict]:

@@ -7,7 +7,7 @@ from opendbc.can.parser import CANParser
 from opendbc.car.volvo.carcontroller import CarController
 from opendbc.car.volvo.helpers import checksum_lca_5_message
 from opendbc.car.volvo.interface import CarInterface
-from opendbc.car.volvo.values import CAR, DBC
+from opendbc.car.volvo.values import CAR, DBC, CarControllerParams
 from opendbc.car.volvo.volvocan import create_c1_checksum
 from opendbc.safety.tests.libsafety import libsafety_py
 
@@ -120,7 +120,9 @@ def test_override_lca_stream_passes_safety_and_recovers(fingerprint, driver_torq
 
 def _c1_state():
   return SimpleNamespace(
-    out=SimpleNamespace(steeringAngleDeg=10.0, vEgo=12.0, vEgoRaw=12.0),
+    out=SimpleNamespace(steeringAngleDeg=10.0, vEgo=12.0, vEgoRaw=12.0, standstill=False, gasPressed=False,
+                        brakePressed=False, cruiseState=SimpleNamespace(enabled=False)),
+    c1_brake_hold=False,
     c1_lka_torque=5,
     c1_msg_pscm=_zero_message(),
   )
@@ -132,7 +134,7 @@ def test_c1_controller_emits_checked_steering_and_pscm_relay():
   cc = SimpleNamespace(
     latActive=True,
     actuators=_Actuators(),
-    cruiseControl=SimpleNamespace(cancel=False),
+    cruiseControl=SimpleNamespace(cancel=False, resume=False),
   )
 
   actuators, can_sends = controller.update(cc, _c1_state(), 0, None)
@@ -150,7 +152,7 @@ def test_c1_controller_sends_only_cancel_button():
   cc = SimpleNamespace(
     latActive=False,
     actuators=_Actuators(),
-    cruiseControl=SimpleNamespace(cancel=True),
+    cruiseControl=SimpleNamespace(cancel=True, resume=False),
   )
 
   _, can_sends = controller.update(cc, _c1_state(), 0, None)
@@ -158,6 +160,42 @@ def test_c1_controller_sends_only_cancel_button():
   assert buttons[2] == 0
   assert buttons[1][7] == 0x10
   assert buttons[1][6] == 0
+
+
+def _c1_resume_run(held, resume, frames, enabled=True, standstill=True, brake_pressed=False):
+  cp = CarInterface.get_non_essential_params(CAR.VOLVO_V40)
+  controller = CarController(DBC[cp.carFingerprint], cp)
+  cs = _c1_state()
+  cs.c1_brake_hold = held
+  cs.out.standstill = standstill
+  cs.out.brakePressed = brake_pressed
+  cs.out.cruiseState.enabled = enabled
+  cc = SimpleNamespace(latActive=False, actuators=_Actuators(), cruiseControl=SimpleNamespace(cancel=False, resume=resume))
+  sent = 0
+  for _ in range(frames):
+    _, can_sends = controller.update(cc, cs, 0, None)
+    for msg in can_sends:
+      if msg[0] == 0x10:
+        assert msg[1][7] == 0x20  # Resume only
+        sent += 1
+  return sent
+
+
+def test_c1_resume_burst_is_one_short_burst_per_hold():
+  assert _c1_resume_run(True, True, 200) == CarControllerParams.C1_RESUME_HOLD_FRAMES
+
+
+def test_c1_resume_not_sent_unless_requested():
+  assert _c1_resume_run(True, False, 100) == 0
+
+
+@pytest.mark.parametrize("kwargs", [
+  dict(held=False), dict(held=True, standstill=False), dict(held=True, enabled=False), dict(held=True, brake_pressed=True),
+])
+def test_c1_resume_needs_a_held_standstill_with_acc_on(kwargs):
+  args = dict(held=True, resume=True, frames=100)
+  args.update(kwargs)
+  assert _c1_resume_run(**args) == 0
 
 
 def test_c1_controller_temporarily_drops_steering_on_zero_torque_fault():
@@ -168,7 +206,7 @@ def test_c1_controller_temporarily_drops_steering_on_zero_torque_fault():
   cc = SimpleNamespace(
     latActive=True,
     actuators=_Actuators(),
-    cruiseControl=SimpleNamespace(cancel=False),
+    cruiseControl=SimpleNamespace(cancel=False, resume=False),
   )
 
   directions = []

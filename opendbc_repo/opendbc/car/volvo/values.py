@@ -89,6 +89,9 @@ class CarControllerParams:
     (C1_ANGLE_DELTA_BP, C1_ANGLE_DELTA_DOWN),
   )
 
+  # V40 stop and go: Resume held this many frames at a held standstill, one burst per hold. volvo.h lets 40 through.
+  C1_RESUME_HOLD_FRAMES = int(0.3 / DT_CTRL)
+
   # ---- V60/EUCD ----
   EUCD_ANGLE_LIMITS: AngleSteeringLimits = AngleSteeringLimits(90,
     ([0., 5., 15.], [5., .8, .15]),

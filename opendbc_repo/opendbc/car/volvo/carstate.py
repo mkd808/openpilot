@@ -13,6 +13,7 @@ class CarState(CarStateBase):
     super().__init__(CP, FPCP)
     self.c1_msg_pscm = {}
     self.c1_lka_torque = 0
+    self.c1_brake_hold = False  # stock ACC holding the car at standstill (0x1B0 byte 2 bit 6)
     self.c1_button_states = dict.fromkeys(
       ("ACCOnOffBtn", "ACCStopBtn", "ACCSetBtn", "ACCResumeBtn", "ACCMinusBtn", "TimeGapIncreaseBtn", "TimeGapDecreaseBtn"), False
     )
@@ -35,6 +36,7 @@ class CarState(CarStateBase):
     # volvo.h. A pedal tap makes ACC cancel, which clears the ACC-owned state. See volvo_c1_acc_owns_brake.
     brake_status = int(cp.vl["BrakeMessages"]["BrakeStatus"])
     brake_hold = bool(cp.vl["BrakeMessages"]["BrakeHold"])
+    self.c1_brake_hold = brake_hold
     acc_active = bool(cp_cam.vl["FSM0"]["ACCStatusActive"])
     pressure_bits = bool(cp.vl["PedalandBrake"]["BrakePedalActive2"] or cp.vl["PedalandBrake"]["BrakePedalActive"])
     ret.brakePressed = pressure_bits and not volvo_c1_acc_owns_brake(brake_status, brake_hold, acc_active)

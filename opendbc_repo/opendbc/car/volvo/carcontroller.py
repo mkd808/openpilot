@@ -9,7 +9,7 @@ from opendbc.car.interfaces import CarControllerBase
 from opendbc.car.lateral import apply_std_steer_angle_limits
 from opendbc.car.volvo.eucd_full_stop import EucdFullStop
 from opendbc.car.volvo.helpers import LCA3CounterSync
-from opendbc.car.volvo.volvocan import (create_c1_cancel, create_c1_pscm_message, create_c1_steering_control, create_lca_message,
+from opendbc.car.volvo.volvocan import (create_c1_cancel, create_c1_resume, create_c1_pscm_message, create_c1_steering_control, create_lca_message,
                                         create_pscm_message, create_lca_3_message, create_lca_2_message, create_lca_4_message, create_lca_5_message,
                                         create_lca_6_message, create_lca_7_message, create_pscm_related_message,
                                         create_eucd_button_msg, create_eucd_lka_msg, create_eucd_lkas_state_msg, create_eucd_longitudinal,
@@ -42,6 +42,8 @@ class CarController(CarControllerBase):
     self.eucd_waiting = False
     self.eucd_sng_count = 0
     self.eucd_op_resume_frames = 0
+    self.c1_resume_frames = 0  # V40 Resume burst, frames left
+    self.c1_resume_done = False  # this hold already got its burst
     self.eucd_sng_ack_frames = 0
     self.eucd_resume_hold_frames = 0  # Resume held to the ECM, frames left
     self.eucd_last_ccbuttons = None  # CEM's last CCButtons, copied for the Resume
@@ -606,6 +608,25 @@ class CarController(CarControllerBase):
       sends.append(create_eucd_cam_brake_hold(self.packer, stock_brake_hold, self.eucd_brake_hold_b0 if hold_mask else None))
     return sends
 
+  def _c1_resume_buttons(self, CC, CS, can_sends):
+    """Stop and go: one Resume burst per hold when controlsd asks for it (flag on, lead gone, stock ACC still holding).
+
+    volvo.h lets Resume through only at a held standstill with ACC active and caps the frames per hold."""
+    at_hold = (CS.out.cruiseState.enabled and CS.out.standstill and CS.c1_brake_hold and
+               not CS.out.gasPressed and not CS.out.brakePressed)
+    if not at_hold:
+      self.c1_resume_frames = 0
+      self.c1_resume_done = False
+      return
+
+    if CC.cruiseControl.resume and not self.c1_resume_done:
+      self.c1_resume_frames = CarControllerParams.C1_RESUME_HOLD_FRAMES
+      self.c1_resume_done = True
+
+    if self.c1_resume_frames > 0:
+      can_sends.append(create_c1_resume(self.packer))
+      self.c1_resume_frames -= 1
+
   def _update_c1(self, CC, CS):
     can_sends = []
     actuators = CC.actuators
@@ -647,6 +668,8 @@ class CarController(CarControllerBase):
 
     if CC.cruiseControl.cancel and self.frame % 10 == 0:
       can_sends.append(create_c1_cancel(self.packer))
+
+    self._c1_resume_buttons(CC, CS, can_sends)
 
     new_actuators = actuators.as_builder()
     new_actuators.steeringAngleDeg = self.apply_angle_last

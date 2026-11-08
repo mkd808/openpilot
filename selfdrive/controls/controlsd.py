@@ -28,7 +28,7 @@ from openpilot.selfdrive.controls.lib.drive_helpers import (
   update_lateral_fault_latch,
 )
 from openpilot.selfdrive.controls.lib.lane_centering import LaneCenteringController
-from openpilot.selfdrive.controls.lib.volvo_resume_shadow import VolvoResumeShadow
+from openpilot.selfdrive.controls.lib.volvo_resume_shadow import ResumeAssistFlag, VolvoResumeShadow
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl
 from openpilot.selfdrive.controls.lib.latcontrol_pid import LatControlPID
 from openpilot.selfdrive.controls.lib.latcontrol_angle import LatControlAngle
@@ -414,6 +414,7 @@ class Controls:
     self.twitch_guard_remaining = 0.0
     # Volvo V40 stop-and-go resume, logging only (see volvo_resume_shadow.py)
     self.volvo_resume_shadow = VolvoResumeShadow() if self.CP.carFingerprint == VOLVO_CAR.VOLVO_V40 and self.CP.pcmCruise else None
+    self.volvo_resume_assist_flag = ResumeAssistFlag()
     self.kona_non_scc_lateral_active = False
     self.elantra_hev_2024_lateral_faulted = False
     self.elantra_hev_2024_previous_cruise_enabled = False
@@ -890,6 +891,12 @@ class Controls:
     CC.cruiseControl.resume = CC.enabled and CS.cruiseState.standstill and (
       not self.sm['longitudinalPlan'].shouldStop or legacy_resume_hack
     )
+
+    if self.volvo_resume_shadow is not None:
+      # V40: the planner is a shadow, so its shouldStop says nothing about stock ACC. Resume only on the radar-based
+      # request, and only with the flag file on. The car side and volvo.h gate it again.
+      CC.cruiseControl.resume = bool(self.volvo_resume_shadow.resume_requested and
+                                     self.volvo_resume_assist_flag.enabled(time.monotonic()))
 
     hudControl = CC.hudControl
     hud_set_speed = float(CS.vCruiseCluster * CV.KPH_TO_MS)

@@ -482,6 +482,71 @@ class TestVolvoC1(common.CarSafetyTest, common.AngleSteeringSafetyTest):
       msg = self.packer.make_can_msg_safety("CCButtons", VOLVO_MAIN_BUS, {signal: 1})
       self.assertFalse(self._tx(msg), signal)
 
+  def _resume_msg(self, **extra):
+    return self.packer.make_can_msg_safety("CCButtons", VOLVO_MAIN_BUS, {"ACCResumeBtn": 1, **extra})
+
+  def _resume_ready(self, speed=0, acc_active=True, hold=1, controls=True, gas=0):
+    # stock ACC active and holding the car at standstill, nobody on the pedals
+    self._rx(self._speed_msg(speed))
+    self._rx(self._user_gas_msg(gas))
+    self._rx(self._pcm_status_msg(acc_active))
+    self._rx(self._brake_status_msg(0, hold))
+    self.safety.set_controls_allowed(controls)
+
+  def test_resume_allowed_at_held_standstill(self):
+    self._resume_ready()
+    self.assertTrue(self._tx(self._resume_msg()))
+
+  def test_resume_blocked_without_each_condition(self):
+    cases = {
+      "controls not allowed": dict(controls=False),
+      "stock ACC not active": dict(acc_active=False),
+      "no hold flag": dict(hold=0),
+      "car moving": dict(speed=2),
+      "gas pressed": dict(gas=20),
+    }
+    for name, kwargs in cases.items():
+      self.setUp()
+      self._resume_ready(**kwargs)
+      self.assertFalse(self._tx(self._resume_msg()), name)
+
+  def test_resume_is_one_burst_per_hold(self):
+    self._resume_ready()
+    sent = 0
+    while self._tx(self._resume_msg()) and sent < 1000:
+      sent += 1
+    self.assertEqual(40, sent)
+    # the hold goes on: still no more frames
+    self._rx(self._brake_status_msg(0, 1))
+    self.assertFalse(self._tx(self._resume_msg()))
+    # hold ends (car pulls away), the next hold gets a new burst
+    self._rx(self._brake_status_msg(0, 0))
+    self.assertFalse(self._tx(self._resume_msg()))
+    self._resume_ready()
+    self.assertTrue(self._tx(self._resume_msg()))
+
+  def test_resume_budget_rearms_when_the_car_moves(self):
+    self._resume_ready()
+    while self._tx(self._resume_msg()):
+      pass
+    self._rx(self._speed_msg(2))
+    self._rx(self._speed_msg(0))
+    self.assertTrue(self._tx(self._resume_msg()))
+
+  def test_resume_only_the_resume_bit(self):
+    self._resume_ready()
+    # resume together with cancel, or with anything in byte 6, is not allowed
+    self.assertFalse(self._tx(self._resume_msg(ACCStopBtn=1)))
+    self.assertFalse(self._tx(self._resume_msg(ACCOnOffBtn=1)))
+    self.assertFalse(self._tx(self._resume_msg(ACCMinusBtn=1)))
+    self.assertTrue(self._tx(self._resume_msg()))
+
+  def test_cancel_still_sent_regardless_of_resume_rules(self):
+    for kwargs in (dict(), dict(hold=0), dict(speed=10, hold=0), dict(acc_active=False)):
+      self.setUp()
+      self._resume_ready(**kwargs)
+      self.assertTrue(self._tx(self.packer.make_can_msg_safety("CCButtons", VOLVO_MAIN_BUS, {"ACCStopBtn": 1})), kwargs)
+
   def test_pscm_relay_cannot_invent_angle(self):
     for _ in range(common.MAX_SAMPLE_VALS):
       self._rx(self._angle_meas_msg(10))
