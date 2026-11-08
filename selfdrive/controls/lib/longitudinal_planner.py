@@ -2042,6 +2042,16 @@ class LongitudinalPlanner:
     # PCM cruise speed may be updated a few cycles later, check if initialized
     reset_state = reset_state or not v_cruise_initialized
 
+    # Shadow mode (disabled), Volvo V40. The V40 is lateral-only: stock ACC drives, selfdriveState.enabled stays
+    # false and the planner above keeps resetting, so its output is not meaningful. To log what this planner
+    # would command while stock ACC follows a lead, keep it running whenever stock ACC is active. Nothing is sent
+    # to the car; the plan is logged in longitudinalPlan. Compare longitudinalPlan.accels with the stock ACC accel
+    # request in the same route's CAN log (0x160 byte 7 on bus 2, main frames: accel = (byte7 - 192) * 0.066 m/s^2,
+    # fitted from logs) and with the radar lead in radarState (ESR on bus 1).
+    # To enable, add `from opendbc.car.volvo.values import CAR` and uncomment:
+    # if self.CP.carFingerprint == CAR.VOLVO_V40 and self.CP.pcmCruise and sm['carState'].cruiseState.enabled:
+    #   reset_state = not v_cruise_initialized
+
     # No change cost when user is controlling the speed, or when standstill
     prev_accel_constraint = not (reset_state or sm['carState'].standstill)
 
