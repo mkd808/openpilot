@@ -538,8 +538,8 @@ class TestVolvoC1(common.CarSafetyTest, common.AngleSteeringSafetyTest):
     self.assertEqual(0x04, on[0].data[0])
     self.assertEqual(0x00, off[0].data[0])
 
-  def _brake_status_msg(self, status):
-    return self.packer.make_can_msg_safety("BrakeMessages", VOLVO_MAIN_BUS, {"BrakeStatus": status})
+  def _brake_status_msg(self, status, hold=0):
+    return self.packer.make_can_msg_safety("BrakeMessages", VOLVO_MAIN_BUS, {"BrakeStatus": status, "BrakeHold": hold})
 
   def _pressure_bits_msg(self, active):
     return self.packer.make_can_msg_safety(
@@ -548,6 +548,7 @@ class TestVolvoC1(common.CarSafetyTest, common.AngleSteeringSafetyTest):
   def test_brake_status_byte_position(self):
     # volvo.h reads byte 2 & 7 of 0x1B0; byte 2 was 0xA5 during ACC braking in the logs
     self.assertEqual(5, self._brake_status_msg(5)[0].data[2] & 0x7)
+    self.assertEqual(0x40, self._brake_status_msg(0, hold=1)[0].data[2] & 0x40)
 
   def test_acc_braking_masks_pressure_bits(self):
     # stock ACC braking trips the 0x55 pressure bits; that must not drop controls
@@ -576,6 +577,31 @@ class TestVolvoC1(common.CarSafetyTest, common.AngleSteeringSafetyTest):
     self._rx(self._pressure_bits_msg(True))
     self.assertTrue(self.safety.get_controls_allowed())
     self._rx(self._brake_status_msg(0))
+    self.assertFalse(self.safety.get_controls_allowed())
+
+  def _acc_owned_setup(self, acc_active, status, hold):
+    self._rx(self._speed_msg(2))
+    self._rx(self._pcm_status_msg(acc_active))
+    self._rx(self._brake_status_msg(status, hold))
+    self.safety.set_controls_allowed(True)
+    self._rx(self._pressure_bits_msg(True))
+
+  def test_acc_hold_and_transition_masked_only_while_acc_active(self):
+    # 0xA1 (status 1) around a braking event, 0xE0/0xE1 (hold bit) at standstill
+    for status, hold in ((1, 0), (1, 1), (0, 1)):
+      self._acc_owned_setup(True, status, hold)
+      self.assertTrue(self.safety.get_controls_allowed(), f"{status=} {hold=}")
+      self.setUp()
+      # same bytes with stock ACC not active (a driver): must drop controls
+      self._acc_owned_setup(False, status, hold)
+      self.assertFalse(self.safety.get_controls_allowed(), f"{status=} {hold=} acc off")
+      self.setUp()
+
+  def test_pedal_after_acc_cancel_drops_controls(self):
+    # ACC holding at standstill, then ACC leaves active (driver cancelled): the pressure bits count again
+    self._acc_owned_setup(True, 0, 1)
+    self.assertTrue(self.safety.get_controls_allowed())
+    self._rx(self._pcm_status_msg(False))
     self.assertFalse(self.safety.get_controls_allowed())
 
   def test_brake_status_not_sticky_after_init(self):

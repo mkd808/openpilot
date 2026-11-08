@@ -55,3 +55,13 @@ def test_c1_carstate_decodes_vehicle_and_cruise_signals():
   assert len(ret.buttonEvents) == 2
   assert any(event.type == ButtonType.cancel and not event.pressed for event in ret.buttonEvents)
   assert any(event.type == ButtonType.setCruise and not event.pressed for event in ret.buttonEvents)
+
+
+def test_acc_owns_brake_matches_logged_byte2():
+  from opendbc.car.volvo.values import volvo_c1_acc_owns_brake as owns
+  # byte 2 of 0x1B0 on 2026-11-08: 0xA0 idle, 0xA5 ACC braking, 0xA1 transition, 0xE0/0xE1 ACC hold at standstill
+  assert not owns(0, False, False) and not owns(0, False, True)       # 0xA0
+  assert owns(5, False, False) and owns(5, False, True)               # 0xA5, always ACC
+  assert owns(1, False, True) and not owns(1, False, False)           # 0xA1 only while ACC active
+  assert owns(0, True, True) and owns(1, True, True)                  # 0xE0 / 0xE1 while ACC active
+  assert not owns(0, True, False) and not owns(1, True, False)        # hold bit without ACC active is not ACC

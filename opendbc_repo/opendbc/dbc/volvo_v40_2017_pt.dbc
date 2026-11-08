@@ -183,6 +183,7 @@ BO_ 432 BrakeMessages: 8 BCM
  SG_ BrakePress0 : 1|10@0+ (1,0) [0|1023] "" XXX
  SG_ BrakePress1 : 33|10@0+ (1,0) [0|1023] "" XXX
  SG_ BrakeStatus : 18|3@0+ (1,0) [0|7] "" XXX
+ SG_ BrakeHold : 22|1@0+ (1,0) [0|1] "" XXX
 
 BO_ 437 BrakeInfo: 8 XXX
  SG_ Byte_0 : 7|8@0+ (1,0) [0|255] "" XXX

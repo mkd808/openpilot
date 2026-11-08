@@ -188,6 +188,7 @@ BO_ 432 BrakeMessages: 8 BCM
  SG_ BrakePress0 : 1|10@0+ (1,0) [0|1023] "" XXX
  SG_ BrakePress1 : 33|10@0+ (1,0) [0|1023] "" XXX
  SG_ BrakeStatus : 18|3@0+ (1,0) [0|7] "" XXX
+ SG_ BrakeHold : 22|1@0+ (1,0) [0|1] "" XXX
 
 BO_ 437 BrakeInfo: 8 XXX
  SG_ Byte_0 : 7|8@0+ (1,0) [0|255] "" XXX
@@ -1486,3 +1487,4 @@ VAL_ 1264 CAN_RX_STEERING_VALIDITY 1 "True" 0 "False" ;
 VAL_ 1264 CAN_RX_STEERING_ANGLE_SIGN 1 "Right Clockwise" 0 "Left CounterClockwise" ;
 VAL_ 1264 CAN_RX_STEERING_ANGLE_RATE_SIGN 1 "Right Clockwise" 0 "Left CounterClockwise" ;
 VAL_ 1280 CAN_TX_TRACK_STATUS 0 "No target" 1 "New target" 2 "New updated target" 3 "Updated target" 4 "Coasted target" 5 "Merged target" 6 "Invalid coasted target" 7 "New coasted target" ;
+CM_ SG_ 432 BrakeHold "Byte 2 bit 6 of 0x1B0. Set (0xE0/0xE1) while stock ACC holds the car at standstill. Only seen with ACC active. volvo.h and carstate.py treat it as ACC-owned braking while ACC is active.";
