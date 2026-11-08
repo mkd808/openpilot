@@ -183,6 +183,7 @@ BO_ 432 BrakeMessages: 8 BCM
  SG_ BrakePress0 : 1|10@0+ (1,0) [0|1023] "" XXX
  SG_ BrakePress1 : 33|10@0+ (1,0) [0|1023] "" XXX
  SG_ BrakeStatus : 18|3@0+ (1,0) [0|7] "" XXX
+ SG_ BrakeHold : 22|1@0+ (1,0) [0|1] "" XXX
 
 BO_ 437 BrakeInfo: 8 XXX
  SG_ Byte_0 : 7|8@0+ (1,0) [0|255] "" XXX
@@ -403,6 +404,7 @@ CM_ SG_ 288 WhlSpdRR "Wheel speed right rear";
 CM_ SG_ 64 RPMSomething "TransmissionOutput?";
 CM_ SG_ 64 GearShifter "P=0, R=1, N=2, D=3";
 CM_ SG_ 272 VehicleSpeedSignal "km/h";
+CM_ SG_ 432 BrakeHold "Byte 2 bit 6. Set (0xE0/0xE1) while stock ACC holds the car at standstill.";
 CM_ SG_ 432 BrakePress0 "Brake pressure. (byte0&3)<<8 | byte1. Rises under ACC braking with pedal flag off (peak ~108 at red-light event). Confirmed.";
 CM_ SG_ 432 BrakePress1 "Brake pressure, second copy. (byte4&3)<<8 | byte5.";
 CM_ SG_ 432 BrakeStatus "5 during ACC braking, 1 at standstill (observed). Other values not seen.";

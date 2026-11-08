@@ -321,6 +321,7 @@ static safety_config volvo_eucd_init(void) {
 #define VOLVO_C1_PSCM_1            0x125U
 #define VOLVO_C1_PEDAL_AND_BRAKE   0x55U
 #define VOLVO_C1_SPEED             0x150U
+#define VOLVO_C1_BRAKE_MESSAGES   0x1B0U  // BrakeMessages: byte 2 = BrakeStatus (bits 0-2) + hold flag (bit 6)
 #define VOLVO_C1_CEM0              0x210U  // CEM0, dash LKA button
 
 // CMA-specific PT bus addresses
@@ -404,6 +405,24 @@ static uint8_t volvo_c1_fsm_checksum(const CANPacket_t *msg) {
   return checksum_sum ^ 0xFFU;
 }
 
+// Stock ACC braking, and its standstill hold, trip the same pressure bits in 0x55 as the driver's
+// pedal. 0x1B0 byte 2 tells them apart: 0xA5 (BrakeStatus 5) is ACC braking and never appears for the
+// pedal; 0xA1 (status 1) is just before/after a braking event and 0xE0/0xE1 (bit 6, the hold flag) is
+// ACC holding the car at standstill, both only while stock ACC is active (0x30 byte 7 bit 2). The
+// pressure bits are ignored while ACC owns the brake. When the driver taps the pedal, ACC cancels and the
+// state clears within about a frame, which brings the pedal back at once. 0x1B0 is in the rx checks, so
+// losing it invalidates controls instead of leaving the mask stuck. Mirrors volvo_c1_acc_owns_brake().
+static bool volvo_c1_pressure_bits = false;
+static uint8_t volvo_c1_brake_status = 0U;
+static bool volvo_c1_brake_hold = false;
+static bool volvo_c1_acc_active = false;
+
+static void volvo_c1_update_brake_pressed(void) {
+  const bool acc_owns_brake = (volvo_c1_brake_status == 5U) ||
+                              (volvo_c1_acc_active && ((volvo_c1_brake_status == 1U) || volvo_c1_brake_hold));
+  brake_pressed = volvo_c1_pressure_bits && !acc_owns_brake;
+}
+
 static void volvo_c1_rx_hook(const CANPacket_t *msg) {
   if (msg->bus == VOLVO_MAIN_BUS) {
     if (msg->addr == VOLVO_C1_PSCM_1) {
@@ -425,11 +444,20 @@ static void volvo_c1_rx_hook(const CANPacket_t *msg) {
     if (msg->addr == VOLVO_C1_PEDAL_AND_BRAKE) {
       const uint16_t gas_raw = ((uint16_t)(msg->data[1] & 0x3U) << 8U) | msg->data[2];
       gas_pressed = gas_raw > 50U;  // DBC factor 0.1: greater than 5 percent
-      brake_pressed = GET_BIT(msg, 24U) || GET_BIT(msg, 38U);
+      volvo_c1_pressure_bits = GET_BIT(msg, 24U) || GET_BIT(msg, 38U);
+      volvo_c1_update_brake_pressed();
+    }
+
+    if (msg->addr == VOLVO_C1_BRAKE_MESSAGES) {
+      volvo_c1_brake_status = msg->data[2] & 0x7U;
+      volvo_c1_brake_hold = GET_BIT(msg, 22U);
+      volvo_c1_update_brake_pressed();
     }
   }
 
   if ((msg->bus == VOLVO_PARTY_BUS) && (msg->addr == VOLVO_C1_FSM_0)) {
+    volvo_c1_acc_active = GET_BIT(msg, 58U);
+    volvo_c1_update_brake_pressed();
     pcm_cruise_check(GET_BIT(msg, 58U));
   }
 }
@@ -704,6 +732,10 @@ static bool volvo_tx_hook(const CANPacket_t *msg) {
 }
 
 static safety_config volvo_c1_init(void) {
+  volvo_c1_pressure_bits = false;
+  volvo_c1_brake_status = 0U;
+  volvo_c1_brake_hold = false;
+  volvo_c1_acc_active = false;
   static const CanMsg VOLVO_C1_TX_MSGS[] = {
     {VOLVO_C1_FSM_1, VOLVO_MAIN_BUS, 8, .check_relay = true},
     {VOLVO_C1_PSCM_1, VOLVO_PARTY_BUS, 8, .check_relay = true},
@@ -714,6 +746,7 @@ static safety_config volvo_c1_init(void) {
     {.msg = {{VOLVO_C1_FSM_0, VOLVO_PARTY_BUS, 8, 100U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
     {.msg = {{VOLVO_C1_PEDAL_AND_BRAKE, VOLVO_MAIN_BUS, 8, 100U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
     {.msg = {{VOLVO_C1_SPEED, VOLVO_MAIN_BUS, 8, 50U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
+    {.msg = {{VOLVO_C1_BRAKE_MESSAGES, VOLVO_MAIN_BUS, 8, 50U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
     {.msg = {{VOLVO_C1_CEM0, VOLVO_MAIN_BUS, 8, 40U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
   };
   return BUILD_SAFETY_CFG(volvo_c1_rx_checks, VOLVO_C1_TX_MSGS);

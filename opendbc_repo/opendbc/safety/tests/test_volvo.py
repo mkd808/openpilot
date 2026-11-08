@@ -538,6 +538,85 @@ class TestVolvoC1(common.CarSafetyTest, common.AngleSteeringSafetyTest):
     self.assertEqual(0x04, on[0].data[0])
     self.assertEqual(0x00, off[0].data[0])
 
+  def _brake_status_msg(self, status, hold=0):
+    return self.packer.make_can_msg_safety("BrakeMessages", VOLVO_MAIN_BUS, {"BrakeStatus": status, "BrakeHold": hold})
+
+  def _pressure_bits_msg(self, active):
+    return self.packer.make_can_msg_safety(
+      "PedalandBrake", VOLVO_MAIN_BUS, {"BrakePedalActive2": int(active), "BrakePedalActive": int(active)})
+
+  def test_brake_status_byte_position(self):
+    # volvo.h reads byte 2 & 7 of 0x1B0; byte 2 is 0xA5 during ACC braking
+    self.assertEqual(5, self._brake_status_msg(5)[0].data[2] & 0x7)
+    self.assertEqual(0x40, self._brake_status_msg(0, hold=1)[0].data[2] & 0x40)
+
+  def test_acc_braking_masks_pressure_bits(self):
+    # stock ACC braking trips the 0x55 pressure bits; that must not drop controls
+    self.safety.set_controls_allowed(True)
+    self._rx(self._speed_msg(15))
+    self._rx(self._brake_status_msg(5))
+    self._rx(self._pressure_bits_msg(True))
+    self.assertFalse(self.safety.get_brake_pressed_prev())
+    self.assertTrue(self.safety.get_controls_allowed())
+
+  def test_pedal_without_acc_braking_drops_controls(self):
+    for status in (0, 1):
+      self.safety.set_controls_allowed(True)
+      self._rx(self._speed_msg(15))
+      self._rx(self._brake_status_msg(status))
+      self._rx(self._pressure_bits_msg(True))
+      self.assertTrue(self.safety.get_brake_pressed_prev(), status)
+      self.assertFalse(self.safety.get_controls_allowed(), status)
+      self._rx(self._pressure_bits_msg(False))
+
+  def test_pedal_tap_during_acc_braking_drops_controls(self):
+    # ACC braking, then the driver taps the pedal: stock ACC cancels, status leaves 5, bits are still set
+    self.safety.set_controls_allowed(True)
+    self._rx(self._speed_msg(15))
+    self._rx(self._brake_status_msg(5))
+    self._rx(self._pressure_bits_msg(True))
+    self.assertTrue(self.safety.get_controls_allowed())
+    self._rx(self._brake_status_msg(0))
+    self.assertFalse(self.safety.get_controls_allowed())
+
+  def _acc_owned_setup(self, acc_active, status, hold):
+    self._rx(self._speed_msg(2))
+    self._rx(self._pcm_status_msg(acc_active))
+    self._rx(self._brake_status_msg(status, hold))
+    self.safety.set_controls_allowed(True)
+    self._rx(self._pressure_bits_msg(True))
+
+  def test_acc_hold_and_transition_masked_only_while_acc_active(self):
+    # 0xA1 (status 1) around a braking event, 0xE0/0xE1 (hold bit) at standstill
+    for status, hold in ((1, 0), (1, 1), (0, 1)):
+      self._acc_owned_setup(True, status, hold)
+      self.assertTrue(self.safety.get_controls_allowed(), f"{status=} {hold=}")
+      self.setUp()
+      # same bytes with stock ACC not active (a driver): must drop controls
+      self._acc_owned_setup(False, status, hold)
+      self.assertFalse(self.safety.get_controls_allowed(), f"{status=} {hold=} acc off")
+      self.setUp()
+
+  def test_pedal_after_acc_cancel_drops_controls(self):
+    # ACC holding at standstill, then ACC leaves active (driver cancelled): the pressure bits count again
+    self._acc_owned_setup(True, 0, 1)
+    self.assertTrue(self.safety.get_controls_allowed())
+    self._rx(self._pcm_status_msg(False))
+    self.assertFalse(self.safety.get_controls_allowed())
+
+  def test_brake_status_not_sticky_after_init(self):
+    self._rx(self._brake_status_msg(5))
+    self.safety.set_safety_hooks(SAFETY_VOLVO, VOLVO_FLAG_C1)
+    self.safety.init_tests()
+    self.safety.set_controls_allowed(True)
+    self._rx(self._speed_msg(15))
+    self._rx(self._pressure_bits_msg(True))
+    self.assertFalse(self.safety.get_controls_allowed())
+
+  def test_brake_messages_rx_accepted(self):
+    self.assertTrue(self._rx(self._brake_status_msg(0)))
+    self.assertTrue(self._rx(self._brake_status_msg(5)))
+
   def test_cem0_rx_accepted(self):
     # CEM0 is in the C1 rx checks on the main bus, so the safety must accept it
     for lka_state in (False, True):

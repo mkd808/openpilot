@@ -334,3 +334,11 @@ def volvo_c1_stock_acc_owns_cruise(car_fingerprint, pcm_cruise: bool, controls_e
   # (for example when stock ACC braking trips the brake-pressure bits) can drop stock ACC.
   # A driver brake still drops stock ACC by itself. Sends fewer frames than before; panda allow-list unchanged.
   return car_fingerprint == CAR.VOLVO_V40 and pcm_cruise and not controls_enabled
+
+
+def volvo_c1_acc_owns_brake(brake_status: int, brake_hold: bool, acc_active: bool) -> bool:
+  """True while stock ACC (not the driver) is braking or holding the car, so the 0x55 pressure bits are not a pedal.
+  Mirrors volvo_c1_update_brake_pressed() in volvo.h.
+  0x1B0 byte 2: 0xA5 = ACC braking (status 5, always ACC), 0xA1 = just before/after a braking event (status 1),
+  0xE0/0xE1 = ACC holding at standstill (hold bit). 0xA1 and the hold bit only count while ACC is active (0x30 byte 7 bit 2)."""
+  return brake_status == 5 or (acc_active and (brake_status == 1 or brake_hold))

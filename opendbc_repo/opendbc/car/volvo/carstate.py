@@ -3,7 +3,7 @@ from opendbc.can import CANParser
 from opendbc.car import Bus, ButtonType, create_button_events, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarStateBase
-from opendbc.car.volvo.values import DBC
+from opendbc.car.volvo.values import DBC, volvo_c1_acc_owns_brake
 
 GearShifter = structs.CarState.GearShifter
 
@@ -31,9 +31,15 @@ class CarState(CarStateBase):
     ret.steeringPressed = False
 
     ret.gasPressed = cp.vl["PedalandBrake"]["AccPedal"] > 5.0
-    ret.brakePressed = bool(cp.vl["PedalandBrake"]["BrakePedalActive2"] or cp.vl["PedalandBrake"]["BrakePedalActive"])
-    # BrakeStatus: 5 = stock ACC braking, 1 = standstill hold. Used only to skip OP's ACC cancel; not a pedal signal.
-    ret.brakeHoldActive = int(cp.vl["BrakeMessages"]["BrakeStatus"]) in (1, 5)
+    # While stock ACC brakes or holds the car it trips the same pressure bits as the pedal. Ignore them then, same as
+    # volvo.h. A pedal tap makes ACC cancel, which clears the ACC-owned state. See volvo_c1_acc_owns_brake.
+    brake_status = int(cp.vl["BrakeMessages"]["BrakeStatus"])
+    brake_hold = bool(cp.vl["BrakeMessages"]["BrakeHold"])
+    acc_active = bool(cp_cam.vl["FSM0"]["ACCStatusActive"])
+    pressure_bits = bool(cp.vl["PedalandBrake"]["BrakePedalActive2"] or cp.vl["PedalandBrake"]["BrakePedalActive"])
+    ret.brakePressed = pressure_bits and not volvo_c1_acc_owns_brake(brake_status, brake_hold, acc_active)
+    # 5 = ACC braking, 1 = ACC transition/hold (0xA1 / 0xE1). Only used to skip OP's ACC cancel.
+    ret.brakeHoldActive = brake_status in (1, 5)
 
     ret.gearShifter = {
       0: GearShifter.park,
