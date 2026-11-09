@@ -72,6 +72,31 @@ Stock ACC stops resuming by itself if the car has been held for more than a few 
 - Resume is sent only at standstill, with ACC active and the brake-hold flag set, once the lead has moved away and stock ACC hasn't resumed by itself.
 - Panda allows Resume only under those same conditions, capped at 40 frames per hold and rearmed when the hold ends.
 
+## Volvo V40 DBC updates and findings
+
+Nov 8: radar reference DBC (volvo_v40_2017_ptradar.dbc, reference only; the code doesn’t load it)
+
+The radar is a Delphi ESR on bus 1. Tracks are 0x500–0x53F (Target1–64) at 20 Hz each.
+Only about 39% of track slots hold a valid target, a median of 27 per frame, and most of those are stationary scenery, so tracks need filtering.
+0x4E3 ESR_Output_InPath is the radar’s own in-path pick: byte 1 is the moving ACC target ID, byte 7 the stationary one. With stock ACC tracking, it named a moving target in 96% of frames. That’s the easiest way to get the lead.
+Range is in 0.1 m steps (median 54 m). Range rate is in 0.01 m/s and matches d(range)/dt at r ≈ 0.80, so it’s usable but noisy. Angle covers about ±26°.
+0x4F0/0x4F1 are vehicle data sent to the radar (speed, yaw, mounting). 0x4E1 holds the radar fault and temperature bits, which you should check after install.
+0x540, 0x5D0, 0x5D1 and 0x5E4 are present but not yet analysed.
+
+Nov 8: ACC brake vs pedal
+
+Added BrakeHold (0x1B0 byte 2 bit 6), set at 0xE0/0xE1 while ACC holds at standstill.
+This underpins the fix where ACC braking and holds no longer count as a pedal press, in both carstate and panda.
+
+Nov 6: signal revisions in volvo_v40_2017_pt.dbc
+
+LKA_State (0x210 byte 0 bit 2) follows the LKA enabled setting, not activity. Confirmed working.
+0x280: the old ACC_BrakeTargetRaw guess was dropped and replaced by ACC_TractionRequest (10 bits): an ACC drive/coast demand of about 83 counts per m/s², 0 when braking, similar to the V60 traction request. The hydraulic brake target is still not found.
+0x270: ACC_State was renamed to Byte_4 because it’s not the ACC state. 175 shows up with no ACC at all, probably tied to openpilot being engaged. The old 16-bit word became ACC_LeadDecelRaw, a lead-related decel value rather than ACC’s own request.
+New ACC_PropulsionFeedback (0x2C5 byte 7): ECM feedback following the pedal or ACC torque. It’s feedback, not a request.
+ACC_BrakeRequest (0x160) was reconfirmed in two more routes: it leads hydraulic pressure by about 0.44 s.
+ACCStatusActive (0x30 byte 7) values were documented: 0x8A standby, 0x8F/0x8E/0x9F active, 0x88 off.
+
 Ford-specific lateral-control and vehicle-support work includes substantial adaptations from
 [BluePilot](https://github.com/BluePilotDev/bluepilot/tree/bp-7.0), principally developed by
 [Alan Polk](https://github.com/alan-polk) with additional BluePilot contributors. StarPilot's
