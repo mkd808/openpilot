@@ -42,14 +42,14 @@ def test_long_stop_lead_leaves_driver_presses_resume():
 
 
 def test_would_resume_waits_for_stock_grace():
-  ev = run(held(3.0) + leaving(0.2 + STOCK_GRACE_S - 0.15) + moving())
+  ev = run(held(3.0) + leaving(0.7) + moving())  # lead confirmed at ~0.55 s, would_resume due ~0.95 s
   assert "would_resume" not in kinds(ev)
   assert ev[-1][1]["outcome"] == "acc_auto_resume"
   assert not ev[-1][1]["would_resume"]
 
 
 def test_short_stop_acc_resumes_itself():
-  ev = run(held(2.0) + leaving(0.2 + STOCK_GRACE_S - 0.1) + moving())
+  ev = run(held(2.0) + leaving(0.7) + moving())
   assert kinds(ev) == ["baseline", "lead_moved", "stop_end"]
   assert ev[-1][1]["outcome"] == "acc_auto_resume"
 
