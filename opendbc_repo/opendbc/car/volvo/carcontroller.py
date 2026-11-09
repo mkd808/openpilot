@@ -44,6 +44,7 @@ class CarController(CarControllerBase):
     self.eucd_op_resume_frames = 0
     self.c1_resume_frames = 0  # V40 Resume burst, frames left
     self.c1_resume_done = False  # this hold already got its burst
+    self.c1_resume_last_frame = None  # frame the last burst started
     self.eucd_sng_ack_frames = 0
     self.eucd_resume_hold_frames = 0  # Resume held to the ECM, frames left
     self.eucd_last_ccbuttons = None  # CEM's last CCButtons, copied for the Resume
@@ -615,13 +616,18 @@ class CarController(CarControllerBase):
     at_hold = (CS.out.cruiseState.enabled and CS.out.standstill and CS.c1_brake_hold and
                not CS.out.gasPressed and not CS.out.brakePressed)
     if not at_hold:
+      # A burst in progress stops when the hold ends. The next burst is allowed only once the rearm time has passed,
+      # so a brief hold flicker right after a burst cannot start a second one.
       self.c1_resume_frames = 0
-      self.c1_resume_done = False
+      if (self.c1_resume_last_frame is None or
+          self.frame - self.c1_resume_last_frame >= CarControllerParams.C1_RESUME_REARM_FRAMES):
+        self.c1_resume_done = False
       return
 
     if CC.cruiseControl.resume and not self.c1_resume_done:
       self.c1_resume_frames = CarControllerParams.C1_RESUME_HOLD_FRAMES
       self.c1_resume_done = True
+      self.c1_resume_last_frame = self.frame
 
     if self.c1_resume_frames > 0:
       can_sends.append(create_c1_resume(self.packer))

@@ -1,5 +1,5 @@
 from openpilot.selfdrive.controls.lib.volvo_resume_shadow import (
-  BASELINE_S, FLAG_CHECK_S, LEAD_GAP_GROW_M, STOCK_GRACE_S, ResumeAssistFlag, VolvoResumeShadow,
+  BASELINE_S, FLAG_CHECK_S, LEAD_GAP_GROW_M, LEAD_MIN_SPEED, STOCK_GRACE_S, ResumeAssistFlag, VolvoResumeShadow,
 )
 
 DT = 0.05
@@ -119,3 +119,17 @@ def test_resume_flag_follows_file_and_caches(tmp_path):
   path.unlink()
   assert flag.enabled(FLAG_CHECK_S + 0.2)  # cached
   assert not flag.enabled(2 * FLAG_CHECK_S + 0.2)
+
+
+def test_slow_lead_creep_is_not_a_departure():
+  # lead creeps forward at 0.6 m/s, enough to grow the gap but under the lead speed threshold
+  assert 0.6 < LEAD_MIN_SPEED
+  ev = run(held(3.0) + leaving(4.0, speed=0.6) + held(1.0, d=6.0))
+  assert "lead_moved" not in kinds(ev)
+  assert "would_resume" not in kinds(ev)
+
+
+def test_lead_pulling_away_above_threshold_still_counts():
+  ev = run(held(3.0) + leaving(2.0, speed=1.2) + moving())
+  assert "lead_moved" in kinds(ev)
+  assert "would_resume" in kinds(ev)

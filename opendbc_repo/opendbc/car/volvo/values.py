@@ -91,6 +91,7 @@ class CarControllerParams:
 
   # V40 stop and go: Resume held this many frames at a held standstill, one burst per hold. volvo.h lets 40 through.
   C1_RESUME_HOLD_FRAMES = int(0.3 / DT_CTRL)
+  C1_RESUME_REARM_FRAMES = int(2.0 / DT_CTRL)  # no second burst this soon after one, even if the hold flickers
 
   # ---- V60/EUCD ----
   EUCD_ANGLE_LIMITS: AngleSteeringLimits = AngleSteeringLimits(90,

@@ -198,6 +198,49 @@ def test_c1_resume_needs_a_held_standstill_with_acc_on(kwargs):
   assert _c1_resume_run(**args) == 0
 
 
+def test_c1_resume_hold_flicker_does_not_start_a_second_burst():
+  cp = CarInterface.get_non_essential_params(CAR.VOLVO_V40)
+  controller = CarController(DBC[cp.carFingerprint], cp)
+  cs = _c1_state()
+  cs.out.standstill = True
+  cs.out.cruiseState.enabled = True
+  cc = SimpleNamespace(latActive=False, actuators=_Actuators(), cruiseControl=SimpleNamespace(cancel=False, resume=True))
+
+  def run(frames, held):
+    cs.c1_brake_hold = held
+    sent = 0
+    for _ in range(frames):
+      _, can_sends = controller.update(cc, cs, 0, None)
+      sent += sum(1 for msg in can_sends if msg[0] == 0x10)
+    return sent
+
+  first = run(10, True)  # burst starts, then the hold drops
+  assert first == 10
+  assert run(5, False) == 0
+  assert run(100, True) == 0  # hold flickers back: no second burst
+
+
+def test_c1_resume_rearms_for_a_later_hold():
+  cp = CarInterface.get_non_essential_params(CAR.VOLVO_V40)
+  controller = CarController(DBC[cp.carFingerprint], cp)
+  cs = _c1_state()
+  cs.out.standstill = True
+  cs.out.cruiseState.enabled = True
+  cc = SimpleNamespace(latActive=False, actuators=_Actuators(), cruiseControl=SimpleNamespace(cancel=False, resume=True))
+
+  def run(frames, held):
+    cs.c1_brake_hold = held
+    sent = 0
+    for _ in range(frames):
+      _, can_sends = controller.update(cc, cs, 0, None)
+      sent += sum(1 for msg in can_sends if msg[0] == 0x10)
+    return sent
+
+  assert run(100, True) == CarControllerParams.C1_RESUME_HOLD_FRAMES
+  assert run(CarControllerParams.C1_RESUME_REARM_FRAMES + 10, False) == 0
+  assert run(100, True) == CarControllerParams.C1_RESUME_HOLD_FRAMES
+
+
 def test_c1_controller_temporarily_drops_steering_on_zero_torque_fault():
   cp = CarInterface.get_non_essential_params(CAR.VOLVO_V40)
   controller = CarController(DBC[cp.carFingerprint], cp)
