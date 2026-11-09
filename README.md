@@ -1,5 +1,7 @@
 # StarPilot
 
+
+
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/firestar5683/StarPilot)
 [![Discord](https://img.shields.io/discord/1387432184121393333?label=Discord)](https://firestar.link/discord)
 [![Last Updated](https://img.shields.io/github/last-commit/firestar5683/StarPilot/StarPilot)](https://github.com/firestar5683/StarPilot)
@@ -13,6 +15,62 @@ Openpilot provides
 * Adaptive Cruise Control
 * Lane Change Assist
 * Driver Monitoring *without wheel nags*
+
+# Volvo V40 (C1) openpilot: personal dev fork
+
+A personal development branch based on StarPilotHQ 6.7.9. It's a work in progress and comes with **no warranty**. Use at your own risk.
+
+Panda safety is treated as the priority: every change runs through openpilot's tools and test suites before it goes on the car.
+
+## Credits
+
+Big thanks to **Firestar4430** for starting the Volvo V40 II port on the StarPilotHQ stable branch, and to **Leomonde**, **Chiachunli** and **Danielzmod** for community support and the groundwork that goes back about six years to the comma two.
+
+## Current state
+
+- **Lateral only.** openpilot steers; longitudinal stays with the car's own ACC (`pcmCruise`).
+- DBC signals are being tested and validated on real drives, including keeping openpilot engaged while factory ACC is braking or coasting.
+- Radar tracks have been identified (read-only for now).
+
+Everything below comes from our own drive logs (CAN CSVs and rlogs).
+
+## ACC braking and hold states
+
+0x1B0 `BrakeMessages`, byte 2:
+
+| Byte 2 | Meaning | Source |
+|---|---|---|
+| `0xA0` | Idle, nothing applied | observed |
+| `0xA1` | Transition, e.g. just before the car stops and around hold release | observed |
+| `0xA5` | ACC braking by itself (`BrakeStatus` = 5); brake pressure rises with the pedal flag off | confirmed |
+| `0xE0` / `0xE1` | ACC holding the car at standstill (`BrakeHold`, bit 6; `BrakeStatus` = 1) | confirmed |
+
+`BrakeStatus` values other than 1 and 5 have not been seen.
+
+Related signals:
+
+- `BrakePress0` / `BrakePress1` rise during ACC braking even though the driver isn't on the pedal.
+- FSM0 (0x30, byte 7, bus 2) reports ACC state: `138` / `154` standby, `142` / `143` / `158` / `159` active, `136` off. During a hold, ACC stays active, not in standby.
+
+## Safer brake handling than the dragonpilot 0.8.13 port
+
+dragonpilot 0.8.13 added a basic V40 port, but it hard-codes `brakePressed = False`, so a real foot on the brake is never seen. It only allows the cancel button on TX and has no stop-and-go or resume logic.
+
+This branch:
+
+- Derives `brakePressed` from the pressure bits, but ignores pressure while ACC owns the brake (`0xA5` / `0xE0` / `0xE1`). A driver pressing the pedal while ACC is braking still disengages.
+- Mirrors that rule in the panda safety (`volvo.h`) so the firmware agrees with the car code.
+- Doesn't cancel stock ACC when it's only braking or holding.
+- Keeps cancel limited to the driver-intent case.
+
+## Resume Assist (stop-and-go)
+
+Stock ACC stops resuming by itself if the car has been held for more than a few seconds, and waits for the driver to press Resume. Resume Assist presses it for you when the lead pulls away. Stock ACC still does all the accelerating.
+
+- **Off by default.** Turn it on under **Galaxy → Toggles → Vehicle → Volvo V40 Resume Assist** (Volvo only, parked only). Turning it off works any time.
+- The toggle creates or removes `/data/volvo_c1_resume_assist`; you can also `touch` / `rm` it over SSH.
+- Resume is sent only at standstill, with ACC active and the brake-hold flag set, once the lead has moved away and stock ACC hasn't resumed by itself.
+- Panda allows Resume only under those same conditions, capped at 40 frames per hold and rearmed when the hold ends.
 
 Ford-specific lateral-control and vehicle-support work includes substantial adaptations from
 [BluePilot](https://github.com/BluePilotDev/bluepilot/tree/bp-7.0), principally developed by
