@@ -552,3 +552,15 @@ def test_pip_preview_is_under_driving_screen_widgets_and_configured_only_in_gala
     REPO_ROOT / "selfdrive/ui/layouts/settings/starpilot/appearance.py",
   )
   assert all("PIPPreview" not in path.read_text(encoding="utf-8") for path in physical_settings)
+
+
+def test_volvo_resume_assist_is_volvo_only_flag_file_toggle():
+  sections = _params_by_section(_layout())
+  setting = sections["Vehicle"]["VolvoC1ResumeAssist"]
+
+  assert setting["ui_type"] == "toggle"
+  assert setting["data_type"] == "bool"
+  assert setting["vehicle_makes"] == ["Volvo"]
+  assert setting["confirm_message"]
+  # Backed by /data/volvo_c1_resume_assist, not a Params key
+  assert '"VolvoC1ResumeAssist"' not in PARAM_KEYS_PATH.read_text(encoding="utf-8")

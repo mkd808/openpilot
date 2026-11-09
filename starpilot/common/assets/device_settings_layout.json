@@ -3393,6 +3393,17 @@
         "settings_tier": "simple"
       },
       {
+        "key": "VolvoC1ResumeAssist",
+        "label": "Volvo V40 Resume Assist",
+        "description": "When stock ACC holds the car at a standstill and the lead pulls away, send Resume so you don't have to press it. Stock ACC still does all the accelerating. Can be turned on only while parked; turning it off works any time.",
+        "picker_description": "Sends Resume for stock ACC when the lead pulls away.",
+        "data_type": "bool",
+        "ui_type": "toggle",
+        "vehicle_makes": ["Volvo"],
+        "confirm_message": "Turn on Volvo V40 Resume Assist? openpilot will press Resume for stock ACC when the lead pulls away from a standstill.",
+        "settings_tier": "simple"
+      },
+      {
         "key": "TeslaCoopSteering",
         "label": "Tesla Model 3 Cooperative Steering",
         "description": "For Tesla Model 3 only. Converts light driver steering input into bounded steering-wheel rotation while lateral control remains active. Change while parked.",

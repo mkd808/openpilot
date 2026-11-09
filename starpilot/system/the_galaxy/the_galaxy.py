@@ -3465,6 +3465,28 @@ _cached_static_default_values = None
 
 GALAXY_MANUAL_BOOL_PARAM_KEYS = {"IsRHD", "IsRHDOverride"}
 
+# Volvo V40 Resume Assist is switched by a flag file rather than a Params key (see volvo_resume_shadow.py), so Galaxy
+# reads and writes the file directly.
+VOLVO_RESUME_ASSIST_KEY = "VolvoC1ResumeAssist"
+
+def _get_volvo_resume_assist_enabled():
+  from openpilot.selfdrive.controls.lib.volvo_resume_shadow import RESUME_ASSIST_FLAG
+  try:
+    return os.path.isfile(RESUME_ASSIST_FLAG)
+  except OSError:
+    return False
+
+def _set_volvo_resume_assist_enabled(enabled):
+  from openpilot.selfdrive.controls.lib.volvo_resume_shadow import RESUME_ASSIST_FLAG
+  if enabled:
+    with open(RESUME_ASSIST_FLAG, "a"):
+      pass
+  else:
+    try:
+      os.remove(RESUME_ASSIST_FLAG)
+    except FileNotFoundError:
+      pass
+
 def _get_param_type_info():
   global _cached_allowed_keys, _cached_param_types
   if _cached_allowed_keys is None:
@@ -6307,6 +6329,21 @@ def setup(app):
       else:
         str_val = str(val)
 
+      if key == VOLVO_RESUME_ASSIST_KEY:
+        if type(data["value"]) is not bool:
+          return jsonify({"error": f"{key} must be a JSON boolean."}), 400
+        enabled = data["value"]
+        if enabled and params.get_bool("IsOnroad"):
+          return jsonify({"error": "Volvo V40 Resume Assist can be turned on only while parked."}), 403
+        try:
+          _set_volvo_resume_assist_enabled(enabled)
+        except OSError:
+          return jsonify({"error": "Volvo V40 Resume Assist could not be saved."}), 503
+        return jsonify({
+          "message": f"Volvo V40 Resume Assist turned {'on' if enabled else 'off'}.",
+          "updated": {VOLVO_RESUME_ASSIST_KEY: _get_volvo_resume_assist_enabled()},
+        }), 200
+
       allowed_keys, _ = _get_param_type_info()
       if key not in allowed_keys:
         return jsonify({"error": f"Parameter '{key}' is not editable."}), 403
@@ -6791,6 +6828,8 @@ def setup(app):
       return _serialize_param_write_value(_get_lead_indicator_enabled()), 200
     if request_key == "IsRHD" and not params.get_bool("IsRHDOverride"):
       return ("1" if params.get_bool("IsRhdDetected") else "0"), 200
+    if request_key == VOLVO_RESUME_ASSIST_KEY:
+      return ("1" if _get_volvo_resume_assist_enabled() else "0"), 200
     value = params.get(request_key) or ""
     if request_key == "CarMake":
       return _get_effective_car_make(value), 200
@@ -6841,6 +6880,7 @@ def setup(app):
     result["AlphaLongitudinalAvailable"] = _get_alpha_longitudinal_available()
     result["HasRivianAngleHarness"] = _get_has_rivian_angle_harness()
     result["IsTiciOrTizi"] = _get_is_tici_or_tizi()
+    result[VOLVO_RESUME_ASSIST_KEY] = _get_volvo_resume_assist_enabled()
 
     for key in ("CalibratedLateralAcceleration", "CalibrationProgress"):
       try:
