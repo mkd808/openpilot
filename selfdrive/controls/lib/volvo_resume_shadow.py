@@ -20,7 +20,7 @@ BASELINE_LEAD_SPEED = 0.3  # m/s, lead counts as stopped below this
 LEAD_GAP_GROW_M = 0.4     # lead gap growth over the baseline that counts as pulling away
 LEAD_MIN_SPEED = 0.5      # m/s, lead speed that counts as pulling away
 LEAD_MOVED_CONFIRM_S = 0.2
-STOCK_GRACE_S = 1.0       # time stock ACC gets to resume by itself before a sender would act
+STOCK_GRACE_S = 0.4       # time stock ACC gets to resume by itself before a sender would act
 MIN_LOGGED_STOP_S = 1.0   # shorter stops are not logged
 
 
