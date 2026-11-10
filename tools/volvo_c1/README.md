@@ -38,10 +38,13 @@ The V60 port found the camera (FSM) checks ECM brake feedback against its own re
 
 | Message / byte | ACC braking | Otherwise | Lag vs 0x1B0 A5 edge |
 |---|---|---|---|
-| 0x2B5 b2 | 0xF2 (1.00) | 0xB2 (<=0.001 false) | leads 90-460 ms |
-| 0x1E0 b1 | 0x16 (0.92-0.94) | 0x17 | lags 80-180 ms |
-| 0x2C3 b1 | 0x5C (0.88-0.92) | 0x54 | lags 100-200 ms |
+| 0x2B5 b2 | 0xF2 (1.00) | 0xB2, 0x9E parked; but 0xF2 also 13-37% of ACC-active non-braking samples (necessary, not sufficient) | leads 90-630 ms |
+| 0x1E0 b1 | 0x16 (0.92-0.96) | 0x17 | lags 80-180 ms |
+| 0x2C3 b1 | 0x5C (0.88-0.93) | 0x54 | lags 100-200 ms |
 | 0xB0 b6 | 0xA3 (0.92-0.97) | 0x83, but 0xA3 also 0.35 of ACC-active non-braking | leads >1 s (state, not a confirmation) |
 | 0x130 b6 | continuous | tracks decel, r=0.91 driver / 0.67 ACC | not an ACC flag |
 
 Not ACC-specific: 0x80 b6. Next: check what the camera does when these disagree with its request (bench only), and whether 0x1B0 byte 2 itself is validated.
+
+Parked pedal-press route: 0x1E0, 0x2C3 and 0x1B0 byte 2 do not respond to the driver pedal; 0x130 b6 does not either (stationary), so it follows vehicle deceleration, not pedal.
+Fourth route (mixed cruise and driving, 20 s ACC braking): 0x1E0/0x2C3 stayed clean (0.00 false in ACC-active non-braking); 0x2B5 b2 did not.
