@@ -31,3 +31,17 @@ No rolling counter or checksum was found on 0x270 or 0x280. These are observatio
 sent to the car.
 
 Run the tests with `python3 -m pytest --noconftest -o addopts="" -p no:cacheprovider tools/volvo_c1/tests -q`.
+
+## Brake-feedback candidates (V40 equivalent of the V60 ECM->FSM check)
+
+The V60 port found the camera (FSM) checks ECM brake feedback against its own request. None of the V60 feedback addresses (0x323, 0x133, 0x220, 0x299, 0x12A, 0x325, 0x1FF, 0x127) exist on the V40. Candidates found by ranking bus-0 bytes against the 0x1B0 byte 2 == 0xA5 (ACC braking) label, then splitting into ACC braking / driver braking / coasting, confirmed on three routes. All also appear on bus 2. Observational only; nothing has been sent.
+
+| Message / byte | ACC braking | Otherwise | Lag vs 0x1B0 A5 edge |
+|---|---|---|---|
+| 0x2B5 b2 | 0xF2 (1.00) | 0xB2 (<=0.001 false) | leads 90-460 ms |
+| 0x1E0 b1 | 0x16 (0.92-0.94) | 0x17 | lags 80-180 ms |
+| 0x2C3 b1 | 0x5C (0.88-0.92) | 0x54 | lags 100-200 ms |
+| 0xB0 b6 | 0xA3 (0.92-0.97) | 0x83, but 0xA3 also 0.35 of ACC-active non-braking | leads >1 s (state, not a confirmation) |
+| 0x130 b6 | continuous | tracks decel, r=0.91 driver / 0.67 ACC | not an ACC flag |
+
+Not ACC-specific: 0x80 b6. Next: check what the camera does when these disagree with its request (bench only), and whether 0x1B0 byte 2 itself is validated.
