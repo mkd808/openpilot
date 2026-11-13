@@ -342,6 +342,12 @@ def volvo_c1_stock_acc_owns_cruise(car_fingerprint, pcm_cruise: bool, controls_e
   return car_fingerprint == CAR.VOLVO_V40 and pcm_cruise and not controls_enabled
 
 
+# CCButtons (0x10) signals other than the button bits in byte 7: the CEM's own bytes 0-6. A Resume that repeats them
+# looks like a real press; the panda only lets it through if they equal the last stock frame it saw.
+C1_BUTTON_STOCK_SIGNALS = ("byte0", "byte1", "byte2", "byte3", "byte4", "byte5", "byte6",
+                           "ACCMinusBtn", "TimeGapIncreaseBtn", "TimeGapDecreaseBtn")
+
+
 def volvo_c1_acc_owns_brake(brake_status: int, brake_hold: bool, acc_active: bool) -> bool:
   """True while stock ACC (not the driver) is braking or holding the car, so the 0x55 pressure bits are not a pedal.
   Mirrors volvo_c1_update_brake_pressed() in volvo.h.

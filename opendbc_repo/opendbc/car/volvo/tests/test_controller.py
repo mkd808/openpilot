@@ -123,6 +123,7 @@ def _c1_state():
     out=SimpleNamespace(steeringAngleDeg=10.0, vEgo=12.0, vEgoRaw=12.0, standstill=False, gasPressed=False,
                         brakePressed=False, cruiseState=SimpleNamespace(enabled=False)),
     c1_brake_hold=False,
+    c1_buttons_stock=None,
     c1_lka_torque=5,
     c1_msg_pscm=_zero_message(),
   )
@@ -179,6 +180,41 @@ def _c1_resume_run(held, resume, frames, enabled=True, standstill=True, brake_pr
         assert msg[1][7] == 0x20  # Resume only
         sent += 1
   return sent
+
+
+STOCK_BUTTONS = {"byte0": 0xF8, "byte1": 0xB1, "byte2": 0xA0, "byte3": 0x6F, "byte4": 0, "byte5": 0, "byte6": 0x10,
+                 "ACCMinusBtn": 0, "TimeGapIncreaseBtn": 0, "TimeGapDecreaseBtn": 0}
+
+
+def _resume_frames(stock):
+  cp = CarInterface.get_non_essential_params(CAR.VOLVO_V40)
+  controller = CarController(DBC[cp.carFingerprint], cp)
+  cs = _c1_state()
+  cs.c1_brake_hold = True
+  cs.c1_buttons_stock = stock
+  cs.out.standstill = True
+  cs.out.cruiseState.enabled = True
+  cc = SimpleNamespace(latActive=False, actuators=_Actuators(), cruiseControl=SimpleNamespace(cancel=False, resume=True))
+  frames = []
+  for _ in range(5):
+    _, can_sends = controller.update(cc, cs, 0, None)
+    frames += [bytes(msg[1]) for msg in can_sends if msg[0] == 0x10]
+  return frames
+
+
+def test_c1_resume_carries_the_stock_frame_bytes_when_known():
+  frames = _resume_frames(STOCK_BUTTONS)
+  assert frames and all(f.hex() == "f8b1a06f00008020" for f in frames)
+
+
+def test_c1_resume_falls_back_to_the_plain_frame_without_a_stock_frame():
+  frames = _resume_frames(None)
+  assert frames and all(f.hex() == "0000000000000020" for f in frames)
+
+
+def test_c1_resume_repeats_a_held_minus_or_gap_button_as_stock_has_it():
+  frames = _resume_frames({**STOCK_BUTTONS, "ACCMinusBtn": 1})
+  assert frames and all(f[6] & 0x01 and f[7] == 0x20 for f in frames)
 
 
 def test_c1_resume_burst_is_one_short_burst_per_hold():

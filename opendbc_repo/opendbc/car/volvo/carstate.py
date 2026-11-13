@@ -3,7 +3,7 @@ from opendbc.can import CANParser
 from opendbc.car import Bus, ButtonType, create_button_events, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarStateBase
-from opendbc.car.volvo.values import DBC, volvo_c1_acc_owns_brake
+from opendbc.car.volvo.values import C1_BUTTON_STOCK_SIGNALS, DBC, volvo_c1_acc_owns_brake
 
 GearShifter = structs.CarState.GearShifter
 
@@ -14,6 +14,8 @@ class CarState(CarStateBase):
     self.c1_msg_pscm = {}
     self.c1_lka_torque = 0
     self.c1_brake_hold = False  # stock ACC holding the car at standstill (0x1B0 byte 2 bit 6)
+    # The stock CCButtons frame as the CEM sent it (bytes 0-6), so a Resume can carry the same bytes a real press does
+    self.c1_buttons_stock = None
     self.c1_button_states = dict.fromkeys(
       ("ACCOnOffBtn", "ACCStopBtn", "ACCSetBtn", "ACCResumeBtn", "ACCMinusBtn", "TimeGapIncreaseBtn", "TimeGapDecreaseBtn"), False
     )
@@ -76,6 +78,7 @@ class CarState(CarStateBase):
       button_events.extend(create_button_events(pressed, self.c1_button_states[signal], {True: button_type}))
       self.c1_button_states[signal] = pressed
     ret.buttonEvents = button_events
+    self.c1_buttons_stock = {name: int(cp.vl["CCButtons"][name]) for name in C1_BUTTON_STOCK_SIGNALS}
 
     # Dash Lane Keep Assist button, read from CEM0 (0x210) byte 0 bit 2.
     # Tentative: confirm with a stopwatch test whether this is momentary

@@ -630,7 +630,7 @@ class CarController(CarControllerBase):
       self.c1_resume_last_frame = self.frame
 
     if self.c1_resume_frames > 0:
-      can_sends.append(create_c1_resume(self.packer))
+      can_sends.append(create_c1_resume(self.packer, CS.c1_buttons_stock))
       self.c1_resume_frames -= 1
 
   def _update_c1(self, CC, CS):

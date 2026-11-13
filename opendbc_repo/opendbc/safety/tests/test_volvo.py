@@ -493,6 +493,72 @@ class TestVolvoC1(common.CarSafetyTest, common.AngleSteeringSafetyTest):
     self._rx(self._brake_status_msg(0, hold))
     self.safety.set_controls_allowed(controls)
 
+  STOCK_BTN = {"byte0": 0xF8, "byte1": 0xB1, "byte2": 0xA0, "byte3": 0x6F, "byte4": 0, "byte5": 0, "byte6": 0x10}
+
+  def _stock_buttons(self, **over):
+    # what the CEM itself sends on the car side, here idle
+    return self.packer.make_can_msg_safety("CCButtons", VOLVO_MAIN_BUS, {**self.STOCK_BTN, **over})
+
+  def _stock_resume(self, **over):
+    return self.packer.make_can_msg_safety("CCButtons", VOLVO_MAIN_BUS, {**self.STOCK_BTN, "ACCResumeBtn": 1, **over})
+
+  def test_resume_with_the_stock_bytes_is_allowed(self):
+    self._resume_ready()
+    self._rx(self._stock_buttons())
+    self.assertTrue(self._tx(self._stock_resume()))
+
+  def test_resume_with_stock_bytes_ignores_the_toggling_byte_0(self):
+    self._resume_ready()
+    self._rx(self._stock_buttons())
+    self.assertTrue(self._tx(self._stock_resume(byte0=0xF9)))
+
+  def test_resume_with_other_bytes_is_blocked(self):
+    self._resume_ready()
+    self._rx(self._stock_buttons())
+    for field, value in (("byte1", 0xB2), ("byte2", 0), ("byte3", 0x2F), ("byte4", 1), ("byte5", 1), ("byte6", 0x11)):
+      self.assertFalse(self._tx(self._stock_resume(**{field: value})), field)
+    self.assertFalse(self._tx(self._stock_resume(ACCMinusBtn=1)))
+
+  def test_a_rejected_resume_does_not_use_up_the_budget(self):
+    self._resume_ready()
+    self._rx(self._stock_buttons())
+    for _ in range(100):
+      self.assertFalse(self._tx(self._stock_resume(byte1=0xB2)))
+    sent = 0
+    while self._tx(self._stock_resume()) and sent < 1000:
+      sent += 1
+    self.assertEqual(sent, 40)
+
+  def test_stock_shaped_resume_needs_a_stock_frame_first(self):
+    self._resume_ready()
+    self.assertFalse(self._tx(self._stock_resume()))
+    self._rx(self._stock_buttons())
+    self.assertTrue(self._tx(self._stock_resume()))
+
+  def test_stock_shaped_resume_follows_the_stream_when_it_changes(self):
+    self._resume_ready()
+    self._rx(self._stock_buttons())
+    self.assertTrue(self._tx(self._stock_resume()))
+    self._rx(self._stock_buttons(byte2=0xD0))
+    self.assertFalse(self._tx(self._stock_resume()))
+    self.assertTrue(self._tx(self._stock_resume(byte2=0xD0)))
+
+  def test_stock_shaped_resume_obeys_the_same_conditions(self):
+    for name, kwargs in (("moving", dict(speed=1)), ("acc off", dict(acc_active=False)), ("no hold", dict(hold=0)),
+                         ("controls off", dict(controls=False)), ("gas", dict(gas=10))):
+      self.setUp()
+      self._resume_ready(**kwargs)
+      self._rx(self._stock_buttons())
+      self.assertFalse(self._tx(self._stock_resume()), name)
+
+  def test_stock_bytes_do_not_open_up_cancel_or_other_buttons(self):
+    self._resume_ready()
+    self._rx(self._stock_buttons())
+    for btn in ("ACCStopBtn", "ACCOnOffBtn", "ACCSetBtn"):
+      self.assertFalse(self._tx(self.packer.make_can_msg_safety("CCButtons", VOLVO_MAIN_BUS, {**self.STOCK_BTN, btn: 1})), btn)
+    self.assertFalse(self._tx(self._stock_resume(ACCStopBtn=1)))
+    self.assertFalse(self._tx(self._stock_buttons()))
+
   def test_resume_allowed_at_held_standstill(self):
     self._resume_ready()
     self.assertTrue(self._tx(self._resume_msg()))

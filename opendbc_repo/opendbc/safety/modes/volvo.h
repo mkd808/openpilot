@@ -570,6 +570,31 @@ static void volvo_lca_rx_hook(const CANPacket_t *msg) {
   }
 }
 
+// The last stock CCButtons frame the CEM sent on the car side (C1). A Resume built from it looks like a real button
+// press on the bus (the stream keeps its own bytes and only byte 7 changes). Bytes 1-6 must equal this frame when the
+// Resume carries stock bytes; byte 0 toggles a bit every few frames and byte 7 is the button itself. Seen on every
+// frame, not only the rx-checked ones, so no new rx check can invalidate controls.
+static uint8_t volvo_c1_buttons_stock[8] = {0};
+static bool volvo_c1_buttons_stock_valid = false;
+
+static bool volvo_c1_buttons_match_stock(const CANPacket_t *msg) {
+  bool match = volvo_c1_buttons_stock_valid;
+  for (int i = 1; i < 7; i++) {
+    match &= (msg->data[i] == volvo_c1_buttons_stock[i]);
+  }
+  return match;
+}
+
+static void volvo_rx_all_dispatch(const CANPacket_t *msg) {
+  volvo_rx_all_hook(msg);
+  if (volvo_c1 && (msg->bus == VOLVO_MAIN_BUS) && (msg->addr == VOLVO_C1_BUTTONS)) {
+    for (int i = 0; i < 8; i++) {
+      volvo_c1_buttons_stock[i] = msg->data[i];
+    }
+    volvo_c1_buttons_stock_valid = true;
+  }
+}
+
 static void volvo_rx_hook(const CANPacket_t *msg) {
   if (volvo_eucd) {
     volvo_eucd_rx_hook(msg);
@@ -620,13 +645,16 @@ static bool volvo_c1_tx_hook(const CANPacket_t *msg) {
   }
 
   // Only ACC cancel (byte 7 = 0x10) and, at a held standstill, Resume (byte 7 = 0x20) may be synthesized.
+  // Other bytes: all zero (byte 6 = 0), or, for Resume only, the stock frame's own bytes 1-6 (what a real press carries).
   if (msg->addr == VOLVO_C1_BUTTONS) {
     const bool cancel_or_none = ((msg->data[7] & 0xEFU) == 0U);
+    bool shape_ok = (msg->data[6] == 0U);
     bool resume_ok = false;
     if (msg->data[7] == 0x20U) {
-      resume_ok = volvo_c1_resume_allowed();
+      shape_ok = shape_ok || volvo_c1_buttons_match_stock(msg);
+      resume_ok = shape_ok && volvo_c1_resume_allowed();
     }
-    tx &= (msg->data[6] == 0U) && (cancel_or_none || resume_ok);
+    tx &= shape_ok && (cancel_or_none || resume_ok);
   }
   return tx;
 }
@@ -768,6 +796,7 @@ static safety_config volvo_c1_init(void) {
   volvo_c1_brake_hold = false;
   volvo_c1_acc_active = false;
   volvo_c1_resume_budget = VOLVO_C1_RESUME_MAX_FRAMES;
+  volvo_c1_buttons_stock_valid = false;
   static const CanMsg VOLVO_C1_TX_MSGS[] = {
     {VOLVO_C1_FSM_1, VOLVO_MAIN_BUS, 8, .check_relay = true},
     {VOLVO_C1_PSCM_1, VOLVO_PARTY_BUS, 8, .check_relay = true},
@@ -885,7 +914,7 @@ static bool volvo_fwd_hook(int bus_num, int addr) {
 const safety_hooks volvo_hooks = {
   .init = volvo_init,
   .rx = volvo_rx_hook,
-  .rx_all = volvo_rx_all_hook,
+  .rx_all = volvo_rx_all_dispatch,
   .tx = volvo_tx_hook,
   .fwd = volvo_fwd_hook,
 };
