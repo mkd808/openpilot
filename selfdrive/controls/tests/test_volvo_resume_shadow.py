@@ -133,3 +133,72 @@ def test_lead_pulling_away_above_threshold_still_counts():
   ev = run(held(3.0) + leaving(2.0, speed=1.2) + moving())
   assert "lead_moved" in kinds(ev)
   assert "would_resume" in kinds(ev)
+
+
+# Launch outcome: steps carry (standstill, acc, lead_ok, d_rel, v_lead, resume_pressed, v_ego, gas_pressed)
+def with_speed(steps, v_ego=0.0, gas=False):
+  return [(*s, v_ego, gas) for s in steps]
+
+
+def blip(seconds, v=0.2):
+  """standstill flag dropped but the car is barely moving"""
+  return [(False, True, True, 9.0, 3.0, False, v, False)] * int(seconds / DT)
+
+
+def driving(seconds, v=3.0, gas=False):
+  return [(False, True, True, 12.0, 3.0, False, v, gas)] * int(seconds / DT)
+
+
+def stopped_again(seconds):
+  return [(True, True, True, 9.0, 3.0, False, 0.0, False)] * int(seconds / DT)
+
+
+def ends(events):
+  return [e for _, e in events if e["ev"] == "stop_end"]
+
+
+def test_real_launch_is_confirmed_by_sustained_speed():
+  ev = run(with_speed(held(3.0) + leaving(0.7)) + driving(2.0))
+  assert ends(ev)[-1]["outcome"] == "acc_auto_resume"
+  assert ends(ev)[-1]["max_v"] >= 3.0
+
+
+def test_creeping_blip_then_stopped_again_is_a_failed_launch():
+  # hold released, ~0.2 m/s for half a second, held again: this is what the 14 Nov route showed
+  steps = with_speed(held(8.0) + leaving(3.5)) + blip(0.6) + stopped_again(2.0)
+  ev = run(steps)
+  first = ends(ev)[0]
+  assert first["outcome"] == "launch_failed"
+  assert first["max_v"] < 0.55
+  assert first["lead_moved_s"] is not None
+
+
+def test_failed_launch_is_followed_by_a_new_stop():
+  ev = run(with_speed(held(8.0) + leaving(3.5)) + blip(0.6) + stopped_again(2.5) + driving(2.0))
+  assert [e["outcome"] for e in ends(ev)] == ["launch_failed", "no_lead_departure"]
+
+
+def test_never_getting_going_times_out_as_failed():
+  ev = run(with_speed(held(3.0) + leaving(0.7)) + blip(4.0, v=0.3))
+  assert ends(ev)[0]["outcome"] == "launch_failed"
+
+
+def test_driver_gas_during_the_launch_is_not_credited_to_acc():
+  steps = with_speed(held(8.0) + leaving(3.5)) + blip(0.6) + driving(2.0, v=3.0, gas=True)
+  assert ends(run(steps))[0]["outcome"] == "driver_gas"
+
+
+def test_driver_resume_still_reported_when_the_car_really_goes():
+  steps = with_speed(held(8.0) + leaving(3.5) + held(0.2, d=9.0, v=1.5, pressed=True)) + driving(2.0)
+  assert ends(run(steps))[-1]["outcome"] == "driver_resume"
+
+
+def test_acc_off_during_the_launch_watch():
+  steps = with_speed(held(3.0) + leaving(0.7)) + [(False, False, True, 9.0, 3.0, False, 0.0, False)] * 4
+  assert ends(run(steps))[-1]["outcome"] == "acc_off"
+
+
+def test_speed_must_hold_for_the_confirm_time():
+  # a 0.5 s lurch above the threshold, then back to a crawl, is not a launch
+  steps = with_speed(held(3.0) + leaving(0.7)) + driving(0.5, v=1.0) + blip(4.0, v=0.2)
+  assert ends(run(steps))[0]["outcome"] == "launch_failed"

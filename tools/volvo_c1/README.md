@@ -48,3 +48,16 @@ Not ACC-specific: 0x80 b6. Next: check what the camera does when these disagree 
 
 Parked pedal-press route: 0x1E0, 0x2C3 and 0x1B0 byte 2 do not respond to the driver pedal; 0x130 b6 does not either (stationary), so it follows vehicle deceleration, not pedal.
 Fourth route (mixed cruise and driving, 20 s ACC braking): 0x1E0/0x2C3 stayed clean (0.00 false in ACC-active non-braking); 0x2B5 b2 did not.
+
+## Resume frame: OP vs a human press (14 Nov stop, route 24)
+
+A stop of 11 s behind a lead that then pulled away. OP sent 12 Resume frames (about 0.12 s) and stock ACC released the hold 0.14 s after the first one. ACC then sent a rising traction request for about 0.2 s (0x280 mode 2, value about 177-198), the car crept 0.66 km/h, and ACC withdrew the request and briefly re-applied the hold. ACC stayed active (FSM 143) and OP sent no cancel. The driver then pressed the gas. The shadow logger now reports this as `launch_failed`.
+
+Burst length is not the explanation: human presses of 0.10 s and 0.20 s (braking and busacc routes) launched fine, and the hold released about 0.1-0.15 s after press start in both.
+
+What differs from a human press (observation, not yet shown to matter):
+- Human press: the stock stream itself changes, e.g. `F8B1D02F00008000` becomes `F8B1D02F00008020` (bytes 0-3 vary per drive, byte 6 is 0x80, byte 7 gets 0x20) and stays one frame stream at 100 Hz.
+- OP press: `0000000000000020` (bytes 0-6 zero) appears as an extra frame at about 100 Hz on the car side while the stock stream keeps sending its idle frame `F8B1A06F00008000` at the same address. The car sees idle and Resume frames alternating.
+- The panda requires byte 6 of 0x10 to be 0 (`volvo.h`), so a stock-identical frame would be rejected today.
+
+If a later test is wanted, the cheap experiment is a Resume frame with bytes 0-5 and 6 copied from the latest stock frame, which needs a panda safety change and tests. Not done.

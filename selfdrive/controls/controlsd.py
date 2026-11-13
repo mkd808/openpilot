@@ -871,7 +871,8 @@ class Controls:
         lead = self.sm['radarState'].leadOne
         resume_pressed = any(str(be.type) == 'resumeCruise' and be.pressed for be in CS.buttonEvents)
         for event in self.volvo_resume_shadow.update(time.monotonic(), bool(CS.standstill), bool(CS.cruiseState.enabled),
-                                                     bool(lead.status), float(lead.dRel), float(lead.vLead), resume_pressed):
+                                                     bool(lead.status), float(lead.dRel), float(lead.vLead), resume_pressed,
+                                                     float(CS.vEgo), bool(CS.gasPressed)):
           cloudlog.info("volvo_resume_shadow " + json.dumps(event))
       except Exception:
         # Logging only: a bug here must never disturb the controls loop
