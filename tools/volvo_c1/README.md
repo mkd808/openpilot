@@ -79,3 +79,13 @@ If a later test is wanted, the cheap experiment is a Resume frame with bytes 0-5
 - A button works from E1 or E0, so the hold state is not what decides it (a gate on status 0 was tried in `3885170d` and taken out again).
 - The plain frame released the hold 2 of 3 times, the stock-shaped frame 0 of 1. Small numbers, but the opposite of the expectation that a stock-identical frame would work better.
 - The panda accepts both shapes. The car side now alternates per burst (1st, 3rd... plain; 2nd, 4th... stock-shaped), so the CSV from any drive shows which shape was sent (bus 128) and whether `0x1B0` went `E1/E0` -> `A0/A1` about 0.1 s later.
+
+## ACC standby flag: 0x145 byte 0 (14 Nov, all routes with 0x1B0)
+
+Volvo's Queue Assist text: a stop of about 3 s or less resumes by itself; a longer one puts ACC in standby with automatic braking until the driver presses the wheel button or the accelerator. The bus shows it as `0x145` (ECM3) byte 0:
+
+- `0xA1` normally, `0xB9` from about 2.4-3.1 s into a standstill hold. It returns to `0xA1` when the driver restarts ACC: 0.08 s after the first Resume frame for human presses (151.5 s route 25, 411.3 s, 631.3 s) and for the two OP plain-frame bursts that worked (route 24 at 162.4 s, postpanda19 at 659.5 s).
+- Seen on every hold of 5.6 s or longer on the V40 routes, never on holds of 2.3 s or less.
+- Holds that ended with no button: `bella` 290.5 s and postpanda19 564.8 s were accelerator restarts. `bella` 907.5 s had neither pedal nor button (flag went 0xB9 -> 0xA9), unexplained.
+- OP bursts that did nothing (postpanda19 560.1 s plain frame, route 25 148.3 s stock-shaped frame) both landed with the flag at `0xB9`, so ACC was in standby and still ignored them.
+- Possible use, not implemented: send the burst only while the flag is `0xB9` (standby, where ACC will not resume by itself), and retry after a failed one.
