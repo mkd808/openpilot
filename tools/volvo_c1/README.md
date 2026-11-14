@@ -62,14 +62,20 @@ What differs from a human press (observation, not yet shown to matter):
 
 If a later test is wanted, the cheap experiment is a Resume frame with bytes 0-5 and 6 copied from the latest stock frame, which needs a panda safety change and tests. Not done.
 
-## Resume with the stock frame bytes, first test (14 Nov, route 25)
+## Resume at a hold: every button press and OP burst on record (14 Nov, route 25 plus earlier routes)
 
-Build `8a190d71` (panda firmware with the stock-shape Resume). Two stops with the shadow logger on.
+`0x1B0` byte 2 at a standstill hold is `0xE1` (BrakeStatus 1) or `0xE0` (status 0); `0xA0`/`0xA1` mean the hold has released. Every press or burst that carried a Resume frame (byte 7 = 0x20), with the hold released or not:
 
-- Stop 2 (3 s): stock ACC resumed by itself in hold state `0xE1` after 1.8 s. OP not needed.
-- Stop 1 (long): lead moved at 147.9 s, ACC did not resume. OP sent 29 frames of `F8B1A06F00008020` at 148.27-148.57 s (byte-identical to the human press, seen on bus 128, interleaved with the stock idle stream). Nothing happened: hold stayed `0xE1`. At 149.25 s the hold went `0xE1` -> `0xE0`. The driver pressed Resume at 151.45 s (same frame bytes), hold released to `0xA0` 0.10 s later, car moving at 152.7 s.
-- So the frame content is not the difference. The one unexplained difference is the hold state at the time of the press: OP's burst landed in `0xE1` (BrakeStatus 1, ACC still owns the stop), the working human press in `0xE0` (BrakeStatus 0, ACC waiting for the driver).
-- Route 24's earlier release (0x1B0 `E1` -> `A1`, 0.11 s after OP's first frame) was most likely stock ACC's own auto-resume, since the driver said the car resumed by itself when the lead left. That makes it no evidence for OP's frame working.
-- n=1 each way. Not proven. Change made (car side only): the burst starts only when BrakeStatus is 0 at the hold. If stock ACC resumes by itself it never gets there.
+| Source | Hold state | Result |
+|---|---|---|
+| Human (shadow2, 411 s) | E1 | released 0.12 s after the first frame, car launched ~1 s later |
+| Human (braking, 631 s) | E0 | released 0.10 s, launched |
+| Human (route 25, 151 s) | E0 | released 0.10 s, launched |
+| OP plain frame `0000000000000020` (postpanda19, 659 s) | E1 | released 0.11 s, launched |
+| OP plain frame (route 24, 162 s) | E1 | released 0.11 s, brief re-hold at +0.57 s, no launch |
+| OP plain frame (postpanda19, 560 s) | E1 | no effect |
+| OP stock-shaped frame `F8B1A06F00008020` (route 25, 148 s, 29 frames) | E1 | no effect |
 
-What to check next: OP burst starting while the hold reads `0xE0`, and whether `1B0` byte 2 goes `E0` -> `A0` about 0.1 s later.
+- A button works from E1 or E0, so the hold state is not what decides it (a gate on status 0 was tried in `3885170d` and taken out again).
+- The plain frame released the hold 2 of 3 times, the stock-shaped frame 0 of 1. Small numbers, but the opposite of the expectation that a stock-identical frame would work better.
+- The panda accepts both shapes. The car side now alternates per burst (1st, 3rd... plain; 2nd, 4th... stock-shaped), so the CSV from any drive shows which shape was sent (bus 128) and whether `0x1B0` went `E1/E0` -> `A0/A1` about 0.1 s later.

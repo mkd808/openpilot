@@ -45,6 +45,7 @@ class CarController(CarControllerBase):
     self.c1_resume_frames = 0  # V40 Resume burst, frames left
     self.c1_resume_done = False  # this hold already got its burst
     self.c1_resume_last_frame = None  # frame the last burst started
+    self.c1_resume_bursts = 0  # bursts started so far; odd ones use the plain frame, even ones the stock-shaped frame
     self.eucd_sng_ack_frames = 0
     self.eucd_resume_hold_frames = 0  # Resume held to the ECM, frames left
     self.eucd_last_ccbuttons = None  # CEM's last CCButtons, copied for the Resume
@@ -624,15 +625,17 @@ class CarController(CarControllerBase):
         self.c1_resume_done = False
       return
 
-    # Route 25: a burst while the hold read 0xE1 (status 1) did nothing, a real press at 0xE0 (status 0) released it in 0.1 s.
-    # So start the burst only once the hold has settled to status 0. If stock ACC resumes by itself it never gets there.
-    if CC.cruiseControl.resume and not self.c1_resume_done and CS.c1_brake_status == 0:
+    if CC.cruiseControl.resume and not self.c1_resume_done:
       self.c1_resume_frames = CarControllerParams.C1_RESUME_HOLD_FRAMES
       self.c1_resume_done = True
       self.c1_resume_last_frame = self.frame
+      self.c1_resume_bursts += 1
 
     if self.c1_resume_frames > 0:
-      can_sends.append(create_c1_resume(self.packer, CS.c1_buttons_stock))
+      # Alternate the frame shape per burst to get an A/B record: the plain frame (bytes 0-6 zero) released the hold 2 of 3
+      # times on older routes, the stock-shaped one 0 of 1 on route 25. volvo.h accepts both.
+      stock = CS.c1_buttons_stock if self.c1_resume_bursts % 2 == 0 else None
+      can_sends.append(create_c1_resume(self.packer, stock))
       self.c1_resume_frames -= 1
 
   def _update_c1(self, CC, CS):

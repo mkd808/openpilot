@@ -123,7 +123,6 @@ def _c1_state():
     out=SimpleNamespace(steeringAngleDeg=10.0, vEgo=12.0, vEgoRaw=12.0, standstill=False, gasPressed=False,
                         brakePressed=False, cruiseState=SimpleNamespace(enabled=False)),
     c1_brake_hold=False,
-    c1_brake_status=0,
     c1_buttons_stock=None,
     c1_lka_torque=5,
     c1_msg_pscm=_zero_message(),
@@ -187,9 +186,10 @@ STOCK_BUTTONS = {"byte0": 0xF8, "byte1": 0xB1, "byte2": 0xA0, "byte3": 0x6F, "by
                  "ACCMinusBtn": 0, "TimeGapIncreaseBtn": 0, "TimeGapDecreaseBtn": 0}
 
 
-def _resume_frames(stock):
+def _resume_frames(stock, bursts_done=1):
   cp = CarInterface.get_non_essential_params(CAR.VOLVO_V40)
   controller = CarController(DBC[cp.carFingerprint], cp)
+  controller.c1_resume_bursts = bursts_done  # the next burst is number bursts_done + 1
   cs = _c1_state()
   cs.c1_brake_hold = True
   cs.c1_buttons_stock = stock
@@ -213,6 +213,13 @@ def test_c1_resume_falls_back_to_the_plain_frame_without_a_stock_frame():
   assert frames and all(f.hex() == "0000000000000020" for f in frames)
 
 
+def test_c1_resume_alternates_plain_and_stock_shaped_bursts():
+  first = _resume_frames(STOCK_BUTTONS, bursts_done=0)
+  second = _resume_frames(STOCK_BUTTONS, bursts_done=1)
+  assert first and all(f.hex() == "0000000000000020" for f in first)
+  assert second and all(f.hex() == "f8b1a06f00008020" for f in second)
+
+
 def test_c1_resume_repeats_a_held_minus_or_gap_button_as_stock_has_it():
   frames = _resume_frames({**STOCK_BUTTONS, "ACCMinusBtn": 1})
   assert frames and all(f[6] & 0x01 and f[7] == 0x20 for f in frames)
@@ -220,24 +227,6 @@ def test_c1_resume_repeats_a_held_minus_or_gap_button_as_stock_has_it():
 
 def test_c1_resume_burst_is_one_short_burst_per_hold():
   assert _c1_resume_run(True, True, 200) == CarControllerParams.C1_RESUME_HOLD_FRAMES
-
-
-def test_c1_resume_waits_for_the_hold_to_settle_to_status_zero():
-  cp = CarInterface.get_non_essential_params(CAR.VOLVO_V40)
-  controller = CarController(DBC[cp.carFingerprint], cp)
-  cs = _c1_state()
-  cs.c1_brake_hold = True
-  cs.out.standstill = True
-  cs.out.cruiseState.enabled = True
-  cc = SimpleNamespace(latActive=False, actuators=_Actuators(), cruiseControl=SimpleNamespace(cancel=False, resume=True))
-
-  def run(frames, status):
-    cs.c1_brake_status = status
-    return sum(1 for _ in range(frames) for msg in controller.update(cc, cs, 0, None)[1] if msg[0] == 0x10)
-
-  assert run(100, 1) == 0  # 0xE1: stock ACC still owns the stop, a button does nothing
-  assert run(100, 0) == CarControllerParams.C1_RESUME_HOLD_FRAMES  # 0xE0: the burst goes out once
-  assert run(100, 0) == 0
 
 
 def test_c1_resume_not_sent_unless_requested():
