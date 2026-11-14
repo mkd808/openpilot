@@ -123,6 +123,7 @@ def _c1_state():
     out=SimpleNamespace(steeringAngleDeg=10.0, vEgo=12.0, vEgoRaw=12.0, standstill=False, gasPressed=False,
                         brakePressed=False, cruiseState=SimpleNamespace(enabled=False)),
     c1_brake_hold=False,
+    c1_brake_status=0,
     c1_buttons_stock=None,
     c1_lka_torque=5,
     c1_msg_pscm=_zero_message(),
@@ -219,6 +220,24 @@ def test_c1_resume_repeats_a_held_minus_or_gap_button_as_stock_has_it():
 
 def test_c1_resume_burst_is_one_short_burst_per_hold():
   assert _c1_resume_run(True, True, 200) == CarControllerParams.C1_RESUME_HOLD_FRAMES
+
+
+def test_c1_resume_waits_for_the_hold_to_settle_to_status_zero():
+  cp = CarInterface.get_non_essential_params(CAR.VOLVO_V40)
+  controller = CarController(DBC[cp.carFingerprint], cp)
+  cs = _c1_state()
+  cs.c1_brake_hold = True
+  cs.out.standstill = True
+  cs.out.cruiseState.enabled = True
+  cc = SimpleNamespace(latActive=False, actuators=_Actuators(), cruiseControl=SimpleNamespace(cancel=False, resume=True))
+
+  def run(frames, status):
+    cs.c1_brake_status = status
+    return sum(1 for _ in range(frames) for msg in controller.update(cc, cs, 0, None)[1] if msg[0] == 0x10)
+
+  assert run(100, 1) == 0  # 0xE1: stock ACC still owns the stop, a button does nothing
+  assert run(100, 0) == CarControllerParams.C1_RESUME_HOLD_FRAMES  # 0xE0: the burst goes out once
+  assert run(100, 0) == 0
 
 
 def test_c1_resume_not_sent_unless_requested():

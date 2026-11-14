@@ -61,3 +61,15 @@ What differs from a human press (observation, not yet shown to matter):
 - The panda requires byte 6 of 0x10 to be 0 (`volvo.h`), so a stock-identical frame would be rejected today.
 
 If a later test is wanted, the cheap experiment is a Resume frame with bytes 0-5 and 6 copied from the latest stock frame, which needs a panda safety change and tests. Not done.
+
+## Resume with the stock frame bytes, first test (14 Nov, route 25)
+
+Build `8a190d71` (panda firmware with the stock-shape Resume). Two stops with the shadow logger on.
+
+- Stop 2 (3 s): stock ACC resumed by itself in hold state `0xE1` after 1.8 s. OP not needed.
+- Stop 1 (long): lead moved at 147.9 s, ACC did not resume. OP sent 29 frames of `F8B1A06F00008020` at 148.27-148.57 s (byte-identical to the human press, seen on bus 128, interleaved with the stock idle stream). Nothing happened: hold stayed `0xE1`. At 149.25 s the hold went `0xE1` -> `0xE0`. The driver pressed Resume at 151.45 s (same frame bytes), hold released to `0xA0` 0.10 s later, car moving at 152.7 s.
+- So the frame content is not the difference. The one unexplained difference is the hold state at the time of the press: OP's burst landed in `0xE1` (BrakeStatus 1, ACC still owns the stop), the working human press in `0xE0` (BrakeStatus 0, ACC waiting for the driver).
+- Route 24's earlier release (0x1B0 `E1` -> `A1`, 0.11 s after OP's first frame) was most likely stock ACC's own auto-resume, since the driver said the car resumed by itself when the lead left. That makes it no evidence for OP's frame working.
+- n=1 each way. Not proven. Change made (car side only): the burst starts only when BrakeStatus is 0 at the hold. If stock ACC resumes by itself it never gets there.
+
+What to check next: OP burst starting while the hold reads `0xE0`, and whether `1B0` byte 2 goes `E0` -> `A0` about 0.1 s later.

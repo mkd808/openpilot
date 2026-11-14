@@ -14,6 +14,7 @@ class CarState(CarStateBase):
     self.c1_msg_pscm = {}
     self.c1_lka_torque = 0
     self.c1_brake_hold = False  # stock ACC holding the car at standstill (0x1B0 byte 2 bit 6)
+    self.c1_brake_status = 0  # 0x1B0 byte 2 low bits; at a hold 1 = ACC still owns the stop (0xE1), 0 = waiting for the driver (0xE0)
     # The stock CCButtons frame as the CEM sent it (bytes 0-6), so a Resume can carry the same bytes a real press does
     self.c1_buttons_stock = None
     self.c1_button_states = dict.fromkeys(
@@ -39,6 +40,7 @@ class CarState(CarStateBase):
     brake_status = int(cp.vl["BrakeMessages"]["BrakeStatus"])
     brake_hold = bool(cp.vl["BrakeMessages"]["BrakeHold"])
     self.c1_brake_hold = brake_hold
+    self.c1_brake_status = brake_status
     acc_active = bool(cp_cam.vl["FSM0"]["ACCStatusActive"])
     pressure_bits = bool(cp.vl["PedalandBrake"]["BrakePedalActive2"] or cp.vl["PedalandBrake"]["BrakePedalActive"])
     ret.brakePressed = pressure_bits and not volvo_c1_acc_owns_brake(brake_status, brake_hold, acc_active)

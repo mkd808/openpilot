@@ -624,7 +624,9 @@ class CarController(CarControllerBase):
         self.c1_resume_done = False
       return
 
-    if CC.cruiseControl.resume and not self.c1_resume_done:
+    # Route 25: a burst while the hold read 0xE1 (status 1) did nothing, a real press at 0xE0 (status 0) released it in 0.1 s.
+    # So start the burst only once the hold has settled to status 0. If stock ACC resumes by itself it never gets there.
+    if CC.cruiseControl.resume and not self.c1_resume_done and CS.c1_brake_status == 0:
       self.c1_resume_frames = CarControllerParams.C1_RESUME_HOLD_FRAMES
       self.c1_resume_done = True
       self.c1_resume_last_frame = self.frame
