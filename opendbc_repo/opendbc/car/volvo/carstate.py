@@ -3,7 +3,7 @@ from opendbc.can import CANParser
 from opendbc.car import Bus, ButtonType, create_button_events, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarStateBase
-from opendbc.car.volvo.values import C1_BUTTON_STOCK_SIGNALS, DBC, volvo_c1_acc_owns_brake
+from opendbc.car.volvo.values import C1_BUTTON_STOCK_SIGNALS, DBC, volvo_c1_acc_owns_brake, volvo_c1_aol_allowed
 
 GearShifter = structs.CarState.GearShifter
 
@@ -85,9 +85,9 @@ class CarState(CarStateBase):
     # (high only while held) or a latched on/off state.
     lka_state = bool(cp.vl["CEM0"]["LKA_State"])
 
-    # Always on lateral follows the driver's LKA on/off.
+    # Always on lateral follows the driver's LKA on/off, and only once stock ACC has been switched on (standby or active).
     fp_ret = custom.StarPilotCarState.new_message()
-    fp_ret.alwaysOnLateralAllowed = lka_state
+    fp_ret.alwaysOnLateralAllowed = volvo_c1_aol_allowed(lka_state, ret.cruiseState.available)
 
     self.c1_msg_pscm = cp.vl["PSCM1"]
     self.c1_lka_torque = int(cp.vl["PSCM1"]["LKATorque"])

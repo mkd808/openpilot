@@ -310,6 +310,12 @@ FW_QUERY_CONFIG = FwQueryConfig(
 DBC = CAR.create_dbc_map()
 
 
+def volvo_c1_aol_allowed(lka_state: bool, acc_on: bool) -> bool:
+  # Always on lateral needs the dash LKA switch on and stock ACC switched on (standby or active, FSM0 ACCStatusOnOff).
+  # With the ignition on and ACC still off (0x30 byte 7 = 0x88) the LKA bit alone is not enough.
+  return lka_state and acc_on
+
+
 def volvo_c1_aol_stock_acc_mode(car_fingerprint, pcm_cruise: bool,
                                 controls_enabled: bool, always_on_lateral_enabled: bool) -> bool:
   # V40 lateral-only fork: while always on lateral is active and OP is not engaged, stock ACC keeps running.
