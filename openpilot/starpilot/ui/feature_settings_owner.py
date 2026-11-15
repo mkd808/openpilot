@@ -994,6 +994,10 @@ class FeatureSettingsOwner:
         row = self._bool_row("SubaruSNG", "Stop-and-Go Assistance", parked and self.authority("parked_preferences"),
                              "Assists lead departure and standstill hold with factory ACC. Applies after the next startup.")
         rows.append(replace(row, available=row.available and self._readable("SubaruSNG"), capability=subaru_sng_capability))
+      from openpilot.starpilot.car.volvo import resume_assist_settings as volvo_resume
+      volvo_resume_capability = volvo_resume.capability(self)
+      if volvo_resume_capability is not None:
+        rows.append(volvo_resume.row(self, parked, volvo_resume_capability))
       software_capability = self._subaru_software_capability()
       if software_capability is not None:
         row = self._bool_row("SubaruRedneckCruise", "Software Cruise Control", parked and self.authority("parked_preferences"),
@@ -1489,6 +1493,9 @@ class FeatureSettingsOwner:
       return apply(self, request)
     if key == "SubaruRedneckCruise":
       from openpilot.starpilot.car.subaru.software_cruise_settings import apply
+      return apply(self, request)
+    if key == "VolvoC1ResumeAssist":
+      from openpilot.starpilot.car.volvo.resume_assist_settings import apply
       return apply(self, request)
     if key in ("VoltSNG", "GMAutoHold", "VoltOnePedalMode"):
       return self._apply_gm_stop(request)

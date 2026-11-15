@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import math
 import importlib
 import os
@@ -17,12 +18,14 @@ from openpilot.common.swaglog import cloudlog
 
 from opendbc.car.car_helpers import interfaces
 from opendbc.car.vehicle_model import VehicleModel
+from opendbc.car.volvo.values import CAR as VOLVO_CAR, volvo_c1_stock_acc_owns_cruise
 from openpilot.selfdrive.controls.lib.drive_helpers import clip_curvature
 from openpilot.selfdrive.controls.lib.highway_correction_gain import HighwayCorrectionGain, predicted_lateral_accels, read_gain
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl
 from openpilot.selfdrive.controls.lib.latcontrol_torque import LatControlTorque
 from openpilot.selfdrive.controls.lib.lateral_controller_factory import create_lateral_controller
 from openpilot.selfdrive.controls.lib.longcontrol import LongControl
+from openpilot.selfdrive.controls.lib.volvo_resume_shadow import ResumeAssistFlag, VolvoResumeShadow
 from openpilot.selfdrive.modeld.constants import LAT_SMOOTH_SECONDS
 from openpilot.selfdrive.locationd.helpers import PoseCalibrator, Pose
 from openpilot.starpilot.car.hyundai.lateral_fault import LateralFaultLatch
@@ -87,6 +90,11 @@ class Controls:
     self.aol_transition_diagnostic = TransitionDiagnostic() if self.aol_replay and self.CP.brand == 'gm' else None
     self.ordinary_axis_ack_required = axis_policy_for(self.CP).ordinary_axis_ack_required
     self.longitudinal_inputs = LongitudinalInputs(self.CP, self.params, lambda: self.sm)
+    # Volvo V40 stop-and-go Resume (see volvo_resume_shadow.py). The radar lead is optional: the shadow only logs
+    # and requests a Resume when it is there.
+    volvo_v40 = self.CP.carFingerprint == VOLVO_CAR.VOLVO_V40 and self.CP.pcmCruise
+    self.volvo_resume_shadow = VolvoResumeShadow() if volvo_v40 else None
+    self.volvo_resume_assist_flag = ResumeAssistFlag()
 
     services = [
       'lateralDelay',
@@ -106,7 +114,8 @@ class Controls:
     ] + (['aolAxisState', 'aolSafetyWire'] if self.aol_replay or self.ordinary_axis_ack_required else [])
     optional = list(
       dict.fromkeys(
-        self.longitudinal_inputs.optional_services + ['starpilotCarState', 'deviceState', 'autoSteeringLearning', 'starpilotSteeringTracking', 'pandaStates']
+        self.longitudinal_inputs.optional_services + ['starpilotCarState', 'deviceState', 'autoSteeringLearning', 'starpilotSteeringTracking', 'pandaStates'] +
+        (['radarState'] if volvo_v40 else [])
       )
     )
     if optional:
@@ -714,6 +723,26 @@ class Controls:
       cycle_timing.mark()
     return CC, lac_log
 
+  def update_volvo_resume(self, CC, CS):
+    # V40: OP's planner does not drive, so its shouldStop says nothing about stock ACC. Resume only on the radar-based
+    # request, and only with the flag file on. The car side and volvo_c1.h gate it again.
+    try:
+      lead = self.sm['radarState'].leadOne if self.sm.seen['radarState'] else None
+      resume_pressed = any(be.type == car.CarState.ButtonEvent.Type.resumeCruise and be.pressed for be in CS.buttonEvents)
+      for event in self.volvo_resume_shadow.update(time.monotonic(), bool(CS.standstill), bool(CS.cruiseState.enabled),
+                                                   bool(lead is not None and lead.status), float(lead.dRel if lead else 0.),
+                                                   float(lead.vLead if lead else 0.), resume_pressed,
+                                                   float(CS.vEgo), bool(CS.gasPressed)):
+        cloudlog.info("volvo_resume_shadow " + json.dumps(event))
+    except Exception:
+      # A bug here must never disturb the controls loop
+      cloudlog.exception("volvo_resume_shadow failed, disabled")
+      self.volvo_resume_shadow = None
+      CC.cruiseControl.resume = False
+      return
+    CC.cruiseControl.resume = bool(self.volvo_resume_shadow.resume_requested and
+                                   self.volvo_resume_assist_flag.enabled(time.monotonic()))
+
   def publish(self, CC, lac_log):
     publish_timing = getattr(self, 'publish_cycle_timing', None)
     if publish_timing is not None:
@@ -728,12 +757,15 @@ class Controls:
       CC.angularVelocity = self.calibrated_pose.angular_velocity.xyz.tolist()
 
     CC.cruiseControl.override = CC.enabled and not CC.longActive and self.CP.openpilotLongitudinalControl
-    CC.cruiseControl.cancel = CS.cruiseState.enabled and (not CC.enabled or not self.CP.pcmCruise)
+    CC.cruiseControl.cancel = (CS.cruiseState.enabled and (not CC.enabled or not self.CP.pcmCruise) and
+                               not volvo_c1_stock_acc_owns_cruise(self.CP.carFingerprint, self.CP.pcmCruise, CC.enabled))
     CC.cruiseControl.resume = CC.enabled and CS.cruiseState.standstill and not self.sm['longitudinalPlan'].shouldStop
     if self.LoC.extension is not None:
       CC.cruiseControl.resume = self.LoC.extension.qualify_resume(
         CC.cruiseControl.resume, preferences=self.vehicle_startup_preferences, inputs=self.longitudinal_inputs
       )
+    if self.volvo_resume_shadow is not None:
+      self.update_volvo_resume(CC, CS)
 
     hudControl = CC.hudControl
     hudControl.setSpeed = float(CS.vCruiseCluster * CV.KPH_TO_MS)

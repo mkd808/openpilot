@@ -11,6 +11,7 @@ import openpilot.cereal.messaging as messaging
 
 from openpilot.cereal import log
 from opendbc.car.structs import car
+from opendbc.car.volvo.values import volvo_c1_stock_acc_owns_cruise
 from opendbc.car.hyundai.ev6_aol import qualified as ev6_aol_qualified
 from opendbc.car.hyundai.values import HyundaiFlags
 from opendbc.car.honda.stock_aol import qualified as honda_aol_qualified, temporary_restriction as honda_temporary_restriction
@@ -690,7 +691,8 @@ class SelfdriveD:
 
     if not REPLAY:
       # Check for mismatch between openpilot and car's PCM
-      cruise_mismatch = CS.cruiseState.enabled and (not self.enabled or not self.CP.pcmCruise)
+      cruise_mismatch = (CS.cruiseState.enabled and (not self.enabled or not self.CP.pcmCruise) and
+                         not volvo_c1_stock_acc_owns_cruise(self.CP.carFingerprint, self.CP.pcmCruise, self.enabled))
       self.cruise_mismatch_counter = self.cruise_mismatch_counter + 1 if cruise_mismatch else 0
       if self.cruise_mismatch_counter > int(6. / DT_CTRL):
         self.events.add(EventName.cruiseMismatch)

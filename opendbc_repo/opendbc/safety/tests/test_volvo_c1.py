@@ -77,7 +77,7 @@ class TestVolvoC1Safety(unittest.TestCase):
     assert not lib.get_controls_allowed()
 
   def test_positive_feed_then_required_rx_loss(self):
-    for missing in ['PSCM1', 'FSM0', 'PedalandBrake', 'VehicleSpeed1']:
+    for missing in ['PSCM1', 'FSM0', 'PedalandBrake', 'VehicleSpeed1', 'BrakeMessages', 'CEM0']:
       with self.subTest(missing=missing):
         reset()
         for index in range(1, 221):
@@ -87,6 +87,8 @@ class TestVolvoC1Safety(unittest.TestCase):
             ('FSM0', 2, {'ACCStatusActive': 1}),
             ('PedalandBrake', 0, {}),
             ('VehicleSpeed1', 0, {'VehicleSpeed': 72}),
+            ('BrakeMessages', 0, {}),
+            ('CEM0', 0, {}),
           ]:
             if index <= 20 or name != missing:
               assert rx(name, bus, values)

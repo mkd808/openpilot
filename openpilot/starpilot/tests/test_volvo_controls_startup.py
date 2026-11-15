@@ -28,6 +28,7 @@ def incoming(identity, *, frame=0):
     ('PSCM1', 0, {'SteeringAngleServo': 12.5, 'LKATorque': 10}),
     ('PedalandBrake', 0, {}), ('TCM0', 0, {'GearShifter': 3}), ('ACC', 0, {'SpeedTargetACC': 100}),
     ('MiscCarInfo', 0, {}), ('FSM0', 2, {'ACCStatusOnOff': 1, 'ACCStatusActive': 1}), ('FSM1', 2, {}),
+    ('BrakeMessages', 0, {}), ('CEM0', 0, {}),
   ]
   return [packer.make_can_msg(name, bus, values) for name, bus, values in messages]
 
@@ -50,8 +51,14 @@ class TestVolvoActualStartup(unittest.TestCase):
     self.assertEqual(card.CP.passive, not enabled)
     self.assertEqual(card.CP.safetyConfigs[0].safetyModel,
                      structs.CarParams.SafetyModel.volvo if enabled else structs.CarParams.SafetyModel.noOutput)
-    self.assertEqual(card.aol_qualified, False)
-    self.assertIsNone(card.aol_card_intent)
+    # The V40 (C1) AOL profile is admitted with the toggle on; the V60's has its own startup path
+    v40_aol = enabled and aol and identity == 'VOLVO_V40'
+    self.assertEqual(card.aol_qualified, v40_aol)
+    if v40_aol:
+      self.assertIsNotNone(card.aol_card_intent)
+      self.assertEqual(card.CP.alternativeExperience & 32, 32)
+    else:
+      self.assertIsNone(card.aol_card_intent)
     self.assertTrue(params.get_bool('ForceAutoTuneOff'))
     self.assertFalse(params.get_bool('ControlsReady'))
     # Ordinary family path delays init/ControlsReady until valid CAN and controls.

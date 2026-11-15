@@ -23,6 +23,8 @@ def feed(parsers, time=1000000000, torque=10):
     packer.make_can_msg('TCM0', 0, {'GearShifter': 3}),
     packer.make_can_msg('ACC', 0, {'SpeedTargetACC': 100}),
     packer.make_can_msg('MiscCarInfo', 0, {'TurnSignal': 1}),
+    packer.make_can_msg('BrakeMessages', 0, {'BrakeStatus': 0, 'BrakeHold': 0}),
+    packer.make_can_msg('CEM0', 0, {'LKA_State': 1}),
     packer.make_can_msg('FSM0', 2, {'ACCStatusOnOff': 1, 'ACCStatusActive': 1}),
     packer.make_can_msg('FSM1', 2, {}),
   ]
@@ -38,7 +40,7 @@ class TestVolvoC1Host(unittest.TestCase):
           cp = params(alpha, release)
           assert (cp.safetyConfigs[0].safetyModel, cp.safetyConfigs[0].safetyParam) == (structs.CarParams.SafetyModel.volvo, 2)
           assert not cp.openpilotLongitudinalControl and (not cp.alphaLongitudinalAvailable)
-          assert cp.pcmCruise and cp.radarUnavailable
+          assert cp.pcmCruise and not cp.radarUnavailable  # Delphi ESR on bus 1
           assert cp.steerControlType == structs.CarParams.SteerControlType.angle
           assert cp.minSteerSpeed == pytest.approx(1 / 3.6)
           assert cp.steerActuatorDelay == pytest.approx(0.2)
@@ -58,6 +60,7 @@ class TestVolvoC1Host(unittest.TestCase):
     assert ret.cruiseState.available and ret.cruiseState.enabled
     assert ret.cruiseState.speed == pytest.approx(100 / 3.6)
     assert ret.leftBlinker and (not ret.rightBlinker)
+    assert cs.c1_lka_on and cs.c1_aol_allowed and not cs.c1_brake_hold
     assert len(ret.buttonEvents) == 1 and ret.buttonEvents[0].pressed
     assert not ret.steeringPressed and (not ret.doorOpen) and (not ret.seatbeltUnlatched)
     assert not ret.steerFaultTemporary and (not ret.steerFaultPermanent)

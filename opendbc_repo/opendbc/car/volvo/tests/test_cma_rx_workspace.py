@@ -69,6 +69,7 @@ def test_cma_spa_c1_switches_reset_identity_status_phase_and_original_stock_leas
         ('PSCM1', 0, {'SteeringAngleServo': 0, 'LKATorque': 10}),
         ('FSM0', 2, {'ACCStatusOnOff': 1, 'ACCStatusActive': 1}),
         ('PedalandBrake', 0, {}), ('VehicleSpeed1', 0, {'VehicleSpeed': 72}),
+        ('BrakeMessages', 0, {}), ('CEM0', 0, {}),
       ]]
       for msg in incoming:
         assert lib.safety_rx_hook(packet(msg))

@@ -36,3 +36,11 @@ def create_c1_steering_control(packer, apply_angle: float, lat_active: bool):
 
 def create_c1_cancel(packer):
   return packer.make_can_msg("CCButtons", 0, {"ACCStopBtn": 1})
+
+
+def create_c1_resume(packer, stock: dict | None = None):
+  """Resume button. With the stock frame's bytes 0-6 (carstate.c1_buttons_stock) it carries what a real press carries;
+  without them it falls back to the cancel frame's shape (all other bytes 0)."""
+  values = {**stock} if stock else {}
+  values["ACCResumeBtn"] = 1
+  return packer.make_can_msg("CCButtons", 0, values)

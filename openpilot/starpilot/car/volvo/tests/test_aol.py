@@ -1,4 +1,4 @@
-"""V60 AOL: admission only for the exact profile, intent follows the car's state."""
+"""V60 and V40 AOL: admission only for the exact profile, intent follows the car's state."""
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -16,22 +16,34 @@ def params(identity=CAR.VOLVO_V60, alternative=32):
   return cp
 
 
-def test_only_the_v60_is_admitted():
-  assert aol.qualified(params(), marked_only=True)
-  assert aol.qualified(params(alternative=0)) and not aol.qualified(params(alternative=0), marked_only=True)
-  for identity in (CAR.VOLVO_V40, CAR.VOLVO_XC40_RECHARGE, CAR.VOLVO_S60_RECHARGE, CAR.POLESTAR_2):
+def test_only_the_v60_and_v40_are_admitted():
+  for identity in (CAR.VOLVO_V60, CAR.VOLVO_V40):
+    assert aol.qualified(params(identity), marked_only=True)
+    assert aol.qualified(params(identity, alternative=0)) and not aol.qualified(params(identity, alternative=0), marked_only=True)
+    assert aol.policy_for(params(identity)).intent_supported
+  for identity in (CAR.VOLVO_XC40_RECHARGE, CAR.VOLVO_S60_RECHARGE, CAR.POLESTAR_2):
     assert not aol.qualified(params(identity))
     assert not aol.policy_for(params(identity)).intent_supported
-  assert aol.policy_for(params()).intent_supported
+
+
+def test_profile_must_match_the_platform():
+  for identity, wrong in ((CAR.VOLVO_V60, 2), (CAR.VOLVO_V40, 8)):
+    cp = params(identity)
+    cp.safetyConfigs[0].safetyParam = wrong
+    assert not aol.qualified(cp)
 
 
 def test_exact_native_profile():
   model = int(structs.CarParams.SafetyModel.volvo)
   assert aol.native_profile_supported(model, 8)
-  for param in (0, 1, 2, 4, 5):
+  assert aol.native_profile_supported(model, 2)
+  for param in (0, 1, 4, 5):
     assert not aol.native_profile_supported(model, param)
   assert not aol.native_profile_supported(model + 1, 8)
   assert aol.native_accepts_cp(params(), model, 8)
+  assert not aol.native_accepts_cp(params(), model, 2)
+  assert aol.native_accepts_cp(params(CAR.VOLVO_V40), model, 2)
+  assert not aol.native_accepts_cp(params(CAR.VOLVO_V40), model, 8)
   assert not aol.native_accepts_cp(params(alternative=0), model, 8)
 
 
@@ -133,3 +145,34 @@ def test_lkas_unmapped_follows_the_acc_main():
   assert not step(card, available=False, lka=True)
   assert step(card, available=True, lka=False)
   assert not step(card, available=False, lka=False)
+
+
+def c1_step(card, *, available=False, lka=False, enabled=False):
+  card.observe_vehicle_state(SimpleNamespace(c1_aol_allowed=lka and available))
+  state = structs.CarState(canValid=True, gearShifter=structs.CarState.GearShifter.drive)
+  state.cruiseState.available = available
+  state.cruiseState.enabled = enabled
+  card.update(state.as_reader(), fault_active=False, native_rejection_ns=0, now_ns=1, standard_enabled=False)
+  return card.allowed_latch
+
+
+def test_v40_intent_is_created_for_the_v40():
+  settings = read_settings(FakeParams())
+  assert isinstance(aol.create_intent(params(CAR.VOLVO_V40), settings), aol.VolvoC1CardIntent)
+  assert isinstance(aol.create_intent(params(), settings), aol.VolvoEucdCardIntent)
+
+
+def test_v40_latch_needs_the_lka_and_the_acc_main():
+  card = aol.VolvoC1CardIntent(read_settings(FakeParams()))
+  assert not c1_step(card)
+  assert not c1_step(card, lka=True)
+  assert not c1_step(card, available=True)
+  assert c1_step(card, available=True, lka=True)
+  assert not c1_step(card, available=True)  # LKA switched off
+  assert not c1_step(card, lka=True)  # ACC main switched off
+
+
+def test_v40_engaged_acc_keeps_the_latch_with_the_lka_off():
+  card = aol.VolvoC1CardIntent(read_settings(FakeParams()))
+  assert c1_step(card, available=True, enabled=True)
+  assert not c1_step(card, available=True)

@@ -3,7 +3,8 @@
 VEHICLE_BOOL_KEYS = frozenset(("AlphaLongitudinalEnabled", "SubaruAvhStartup", "SubaruStopStartOff", "SubaruSNG", "SubaruRedneckCruise",
                               "GMPedalLongitudinal", "DisableOpenpilotLongitudinal", "LongPitch", "VoltSNG", "SNGHack", "GMAutoHold", "VoltOnePedalMode",
                               "TeslaCoopSteering", "TeslaAOLScreenTap", "TeslaAOLDisengageOnBrake",
-                              "RemoteStartBootsComma", "HKGRemoteStartBootsComma", "IgnoreIgnitionLine", "TeslaWakeOnCAN"))
+                              "RemoteStartBootsComma", "HKGRemoteStartBootsComma", "IgnoreIgnitionLine", "TeslaWakeOnCAN",
+                              "VolvoC1ResumeAssist"))
 
 
 def confirmation_question(request):
@@ -48,4 +49,8 @@ def confirmation_question(request):
     return f"{verb} three-finger screen taps for Always On Lateral after the next startup? Cruise control stays independent."
   if request.key == "TeslaAOLDisengageOnBrake":
     return f"{verb} disarming Always On Lateral with the brake after the next startup? This applies with either Tesla harness."
+  if request.key == "VolvoC1ResumeAssist":
+    if request.value == "On":
+      return "Turn on Volvo V40 Resume Assist? StarPilot will press Resume for stock ACC when the lead pulls away from a standstill."
+    return "Turn off Volvo V40 Resume Assist? You will press Resume yourself after a stock ACC stop."
   raise ValueError("Unsupported vehicle preference")

@@ -1,4 +1,7 @@
-"""Volvo V60 (EUCD) AOL: lateral follows the car's LKA on/off when the LKAS button is mapped, else the ACC main."""
+"""Volvo AOL.
+
+V60 (EUCD): lateral follows the car's LKA on/off when the LKAS button is mapped, else the ACC main.
+V40 (C1): lateral follows the dash LKA switch, once stock ACC is switched on (standby or active)."""
 
 from opendbc.car import structs
 from opendbc.car.volvo.values import CAR, VolvoSafetyFlags
@@ -6,6 +9,8 @@ from openpilot.starpilot.aol.intent import AolCardIntent, AOL_TOGGLE, ButtonType
 from openpilot.starpilot.aol.policy import AolVehiclePolicy
 
 VOLVO_EUCD = VolvoSafetyFlags.EUCD.value
+VOLVO_C1 = VolvoSafetyFlags.C1.value
+_PROFILES = {CAR.VOLVO_V60: VOLVO_EUCD, CAR.VOLVO_V40: VOLVO_C1}
 _DRIVE = (structs.CarState.GearShifter.drive,)
 
 
@@ -13,7 +18,7 @@ def qualified(cp, *, marked_only=False):
   try:
     if (
       cp.brand != 'volvo'
-      or cp.carFingerprint != CAR.VOLVO_V60
+      or cp.carFingerprint not in _PROFILES
       or cp.flags != 0
       or cp.passive
       or cp.notCar
@@ -25,7 +30,7 @@ def qualified(cp, *, marked_only=False):
     ):
       return False
     config = cp.safetyConfigs[0]
-    return config.safetyModel == structs.CarParams.SafetyModel.volvo and config.safetyParam == VOLVO_EUCD
+    return config.safetyModel == structs.CarParams.SafetyModel.volvo and config.safetyParam == _PROFILES[cp.carFingerprint]
   except (AttributeError, TypeError, ValueError, IndexError):
     return False
 
@@ -44,7 +49,7 @@ def policy_for(cp):
 
 
 def native_profile_supported(model, param):
-  return model == int(structs.CarParams.SafetyModel.volvo) and param == VOLVO_EUCD
+  return model == int(structs.CarParams.SafetyModel.volvo) and param in (VOLVO_EUCD, VOLVO_C1)
 
 
 def native_accepts_cp(cp, model, param):
@@ -140,5 +145,39 @@ class VolvoEucdCardIntent(AolCardIntent):
       self.allowed_latch = True
 
 
+class VolvoC1CardIntent(AolCardIntent):
+  """V40: the dash LKA switch is a setting (CEM0), not a button event. The latch follows it, and only once stock ACC is
+  switched on, as volvo_c1.h grants it."""
+  observe_stock_engagement = True
+
+  def __init__(self, settings):
+    self.aol_allowed = False
+    super().__init__(settings, explicit_latch=True)
+
+  def observe_vehicle_state(self, car_state):
+    self.aol_allowed = bool(getattr(car_state, 'c1_aol_allowed', False))
+
+  def update(self, CS, **kwargs):
+    healthy = bool(
+      CS.canValid
+      and not CS.canTimeout
+      and not CS.steerFaultPermanent
+      and not CS.accFaulted
+      and kwargs.get('fault_active') is not True
+      and not kwargs.get('native_rejection_ns', 0)
+    )
+    super().update(CS, **kwargs)
+    # Engaged stock ACC steers as before even with the LKA off, so the latch follows it too (as volvo_c1.h grants it)
+    if not (self.aol_allowed or CS.cruiseState.enabled):
+      if self.allowed_latch:
+        self._record_latch_clear('vehicle_state_off')
+      self.allowed_latch = False
+    elif (healthy and self.settings.enabled and not self.pause_lateral and not self._fault_inhibit and
+          not self._calibration_inhibit and not self._calibration_rearm_required):
+      self.allowed_latch = True
+
+
 def create_intent(cp, settings):
+  if cp.carFingerprint == CAR.VOLVO_V40:
+    return VolvoC1CardIntent(settings)
   return VolvoEucdCardIntent(settings)

@@ -38,6 +38,118 @@ StarPilot has a vibrant, welcoming community [discord](https://firestar.link/dis
 Stop by to chat or ask questions!
 If your car isn't driving as well as you'd like, [open a ticket so we can help](https://firestar.link/logs)!
 
+# Volvo V40 (C1) openpilot: personal dev fork
+
+A personal development branch, now based on leomonde's `Dom_volvo` (StarPilot 7.0). It's a work in progress and comes with **no warranty**. Use at your own risk.
+
+Panda safety is treated as the priority: every change runs through openpilot's tools and test suites before it goes on the car.
+
+## Credits
+
+Big thanks to **Firestar4430** for starting the Volvo V40 II port on the StarPilotHQ stable branch, and to **Leomonde**, **Chiachunli** and **Danielzmod** for community support and the groundwork that goes back about six years to the comma two.
+
+## Current state
+
+- **Lateral only.** openpilot steers; longitudinal stays with the car's own ACC (`pcmCruise`).
+- DBC signals are being tested and validated on real drives, including keeping openpilot engaged while factory ACC is braking or coasting.
+- Radar tracks have been identified (read-only for now).
+
+Everything below comes from our own drive logs (CAN CSVs and rlogs).
+
+## ACC braking and hold states
+
+0x1B0 `BrakeMessages`, byte 2:
+
+| Byte 2 | Meaning | Source |
+|---|---|---|
+| `0xA0` | Idle, nothing applied | observed |
+| `0xA1` | Transition, e.g. just before the car stops and around hold release | observed |
+| `0xA5` | ACC braking by itself (`BrakeStatus` = 5); brake pressure rises with the pedal flag off | confirmed |
+| `0xE0` / `0xE1` | ACC holding the car at standstill (`BrakeHold`, bit 6; `BrakeStatus` = 1) | confirmed |
+
+`BrakeStatus` values other than 1 and 5 have not been seen.
+
+Related signals:
+
+- `BrakePress0` / `BrakePress1` rise during ACC braking even though the driver isn't on the pedal.
+- FSM0 (0x30, byte 7, bus 2) reports ACC state: `138` / `154` standby, `142` / `143` / `158` / `159` active, `136` off. During a hold, ACC stays active, not in standby.
+
+## Safer brake handling than the dragonpilot 0.8.13 port
+
+dragonpilot 0.8.13 added a basic V40 port, but it hard-codes `brakePressed = False`, so a real foot on the brake is never seen. It only allows the cancel button on TX and has no stop-and-go or resume logic.
+
+This branch:
+
+- Derives `brakePressed` from the pressure bits, but ignores pressure while ACC owns the brake (`0xA5` / `0xE0` / `0xE1`). A driver pressing the pedal while ACC is braking still disengages.
+- Mirrors that rule in the panda safety (`volvo_c1.h`) so the firmware agrees with the car code.
+- Doesn't cancel stock ACC when it's only braking or holding.
+- Keeps cancel limited to the driver-intent case.
+
+## Resume Assist (stop-and-go)
+
+Stock ACC stops resuming by itself if the car has been held for more than a few seconds, and waits for the driver to press Resume. Resume Assist presses it for you when the lead pulls away. Stock ACC still does all the accelerating.
+
+- **Off by default.** Turn it on under **Vehicle settings → Resume Assist** in Galaxy or on the device (V40 only, parked only). Turning it off works any time.
+- The toggle creates or removes `/data/volvo_c1_resume_assist`; you can also `touch` / `rm` it over SSH.
+- Resume is sent only at standstill, with ACC active and the brake-hold flag set, once the lead has moved away and stock ACC hasn't resumed by itself.
+- Panda allows Resume only under those same conditions, capped at 40 frames per hold and rearmed when the hold ends.
+
+## DBC findings
+
+### Nov 8 — Radar reference DBC
+
+`volvo_v40_2017_ptradar.dbc` is **reference only**; the code doesn't load it.
+
+The radar is a **Delphi ESR on bus 1**.
+
+| ID | Name | Rate | Notes |
+|---|---|---|---|
+| `0x500–0x53F` | Target1–64 | 20 Hz each | Radar tracks, same layout per slot |
+| `0x4E3` | ESR_Output_InPath | 20 Hz | Radar's own in-path pick: byte 1 = moving ACC target ID, byte 7 = stationary |
+| `0x4E1` | ESR_Status2 | 20 Hz | Radar fault and temperature bits; check after install |
+| `0x4F0` / `0x4F1` | Vehicle_Data / SensorInput | 50 Hz | Sent *to* the radar (speed, yaw, mounting) |
+| `0x540`, `0x5D0`, `0x5D1`, `0x5E4` | — | — | Present, not yet analysed |
+
+**Track quality**
+
+- Only about 39% of track slots hold a valid target (median 27 per frame), and most are stationary scenery, so tracks need filtering.
+- With stock ACC tracking, `0x4E3` named a moving in-path target in **96%** of frames. It's the easiest way to get the lead.
+
+**Track signals**
+
+| Signal | Resolution | Observed |
+|---|---|---|
+| Range | 0.1 m | Median 54 m |
+| Range rate | 0.01 m/s | Matches d(range)/dt at r ≈ 0.80: usable but noisy |
+| Angle | 0.1° | About ±26° |
+
+### Nov 8 — ACC brake vs pedal
+
+- Added `BrakeHold` (`0x1B0` byte 2 bit 6), set at `0xE0` / `0xE1` while ACC holds at standstill.
+- This underpins the fix where ACC braking and holds no longer count as a pedal press, in both carstate and panda.
+
+### Nov 6 — Signal revisions in `volvo_v40_2017_pt.dbc`
+
+| ID | Signal | Change |
+|---|---|---|
+| `0x210` | `LKA_State` (byte 0 bit 2) | Follows the LKA enabled setting, not activity. **Confirmed working.** |
+| `0x280` | `ACC_TractionRequest` (10 bits) | Replaces the `ACC_BrakeTargetRaw` guess. ACC drive/coast demand, ~83 counts per m/s², 0 when braking; similar to the V60 traction request. |
+| `0x270` | `Byte_4` | Renamed from `ACC_State`: it's **not** the ACC state. 175 appears with no ACC at all, probably tied to openpilot being engaged. |
+| `0x270` | `ACC_LeadDecelRaw` | The old 16-bit word. A lead-related decel value, not ACC's own request. |
+| `0x2C5` | `ACC_PropulsionFeedback` (byte 7) | **New.** ECM feedback following the pedal or ACC torque; feedback, not a request. |
+| `0x160` | `ACC_BrakeRequest` | Reconfirmed in two more routes; leads hydraulic pressure by ~0.44 s. |
+| `0x30` | `ACCStatusActive` (byte 7) | Values documented (below). |
+
+`ACCStatusActive` values:
+
+| Value | State |
+|---|---|
+| `0x88` | Off |
+| `0x8A` | Standby |
+| `0x8E` / `0x8F` / `0x9F` | Active |
+
+> **Open item:** the hydraulic brake target has still not been found.
+
 ## Documentation
 
 Please see [https://wiki.firestar.link](https://wiki.firestar.link) for hardware lists,

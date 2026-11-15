@@ -6,6 +6,9 @@
 #define VOLVO_C1_PSCM_1 0x125U
 #define VOLVO_C1_PEDAL_AND_BRAKE 0x55U
 #define VOLVO_C1_SPEED 0x150U
+#define VOLVO_C1_TCM_0 0x40U
+#define VOLVO_C1_BRAKE_MESSAGES 0x1B0U  // BrakeMessages: byte 2 = BrakeStatus (bits 0-2) + hold flag (bit 6)
+#define VOLVO_C1_CEM_0 0x210U  // CEM0, dash LKA switch
 #define VOLVO_MAIN_BUS 0U
 #define VOLVO_PARTY_BUS 2U
 #define VOLVO_C1_ANGLE_DEG_TO_CAN 22.753128F
@@ -29,10 +32,109 @@ static uint8_t volvo_c1_fsm_checksum(const CANPacket_t *msg) {
   return (uint8_t)inverted_checksum;
 }
 
+// Stock ACC braking, and its standstill hold, trip the same pressure bits in 0x55 as the driver's
+// pedal. 0x1B0 byte 2 tells them apart: 0xA5 (BrakeStatus 5) is ACC braking and never appears for the
+// pedal; 0xA1 (status 1) is just before/after a braking event and 0xE0/0xE1 (bit 6, the hold flag) is
+// ACC holding the car at standstill, both only while stock ACC is active (0x30 byte 7 bit 2). The
+// pressure bits are ignored while ACC owns the brake. When the driver taps the pedal, ACC cancels and the
+// state clears within about a frame, which brings the pedal back at once. 0x1B0 is in the rx checks, so
+// losing it invalidates controls instead of leaving the mask stuck. Mirrors volvo_c1_acc_owns_brake().
+static bool volvo_c1_pressure_bits = false;
+static unsigned int volvo_c1_brake_status = 0U;
+static bool volvo_c1_brake_hold = false;
+static bool volvo_c1_acc_active = false;
+
+static void volvo_c1_update_brake_pressed(void) {
+  const bool acc_owns_brake = (volvo_c1_brake_status == 5U) ||
+                              (volvo_c1_acc_active && ((volvo_c1_brake_status == 1U) || volvo_c1_brake_hold));
+  brake_pressed = volvo_c1_pressure_bits && !acc_owns_brake;
+}
+
+// Resume button (0x10 byte 7 = 0x20) for stop and go. Stock ACC holds the car at standstill (0x1B0 hold flag)
+// and waits for the driver's Resume once the lead has been gone a while. A Resume frame is only let through
+// while stock ACC is active and holding, the car is stationary, controls are allowed and the driver is not on
+// the pedals, and at most VOLVO_C1_RESUME_MAX_FRAMES per hold. The budget is restored when the hold ends, the
+// car moves or ACC drops, so one hold gets one burst.
+#define VOLVO_C1_RESUME_MAX_FRAMES 40U  // 0.4 s at 100 Hz, the car side sends 0.3 s
+static unsigned int volvo_c1_resume_budget = 0U;
+
+static void volvo_c1_resume_rearm(void) {
+  if (!volvo_c1_brake_hold || !volvo_c1_acc_active || vehicle_moving) {
+    volvo_c1_resume_budget = VOLVO_C1_RESUME_MAX_FRAMES;
+  }
+}
+
+static bool volvo_c1_resume_allowed(void) {
+  const bool ok = controls_allowed && volvo_c1_acc_active && volvo_c1_brake_hold && !vehicle_moving &&
+                  !gas_pressed && !brake_pressed && (volvo_c1_resume_budget > 0U);
+  if (ok) {
+    volvo_c1_resume_budget--;
+  }
+  return ok;
+}
+
+// The last stock CCButtons frame the CEM sent on the car side. A Resume built from it looks like a real button
+// press on the bus (the stream keeps its own bytes and only byte 7 changes). Bytes 1-6 must equal this frame when the
+// Resume carries stock bytes; byte 0 toggles a bit every few frames and byte 7 is the button itself. Read through the
+// optional RX hook, so it is not an rx check and cannot invalidate controls.
+static uint8_t volvo_c1_buttons_stock[8] = {0};
+static bool volvo_c1_buttons_stock_valid = false;
+
+static bool volvo_c1_buttons_match_stock(const CANPacket_t *msg) {
+  bool match = volvo_c1_buttons_stock_valid;
+  for (unsigned int i = 1U; i < 7U; i++) {
+    match = match && (msg->data[i] == volvo_c1_buttons_stock[i]);
+  }
+  return match;
+}
+
+// Optional V40 always on lateral profile: lateral without ACC engaged, with the driver's LKA switch on and stock ACC
+// switched on (standby or active), in drive. Host requests never create permission: they only narrow it.
+#define VOLVO_C1_AOL_GEAR_MAX_AGE_US 300000U
+static bool volvo_c1_aol_enabled = false;
+static bool volvo_c1_aol_lka_on = false;
+static bool volvo_c1_aol_drive = false;
+static bool volvo_c1_aol_gear_seen = false;
+static uint32_t volvo_c1_aol_gear_ts = 0U;
+
+static void volvo_c1_aol_reset(void) {
+  volvo_c1_aol_lka_on = false;
+  volvo_c1_aol_drive = false;
+  volvo_c1_aol_gear_seen = false;
+  volvo_c1_aol_gear_ts = 0U;
+}
+
+static uint8_t volvo_c1_aol_request(void) {
+  uint8_t request = 0U;
+  if (heartbeat_engaged && aol_rx_healthy() && !safety_rx_checks_invalid && !relay_malfunction &&
+      (safety_get_ts_elapsed(microsecond_timer_get(), aol_host_request_ts) <= AOL_HOST_REQUEST_TIMEOUT_US)) {
+    request = aol_host_axis_mask;
+  }
+  return request;
+}
+
+static uint8_t volvo_c1_aol_permission(void) {
+  const uint8_t request = volvo_c1_aol_request();
+  uint8_t permission = 0U;
+  const bool drive = volvo_c1_aol_gear_seen && volvo_c1_aol_drive &&
+    (safety_get_ts_elapsed(microsecond_timer_get(), volvo_c1_aol_gear_ts) <= VOLVO_C1_AOL_GEAR_MAX_AGE_US);
+  // Engaged stock ACC keeps steering as before; without it the LKA switch and the ACC main are both needed.
+  // The V40 has no OP longitudinal: the longitudinal axis is never granted.
+  if (drive && (controls_allowed || (acc_main_on && volvo_c1_aol_lka_on))) {
+    permission = request & 1U;
+  }
+  return permission;
+}
+
 static void volvo_c1_rx_hook(const CANPacket_t *msg) {
   if (msg->bus == VOLVO_MAIN_BUS) {
     if (msg->addr == VOLVO_C1_PSCM_1) {
       update_sample(&angle_meas, volvo_c1_pscm_angle(msg));
+    }
+
+    if (msg->addr == VOLVO_C1_CEM_0) {
+      // Signal: LKA_State (CEM0 byte 0 bit 2), the driver's LKA on/off
+      volvo_c1_aol_lka_on = GET_BIT(msg, 2U);
     }
 
     if (msg->addr == VOLVO_C1_SPEED) {
@@ -40,17 +142,51 @@ static void volvo_c1_rx_hook(const CANPacket_t *msg) {
       const float speed = ((float)speed_raw * 0.01f) / 3.6f;
       vehicle_moving = speed > 0.1f;
       UPDATE_VEHICLE_SPEED(speed);
+      volvo_c1_resume_rearm();
     }
 
     if (msg->addr == VOLVO_C1_PEDAL_AND_BRAKE) {
       const unsigned int gas_raw = (((unsigned int)msg->data[1] & 0x3U) << 8U) | (unsigned int)msg->data[2];
       gas_pressed = gas_raw > 50U;  // DBC factor 0.1: greater than 5 percent
-      brake_pressed = GET_BIT(msg, 24U) || GET_BIT(msg, 38U);
+      volvo_c1_pressure_bits = GET_BIT(msg, 24U) || GET_BIT(msg, 38U);
+      volvo_c1_update_brake_pressed();
+    }
+
+    if (msg->addr == VOLVO_C1_BRAKE_MESSAGES) {
+      volvo_c1_brake_status = (unsigned int)msg->data[2] & 0x7U;
+      volvo_c1_brake_hold = GET_BIT(msg, 22U);
+      volvo_c1_update_brake_pressed();
+      volvo_c1_resume_rearm();
     }
   }
 
   if ((msg->bus == VOLVO_PARTY_BUS) && (msg->addr == VOLVO_C1_FSM_0)) {
-    pcm_cruise_check(GET_BIT(msg, 58U));
+    // Signals: ACCStatusOnOff (bit 57), ACCStatusActive (bit 58)
+    acc_main_on = GET_BIT(msg, 57U);
+    volvo_c1_acc_active = GET_BIT(msg, 58U);
+    volvo_c1_update_brake_pressed();
+    volvo_c1_resume_rearm();
+    pcm_cruise_check(volvo_c1_acc_active);
+  }
+}
+
+static void volvo_c1_optional_rx(const CANPacket_t *msg) {
+  if (msg->bus == VOLVO_MAIN_BUS) {
+    if ((msg->addr == VOLVO_C1_BUTTONS) && (GET_LEN(msg) == 8U)) {
+      for (unsigned int i = 0U; i < 8U; i++) {
+        volvo_c1_buttons_stock[i] = msg->data[i];
+      }
+      volvo_c1_buttons_stock_valid = true;
+    }
+
+    if (volvo_c1_aol_enabled && (msg->addr == VOLVO_C1_TCM_0)) {
+      volvo_c1_aol_gear_seen = GET_LEN(msg) == 8U;
+      if (volvo_c1_aol_gear_seen) {
+        volvo_c1_aol_gear_ts = microsecond_timer_get();
+        // Signal: GearShifter (byte 5 bits 6:5: 0 P, 1 R, 2 N, 3 D)
+        volvo_c1_aol_drive = (((unsigned int)msg->data[5] >> 5) & 0x3U) == 0x3U;
+      }
+    }
   }
 }
 // C1 retains its measured-angle EPS envelope; the shared angle API no longer supplies it.
@@ -164,17 +300,41 @@ static bool volvo_c1_tx_hook(const CANPacket_t *msg) {
     tx &= !safety_max_limit_check(relayed_angle, measured_max, measured_min);
   }
 
-  // Only ACC cancel (byte 7 bit 4) may be synthesized.
+  // Only ACC cancel (byte 7 = 0x10) and, at a held standstill, Resume (byte 7 = 0x20) may be synthesized.
+  // Other bytes: all zero, or, for Resume only, the stock frame's own bytes 1-6 (what a real press carries).
   if (msg->addr == VOLVO_C1_BUTTONS) {
+    bool zero_shape = msg->data[6] == 0U;
     for (unsigned int i = 0U; i < 6U; i++) {
-      tx &= msg->data[i] == 0U;
+      zero_shape = zero_shape && (msg->data[i] == 0U);
     }
-    tx &= ((msg->data[7] & 0xEFU) == 0U) && (msg->data[6] == 0U);
+    const bool cancel_or_none = (msg->data[7] & 0xEFU) == 0U;
+    bool resume_ok = false;
+    if (msg->data[7] == 0x20U) {
+      resume_ok = (zero_shape || volvo_c1_buttons_match_stock(msg)) && volvo_c1_resume_allowed();
+    }
+    tx &= (zero_shape && cancel_or_none) || resume_ok;
   }
   return tx;
 }
 static safety_config volvo_c1_init(uint16_t param) {
   (void)param;
+  volvo_c1_pressure_bits = false;
+  volvo_c1_brake_status = 0U;
+  volvo_c1_brake_hold = false;
+  volvo_c1_acc_active = false;
+  volvo_c1_resume_budget = VOLVO_C1_RESUME_MAX_FRAMES;
+  volvo_c1_buttons_stock_valid = false;
+  volvo_c1_aol_reset();
+  volvo_c1_aol_enabled = (unsigned int)alternative_experience == 32U;
+  if (volvo_c1_aol_enabled) {
+    static const AolSafetyPolicy policy = {
+      .reset = volvo_c1_aol_reset,
+      .request_mask = volvo_c1_aol_request,
+      .permission_mask = volvo_c1_aol_permission,
+      .rx_invalid = volvo_c1_aol_reset,
+    };
+    aol_policy = &policy;
+  }
   static const CanMsg VOLVO_C1_TX_MSGS[] = {
     {VOLVO_C1_FSM_1, VOLVO_MAIN_BUS, 8, .check_relay = true},
     {VOLVO_C1_PSCM_1, VOLVO_PARTY_BUS, 8, .check_relay = true},
@@ -185,6 +345,8 @@ static safety_config volvo_c1_init(uint16_t param) {
     {.msg = {{VOLVO_C1_FSM_0, VOLVO_PARTY_BUS, 8, 100U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
     {.msg = {{VOLVO_C1_PEDAL_AND_BRAKE, VOLVO_MAIN_BUS, 8, 100U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
     {.msg = {{VOLVO_C1_SPEED, VOLVO_MAIN_BUS, 8, 50U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
+    {.msg = {{VOLVO_C1_BRAKE_MESSAGES, VOLVO_MAIN_BUS, 8, 50U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
+    {.msg = {{VOLVO_C1_CEM_0, VOLVO_MAIN_BUS, 8, 40U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
   };
   return BUILD_SAFETY_CFG(volvo_c1_rx_checks, VOLVO_C1_TX_MSGS);
 }

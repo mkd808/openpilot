@@ -4,7 +4,7 @@ from opendbc.can import CANPacker
 from opendbc.car import Bus
 from opendbc.car.interfaces import CarControllerBase
 from opendbc.car.lateral import apply_std_steer_angle_limits
-from opendbc.car.volvo.volvocan import create_c1_cancel, create_c1_pscm_message, create_c1_steering_control
+from opendbc.car.volvo.volvocan import create_c1_cancel, create_c1_pscm_message, create_c1_resume, create_c1_steering_control
 from opendbc.car.volvo.values import CarControllerParams
 
 
@@ -15,6 +15,10 @@ class CarController(CarControllerBase):
     self.apply_angle_last = 0.0
     self.c1_torque_samples = deque(maxlen=CarControllerParams.C1_N_ZERO_TORQUE)
     self.c1_recovery_until = -1
+    self.c1_resume_frames = 0  # V40 Resume burst, frames left
+    self.c1_resume_done = False  # this hold already got its burst
+    self.c1_resume_last_frame = None  # frame the last burst started
+    self.c1_resume_bursts = 0  # bursts started so far; odd ones use the plain frame, even ones the stock-shaped frame
 
   def update(self, CC, CS, now_nanos):
     can_sends = []
@@ -63,7 +67,37 @@ class CarController(CarControllerBase):
     if CC.cruiseControl.cancel and self.frame % 10 == 0:
       can_sends.append(create_c1_cancel(self.packer))
 
+    self._c1_resume_buttons(CC, CS, can_sends)
+
     new_actuators = actuators.as_builder()
     new_actuators.steeringAngleDeg = self.apply_angle_last
     self.frame += 1
     return new_actuators, can_sends
+
+  def _c1_resume_buttons(self, CC, CS, can_sends):
+    """Stop and go: one Resume burst per hold when controlsd asks for it (flag on, lead gone, stock ACC still holding).
+
+    volvo_c1.h lets Resume through only at a held standstill with ACC active and caps the frames per hold."""
+    at_hold = (CS.out.cruiseState.enabled and CS.out.standstill and CS.c1_brake_hold and
+               not CS.out.gasPressed and not CS.out.brakePressed)
+    if not at_hold:
+      # A burst in progress stops when the hold ends. The next burst is allowed only once the rearm time has passed,
+      # so a brief hold flicker right after a burst cannot start a second one.
+      self.c1_resume_frames = 0
+      if (self.c1_resume_last_frame is None or
+          self.frame - self.c1_resume_last_frame >= CarControllerParams.C1_RESUME_REARM_FRAMES):
+        self.c1_resume_done = False
+      return
+
+    if CC.cruiseControl.resume and not self.c1_resume_done:
+      self.c1_resume_frames = CarControllerParams.C1_RESUME_HOLD_FRAMES
+      self.c1_resume_done = True
+      self.c1_resume_last_frame = self.frame
+      self.c1_resume_bursts += 1
+
+    if self.c1_resume_frames > 0:
+      # Alternate the frame shape per burst to get an A/B record: the plain frame (bytes 0-6 zero) released the hold 2 of 3
+      # times on older routes, the stock-shaped one 0 of 1 on route 25. volvo_c1.h accepts both.
+      stock = CS.c1_buttons_stock if self.c1_resume_bursts % 2 == 0 else None
+      can_sends.append(create_c1_resume(self.packer, stock))
+      self.c1_resume_frames -= 1

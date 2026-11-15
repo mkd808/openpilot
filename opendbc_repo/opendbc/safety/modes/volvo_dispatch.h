@@ -58,6 +58,8 @@ static bool volvo_dispatch_quality(const CANPacket_t *msg) {
 static void volvo_dispatch_optional_rx(const CANPacket_t *msg) {
   if (volvo_dispatch_eucd) {
     volvo_eucd_optional_rx(msg);
+  } else if (volvo_dispatch_c1) {
+    volvo_c1_optional_rx(msg);
   }
 }
 static bool volvo_dispatch_fwd(int bus_num, int addr) {

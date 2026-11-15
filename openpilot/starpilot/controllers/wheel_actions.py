@@ -80,7 +80,7 @@ def button_reported(cp, key):
       from opendbc.car.hyundai.values import CAR, HyundaiFlags, is_blended
       return bool(cp.flags & (HyundaiFlags.CANFD | HyundaiFlags.HAS_LDA_BUTTON) or
                   cp.carFingerprint == CAR.HYUNDAI_ELANTRA_HEV_2024 or is_blended(cp))
-  if key == 'MainCruiseButtonControl' and (brand in ('chrysler', 'ford', 'mazda', 'nissan', 'volkswagen') or cp.carFingerprint == 'VOLVO_V60'):
+  if key == 'MainCruiseButtonControl' and (brand in ('chrysler', 'ford', 'mazda', 'nissan', 'volkswagen') or cp.carFingerprint in ('VOLVO_V60', 'VOLVO_V40')):
     return False
   if key in KEYS[5:8]:
     if brand in ('chrysler', 'nissan'):
