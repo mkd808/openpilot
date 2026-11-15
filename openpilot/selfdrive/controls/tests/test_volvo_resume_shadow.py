@@ -202,3 +202,27 @@ def test_speed_must_hold_for_the_confirm_time():
   # a 0.5 s lurch above the threshold, then back to a crawl, is not a launch
   steps = with_speed(held(3.0) + leaving(0.7)) + driving(0.5, v=1.0) + blip(4.0, v=0.2)
   assert ends(run(steps))[0]["outcome"] == "launch_failed"
+
+
+def test_controlsd_tags_shadow_events_with_the_radar_track():
+  from types import SimpleNamespace
+  from unittest.mock import patch
+  from opendbc.car.structs import car
+  from openpilot.selfdrive.controls import controlsd
+
+  lead = SimpleNamespace(status=True, radar=True, radarTrackId=7, dRel=5.0, vLead=0.0)
+  shadow = SimpleNamespace(resume_requested=False,
+                           update=lambda *args, **kwargs: [{"ev": "baseline"}])
+
+  class SM(dict):
+    seen = {'radarState': True}
+  owner = SimpleNamespace(sm=SM(radarState=SimpleNamespace(leadOne=lead)), volvo_resume_shadow=shadow,
+                          volvo_resume_assist_flag=SimpleNamespace(enabled=lambda now: False))
+  CS = car.CarState(standstill=True, vEgo=0.0)
+  CS.cruiseState.enabled = True
+  CC = car.CarControl()
+  with patch.object(controlsd.cloudlog, 'info') as info:
+    controlsd.Controls.update_volvo_resume(owner, CC, CS.as_reader())
+  logged = info.call_args.args[0]
+  assert '"radar": true' in logged and '"track": 7' in logged
+  assert not CC.cruiseControl.resume

@@ -194,6 +194,11 @@ class LongitudinalPlanner:
 
     # Reset current state when not engaged, or user is controlling the speed
     reset_state = long_control_off if self.CP.openpilotLongitudinalControl else not sm['selfdriveState'].enabled
+    # Shadow mode, Volvo V40: lateral-only, stock ACC drives. Keep the planner running whenever stock ACC is active, even
+    # with OP not engaged, so longitudinalPlan logs what OP would command next to stock ACC (radar lead in radarState).
+    # Nothing is sent to the car: the V40 has no OP longitudinal, so longActive stays false.
+    if self.CP.carFingerprint == 'VOLVO_V40' and self.CP.pcmCruise and sm['carState'].cruiseState.enabled:
+      reset_state = False
     # PCM cruise speed may be updated a few cycles later, check if initialized
     v_cruise_initialized = sm['carState'].vCruise != V_CRUISE_UNSET
     reset_state = reset_state or not v_cruise_initialized

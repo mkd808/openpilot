@@ -733,6 +733,9 @@ class Controls:
                                                    bool(lead is not None and lead.status), float(lead.dRel if lead else 0.),
                                                    float(lead.vLead if lead else 0.), resume_pressed,
                                                    float(CS.vEgo), bool(CS.gasPressed)):
+        # Which sensor the lead came from: an ESR track (radar, with its id) or the camera alone
+        event['radar'] = bool(lead is not None and lead.status and lead.radar)
+        event['track'] = int(lead.radarTrackId) if lead is not None and lead.status and lead.radar else -1
         cloudlog.info("volvo_resume_shadow " + json.dumps(event))
     except Exception:
       # A bug here must never disturb the controls loop
