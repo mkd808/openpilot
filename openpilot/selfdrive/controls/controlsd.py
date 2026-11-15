@@ -764,7 +764,7 @@ class Controls:
       CC.cruiseControl.resume = self.LoC.extension.qualify_resume(
         CC.cruiseControl.resume, preferences=self.vehicle_startup_preferences, inputs=self.longitudinal_inputs
       )
-    if self.volvo_resume_shadow is not None:
+    if getattr(self, 'volvo_resume_shadow', None) is not None:
       self.update_volvo_resume(CC, CS)
 
     hudControl = CC.hudControl
