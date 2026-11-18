@@ -208,9 +208,16 @@ def test_controlsd_tags_shadow_events_with_the_radar_track():
   from types import SimpleNamespace
   from unittest.mock import patch
   from opendbc.car.structs import car
+  import openpilot.cereal.messaging as messaging
   from openpilot.selfdrive.controls import controlsd
 
-  lead = SimpleNamespace(status=True, radar=True, radarTrackId=7, dRel=5.0, vLead=0.0)
+  # A real radarState reader, not a stand-in: a fake lead let controlsd read the removed LeadData.status
+  msg = messaging.new_message('radarState')
+  msg.radarState.leadOne.present = True
+  msg.radarState.leadOne.radar = True
+  msg.radarState.leadOne.radarTrackId = 7
+  msg.radarState.leadOne.dRel = 5.0
+  lead = msg.as_reader().radarState.leadOne
   shadow = SimpleNamespace(resume_requested=False,
                            update=lambda *args, **kwargs: [{"ev": "baseline"}])
 

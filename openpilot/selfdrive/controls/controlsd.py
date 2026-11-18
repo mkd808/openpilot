@@ -730,12 +730,12 @@ class Controls:
       lead = self.sm['radarState'].leadOne if self.sm.seen['radarState'] else None
       resume_pressed = any(be.type == car.CarState.ButtonEvent.Type.resumeCruise and be.pressed for be in CS.buttonEvents)
       for event in self.volvo_resume_shadow.update(time.monotonic(), bool(CS.standstill), bool(CS.cruiseState.enabled),
-                                                   bool(lead is not None and lead.status), float(lead.dRel if lead else 0.),
+                                                   bool(lead is not None and lead.present), float(lead.dRel if lead else 0.),
                                                    float(lead.vLead if lead else 0.), resume_pressed,
                                                    float(CS.vEgo), bool(CS.gasPressed)):
         # Which sensor the lead came from: an ESR track (radar, with its id) or the camera alone
-        event['radar'] = bool(lead is not None and lead.status and lead.radar)
-        event['track'] = int(lead.radarTrackId) if lead is not None and lead.status and lead.radar else -1
+        event['radar'] = bool(lead is not None and lead.present and lead.radar)
+        event['track'] = int(lead.radarTrackId) if lead is not None and lead.present and lead.radar else -1
         cloudlog.info("volvo_resume_shadow " + json.dumps(event))
     except Exception:
       # A bug here must never disturb the controls loop
