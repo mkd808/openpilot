@@ -166,15 +166,16 @@ BO_ 336 VehicleSpeed1: 8 BCM
 
 BO_ 352 FSM2: 8 FSM
  SG_ LkaDimLine : 51|2@1+ (1,0) [0|127] "" XXX
- SG_ NEW_SIGNAL_2 : 56|7@1+ (1,0) [0|255] "" XXX
+ SG_ ACC_AccelRequest : 62|7@0+ (0.08,-5.12) [-5.12|5.04] "m/s^2" XXX
+ SG_ Byte_7_b7 : 63|1@0+ (1,0) [0|1] "" XXX
  SG_ NEW_SIGNAL_1 : 55|1@0+ (1,0) [0|1] "" XXX
  SG_ Byte_0 : 7|8@0+ (1,0) [0|255] "" XXX
  SG_ Byte_1 : 15|8@0+ (1,0) [0|255] "" XXX
  SG_ Byte_2_b7_6 : 23|2@0+ (1,0) [0|3] "" XXX
  SG_ ACC_BrakeRequest : 21|1@0+ (1,0) [0|1] "" XXX
  SG_ Byte_2_b4_0 : 20|5@0+ (1,0) [0|31] "" XXX
- SG_ Byte_3 : 31|8@0+ (1,0) [0|255] "" XXX
- SG_ Byte_4 : 39|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_3_b7_3 : 31|5@0+ (1,0) [0|31] "" XXX
+ SG_ ACC_MeasuredAccel : 26|11@0+ (0.00444,-4.573) [-4.573|4.516] "m/s^2" XXX
  SG_ Byte_5_b7_6 : 47|2@0+ (1,0) [0|3] "" XXX
  SG_ ACC_BrakeRequest_B : 45|1@0+ (1,0) [0|1] "" XXX
  SG_ Byte_5_b4_0 : 44|5@0+ (1,0) [0|31] "" XXX
@@ -226,7 +227,8 @@ BO_ 640 FSM4: 8 FSM
  SG_ Byte_6_b7_6 : 55|2@0+ (1,0) [0|3] "" XXX
  SG_ Byte_6_b5_3 : 53|3@0+ (1,0) [0|7] "" XXX
  SG_ Byte_6_b2 : 50|1@0+ (1,0) [0|1] "" XXX
- SG_ ACC_TractionRequest : 49|10@0+ (1,0) [0|1023] "" XXX
+ SG_ ACC_Mode : 49|2@0+ (1,0) [0|3] "" XXX
+ SG_ ACC_TractionRequest : 63|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 648 SRS0: 8 SRS
 
@@ -360,20 +362,23 @@ CM_ SG_ 208 Checksum "Checksum calculated as a one-complement addition of LKAAng
 CM_ SG_ 208 SET_X_02 "Bit 0 = Vibrate steering wheel., Bit 1 = Heartbeat";
 CM_ SG_ 352 LkaDimLine "Not true, but follows lka steer direction.";
 CM_ SG_ 352 NEW_SIGNAL_1 "Turned one. Got LKA service needed can this be the one?";
-CM_ SG_ 640 ACC_TractionRequest "Low 10 bits of the bytes 6-7 word (the original NEW_SIGNAL_1 49|10 restored). ACC drive/coast demand, medium-low confidence. ~490-600 at cruise, ~610-650 when accelerating (+0.8 to +1.5 m/s2), 0 in braking/decel (brake mode, incl. coasting down). Fit ~83-84 counts per m/s2 (accel 0.5 s ahead) in two routes (15 km/h route R2 0.80; highway route R2 0.30, speed term unstable). Resembles V60 traction request (97*a - 6, 0 in brake mode). Saturates near ~630. Hydraulic brake target not yet identified; brake request flag is in 0x160. Route 19 (stock ACC): the top 2 bits of the word (bits 9-8, 0x280 byte 6 low bits) behave as a mode, 0 = braking (mean accel -0.38 m/s2), 1 = coasting (-0.16), 2 = traction (+0.24), and the low 8 bits (byte 7) are the value: about 31 in traction, high (234, -22 as signed) in coasting for engine drag, 0 in braking. Matches the V60 note signed in coast, unsigned in drive. Unverified.";
+CM_ SG_ 640 ACC_Mode "Byte 6 bits 1-0 (bits 9-8 of the old 10-bit ACC_TractionRequest word). 0 = brake, 1 = coast, 2 = drive, same numbering as the V60 LongMode. Confirmed on 4 stock-ACC routes (7c7d3d5e5ff31d51 19/1a, 18eb05bab882ec44 1a/1b, ~1230 s ACC). The 0x160 ACC_AccelRequest value alone sorts the mode: below about -0.5 m/s2 brake, -0.5 to 0 coast, 0 and up drive, with hysteresis overlap.";
+CM_ SG_ 640 ACC_TractionRequest "Byte 7, the traction value for ACC_Mode (was the low 8 bits of a 10-bit word with the mode on top). Unsigned in drive, signed in coast (0xEA = -22, engine drag), 0 in brake. Against the 0x160 ACC_AccelRequest (4 routes): drive = 86*a_req + 3 (r 0.93), coast = 54*a_req - 10 (r 0.73). Against measured aEgo: coast matches the V60 94*a - 9 (median error -0.02 to -0.04 m/s2), drive ~97*a + 35 (steady cruise needs 25-35 at any speed 20-120 km/h, because the camera requests about +0.3-0.5 m/s2 to hold speed). Medium-high confidence.";
 CM_ SG_ 640 Byte_6_b7_6 "Always 3 (bits 15-14 of the word = 11), matching the V60 FSM4 brake word flags (0x8000 and 0x4000).";
 CM_ SG_ 640 Byte_6_b5_3 "Bits 13-11 of the word, observed constant at 3 (011). Meaning unknown.";
 CM_ SG_ 640 Byte_6_b2 "Bit 10 of the word. Clear whenever 0x270 byte 4 = 175 (11,700 of 11,708 frames in a manual drive; 10,540 of 10,544 in a highway ACC route), set otherwise. 175 is NOT ACC (seen with no ACC at all); most likely tied to openpilot being engaged, unproven. Explains the 0xD800 vs 0xDC00 floors seen in different routes.";
 CM_ SG_ 640 SpeedTarget "SpeedTarget ACC (noisy bf starting acc Jumps from 0->252->0) Route 19: also behaves like a brake target, lower = more braking: median about 35 while ACC drives, about 0 while ACC brakes or holds, 252 with ACC off. Correlation with BrakePress0 during ACC braking only -0.34, so width and meaning are unconfirmed.";
 CM_ BO_ 352 "0x160, camera to car (bus 2 -> relayed to bus 0), 50 Hz. Every ~4th-5th frame is a masked variant (Byte_0=0, Byte_2=0/32, Byte_3~20, Byte_5=0/33). No simple counter/checksum found (byte 7/4 are not XOR or sum of the others).";
-CM_ SG_ 352 ACC_BrakeRequest "UNCONFIRMED (medium-low). Set ~0.44 s before hydraulic pressure rises at both ACC braking events (586.3 s, 873.2 s). Not set on driver braking while moving. Also stays set at standstill with brake held. One 0.5 s false blip seen at 751 s with no braking. Also set in masked frames. Confirmed again in dashcam route (stock ACC stop 34-51 s) and 15 km/h route (decels at 110 s and 126 s): flag precedes hydraulic pressure and appears on ACC decel even without hydraulic braking. Route 19: 0.99 of samples while ACC brakes (0x1B0 byte 2 = 0xA5), 0.00 at ACC idle and in standstill hold.";
+CM_ SG_ 352 ACC_BrakeRequest "UNCONFIRMED (medium-low). Set ~0.44 s before hydraulic pressure rises at both ACC braking events (586.3 s, 873.2 s). Not set on driver braking while moving. Also stays set at standstill with brake held. One 0.5 s false blip seen at 751 s with no braking. Also set in masked frames. Confirmed again in dashcam route (stock ACC stop 34-51 s) and 15 km/h route (decels at 110 s and 126 s): flag precedes hydraulic pressure and appears on ACC decel even without hydraulic braking. Route 19: 0.99 of samples while ACC brakes (0x1B0 byte 2 = 0xA5), 0.00 at ACC idle and in standstill hold. 4 routes: matches 0x280 ACC_Mode = brake in 92-99.9% of ACC-active samples, never set with ACC off. High confidence.";
 CM_ SG_ 352 ACC_BrakeRequest_B "UNCONFIRMED. Same behaviour as ACC_BrakeRequest. Always set when ACC_BrakeRequest is set, and also sometimes alone (2270 frames). Route 19: it is the only one of the two set (1.00 of samples) during an ACC standstill hold, and 0.99 while ACC brakes.";
-CM_ SG_ 352 Byte_4 "Sawtooth sweep (~-40 per 100 ms, wrapping 255 to 0) while ACC brakes. Otherwise mostly holds steady (idle values 3-7). Ramp, not a plain target or counter. Replaces old NEW_SIGNAL_4 (36|5).";
-CM_ SG_ 352 Byte_3 "84 -> 83 -> 82 drifts down during ACC braking. Masked frames ~20/19/18.";
+CM_ SG_ 352 ACC_AccelRequest "Byte 7 bits 6-0 (was NEW_SIGNAL_2 56|7@1+, same bits). The ACC acceleration request: (raw - 64) * ~0.08 m/s2, zero at 64. Scale 0.07-0.09 not yet pinned (0.07 makes the 0x280 drive traction gain 98, like the V60's 97). Leads measured aEgo by 0.2-0.4 s, sits on fixed values (raw 191/197 with bit 7) with ACC off, keeps falling through brake mode where traction is 0, and drive traction follows it at r 0.93. Looks like a 7-bit form of the V60 FSM3 ACC_AccelerationRequest (8-bit, 0.04). 4 stock-ACC routes, hardest request seen about -2 m/s2. Medium-high confidence.";
+CM_ SG_ 352 Byte_7_b7 "Byte 7 bit 7. Always 1 in normal frames, 0 in the masked copies; likely a validity qualifier for ACC_AccelRequest.";
+CM_ SG_ 352 ACC_MeasuredAccel "Byte 3 bits 2-0 + byte 4 (11 bits). MEASURED longitudinal acceleration, NOT a command: (raw - 1030) / ~225 m/s2 (fits 217-237 counts per m/s2 on 4 routes). Lags aEgo by 0.1-0.2 s and tracks it with ACC off too (r 0.87-0.95). This is what made the old Byte_4 sweep and the Byte_3 84 -> 82 drift during ACC braking (the high bits).";
+CM_ SG_ 352 Byte_3_b7_3 "Byte 3 bits 7-3. Bit 6 is cleared in the masked copies (0x55 -> 0x15).";
 CM_ SG_ 352 Byte_2_b4_0 "Byte 2 is 213 idle, 245 once ACC braking starts (only bit 5 differs). Replaces old NEW_SIGNAL_3 (7|24).";
 CM_ SG_ 624 Byte_4 "Reads 0x87 or 0x00 with stock ACC engaged, so it is NOT the ACC engaged state. 0xAF (175) appears with no ACC at all (e.g. 4 stretches in a 2238 s manual drive) and begins before ACC is switched on, then continues after it ends; most likely tied to openpilot being engaged, unproven. Other values seen: 0x28 (40), 0x9F, 0xA7. Bit 10 of the 0x280 word (Byte_6_b2) is clear exactly when this reads 175.";
 CM_ SG_ 528 LKA_State "0x210 byte 0 bit 2, 40 Hz, bus 0. Confirmed working as intended on the volvo_redlight branch. Seen in logs: on for the whole of a 1335 s manual drive and a highway route, never on in the 15 km/h set-speed route (likely LKA switched off for that drive). Follows the LKA enabled setting, not activity.";
-CM_ SG_ 624 ACC_LeadDecelRaw "Signed 16-bit, -1 idle (about -230 steady with a lead in some logs). Goes strongly negative (to -3300 and lower) when a lead car ahead is braking, and stayed -1 during ACC own set-speed decels (-1.8 m/s2), so it is a lead-related decel demand, NOT the ACC decel request. Never positive. Low confidence. Route 19 (ACC active, gas off): correlates with measured acceleration, r = 0.67 at 0.3 s lag (the high byte carries it, adding the low byte changes nothing). Median -2539 while ACC brakes versus -236 at idle. Bytes 2 and 3 are one 16-bit value, not separate decel and traction fields.";
+CM_ SG_ 624 ACC_LeadDecelRaw "Signed 16-bit, -1 idle (about -230 steady with a lead in some logs). Goes strongly negative (to -3300 and lower) when a lead car ahead is braking, and stayed -1 during ACC own set-speed decels (-1.8 m/s2), so it is a lead-related decel demand, NOT the ACC decel request. Never positive. Low confidence. Route 19 (ACC active, gas off): correlates with measured acceleration, r = 0.67 at 0.3 s lag (the high byte carries it, adding the low byte changes nothing). Median -2539 while ACC brakes versus -236 at idle. Bytes 2 and 3 are one 16-bit value, not separate decel and traction fields. 4 routes: not -1 in 43-72% of moving ACC-off samples, ramps down about 1 s before ACC brakes and its peak does not match the braking achieved, so not an ACC command.";
 CM_ SG_ 624 Byte_0 "Always 0";
 CM_ SG_ 624 Byte_1 "Always 0";
 CM_ SG_ 624 Byte_5 "0 or 2; 2 seen when throttle is on";
@@ -421,4 +426,5 @@ CM_ BO_ 480 "0x1E0 BCM0. Brake-feedback candidate. Byte 1 is 0x16 during ACC bra
 CM_ BO_ 176 "0xB0 ECM2. Byte 6 is 0xA3 during ACC braking (0.92-0.97) but also appears in ACC-active non-braking periods (0.35), so it is a state, not a clean brake confirmation. Leads the A5 edge by >1 s.";
 CM_ BO_ 304 "0x130. Byte 6 tracks measured deceleration (r=0.91 driver braking, r=0.67 ACC braking) whatever causes it, so likely a continuous brake level or pressure value rather than an ACC flag. Observational only.";
 VAL_ 64 GearShifter 0 "P" 1 "R" 2 "N" 3 "D" ;
-VAL_ 432 BrakeStatus 1 "Standstill" 5 "ACC braking" ;%    
+VAL_ 432 BrakeStatus 1 "Standstill" 5 "ACC braking" ;
+VAL_ 640 ACC_Mode 0 "Brake" 1 "Coast" 2 "Drive" ;%    
