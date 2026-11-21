@@ -12,17 +12,32 @@ Small scripts for the CAN CSV exports (`time,addr,bus,data`). They need only num
 - `state_table.py LOG.csv`: the values stock ACC sends in 0x270 and 0x280 in each brake and ACC state (idle, ACC braking,
   hold, standby, off). This is the reference table for keeping the camera's values consistent with each other.
 
-Signal map (route 19, checked against the V60 port in leomonde/StarPilot and the existing DBC; moderate confidence,
-from stock-ACC logs only):
-- 0x280 bytes 6-7, low 10 bits (`ACC_TractionRequest`): the top 2 bits act as a mode (0 = braking, 1 = coasting,
-  2 = traction; mean measured accel -0.38, -0.16, +0.24 m/s^2) and the low 8 bits are the value (about 31 in
-  traction, 234 = -22 signed in coasting for engine drag, 0 in braking).
-- 0x280 byte 5 (`SpeedTarget`): behaves like a brake target, lower = more braking (about 35 driving, about 0 braking
-  or holding, 252 with ACC off). Width and meaning unconfirmed.
-- 0x270 bytes 2-3 (`ACC_LeadDecelRaw`): one signed 16-bit value, not separate fields. It correlates with measured
-  acceleration at r = 0.67 (0.3 s lag); median -2539 while ACC brakes, -236 at idle.
-- 0x160 `ACC_BrakeRequest`: set on 99% of ACC-braking samples, 0% at idle and in hold. `ACC_BrakeRequest_B` is the one
-  set during a standstill hold.
+Signal map (22 Nov, 5 stock-ACC routes: 7c7d3d5e5ff31d51 19, 1a and 08, 18eb05bab882ec44 1a and 1b, about 1430 s of ACC;
+checked against the V60 port in StarPilotHQ/StarPilot#332; from stock-ACC rlogs only). The camera sends only 0x30,
+0xD0, 0x160, 0x270, 0x280 and 0x355 on bus 2.
+- 0x160 byte 7 bits 6-0 (`ACC_AccelRequest`): the ACC acceleration request, `(raw - 64) * ~0.08` m/s^2. Leads measured
+  acceleration by 0.2-0.4 s, holds fixed values with ACC off, and keeps falling through brake mode. The value alone
+  sorts the 0x280 mode (below about -0.5 brake, -0.5 to 0 coast, 0 and up drive). Firm braking gives 0.073-0.077 per
+  count (pooled 0.083), and 0.08 makes the flat-road traction gains match the V60; the hardest request seen is about
+  -2 m/s^2. Byte 7 bit 7 is always set in normal frames.
+- 0x160 byte 2 bit 5 (`ACC_BrakeRequest`, copied in byte 5 bit 5): the hydraulic brake request. In brake mode it agrees
+  with 0x1B0 brake pressure rising in 84-100% of frames, and pressure only rises with it set. Never set outside brake
+  mode or with ACC off. Brake mode without it is engine braking only (the two highway routes never set it).
+  `ACC_BrakeRequest_B` is the one set during a standstill hold.
+- 0x160 byte 3 bits 2-0 + byte 4 (`ACC_MeasuredAccel`): measured acceleration, `(raw - 1030) / ~225` m/s^2. Follows
+  aEgo by 0.1-0.2 s and tracks it with ACC off too. Feedback, not a command.
+- 0x160 every 5th frame is a masked copy (byte 0 0x90 -> 0x00, byte 7 bit 7 cleared); skip those when decoding.
+- 0x280 byte 6 bits 1-0 (`ACC_Mode`): 0 = brake, 1 = coast, 2 = drive, as the V60.
+- 0x280 byte 7 (`ACC_TractionRequest`): unsigned in drive, signed in coast, 0 in brake. Against the 0x160 request:
+  drive `86 * a_req + 3` (r = 0.93), coast `54 * a_req - 10` (r = 0.73) pooled. Flat routes (grade within 2-3%):
+  drive about `92 * a_req` (r 0.94-0.98), coast up to `93 * a_req`, close to the V60's 97/94. Hilly routes (5-6%) fit
+  loosely, and a slope term adds nothing, so the camera does not compensate grade in traction. Against measured aEgo,
+  coast matches the V60 `94 * a - 9`, and drive is about `97 * a + 35` (steady cruise needs 25-35 at any speed).
+- 0x280 byte 5 (`SpeedTarget`): about 35 driving, about 0 braking or holding, 252 with ACC off. Meaning unconfirmed.
+- 0x270 bytes 2-3 (`ACC_LeadDecelRaw`): NOT an ACC command. Not idle in 43-72% of ACC-off samples, ramps down about
+  1 s before ACC brakes, and its peak does not match the braking achieved. Lead or warning related.
+- Slope: requests track the car's net acceleration; the ECM and brakes compensate for grade themselves, as the
+  V60 port assumes.
 - Not found on the V40: 0x220, 0x299, 0x31A. Candidates for the ECM confirmations the camera expects are bus 0 bytes
   that change with ACC braking: 0x1E0 b1, 0x2C3 b1, 0x1B0, 0x2B5 b2, 0x80 b6/b7, 0x2C5 b7, 0x130. 0x355 b2 is a camera
   message on bus 2 that also changes when ACC brakes.
