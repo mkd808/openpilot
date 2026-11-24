@@ -33,13 +33,13 @@ def feed(parsers, time=1000000000, torque=10):
 
 
 class TestVolvoC1Host(unittest.TestCase):
-  def test_c1_params_preserve_stock_long(self):
+  def test_c1_params_stock_long_unless_alpha(self):
     for alpha in [False, True]:
       for release in [False, True]:
         with self.subTest(alpha=alpha, release=release):
           cp = params(alpha, release)
-          assert (cp.safetyConfigs[0].safetyModel, cp.safetyConfigs[0].safetyParam) == (structs.CarParams.SafetyModel.volvo, 2)
-          assert not cp.openpilotLongitudinalControl and (not cp.alphaLongitudinalAvailable)
+          assert (cp.safetyConfigs[0].safetyModel, cp.safetyConfigs[0].safetyParam) == (structs.CarParams.SafetyModel.volvo, 18 if alpha else 2)
+          assert cp.openpilotLongitudinalControl == alpha and cp.alphaLongitudinalAvailable
           assert cp.pcmCruise and not cp.radarUnavailable  # Delphi ESR on bus 1
           assert cp.steerControlType == structs.CarParams.SteerControlType.angle
           assert cp.minSteerSpeed == pytest.approx(1 / 3.6)

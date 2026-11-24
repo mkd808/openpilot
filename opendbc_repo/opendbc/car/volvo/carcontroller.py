@@ -1,10 +1,12 @@
 from collections import deque
 import numpy as np
 from opendbc.can import CANPacker
-from opendbc.car import Bus
+from opendbc.car import DT_CTRL, Bus
 from opendbc.car.interfaces import CarControllerBase
 from opendbc.car.lateral import apply_std_steer_angle_limits
-from opendbc.car.volvo.volvocan import create_c1_cancel, create_c1_pscm_message, create_c1_resume, create_c1_steering_control
+from opendbc.car.volvo.eucd_params import LongMode
+from opendbc.car.volvo.volvocan import (c1_next_long_mode, create_c1_acc_mode, create_c1_acc_request, create_c1_cancel, create_c1_pscm_message,
+                                        create_c1_resume, create_c1_steering_control)
 from opendbc.car.volvo.values import CarControllerParams
 
 
@@ -19,6 +21,11 @@ class CarController(CarControllerBase):
     self.c1_resume_done = False  # this hold already got its burst
     self.c1_resume_last_frame = None  # frame the last burst started
     self.c1_resume_bursts = 0  # bursts started so far; odd ones use the plain frame, even ones the stock-shaped frame
+    self.c1_accel = 0.0  # accel OP sent last, or the camera's while it owns the frames
+    self.c1_long_mode = LongMode.COAST
+    self.c1_cam_accel = 0.0
+    self.c1_cam_mode = LongMode.COAST
+    self.c1_long_was_active = False
 
   def update(self, CC, CS, now_nanos):
     can_sends = []
@@ -68,9 +75,13 @@ class CarController(CarControllerBase):
       can_sends.append(create_c1_cancel(self.packer))
 
     self._c1_resume_buttons(CC, CS, can_sends)
+    if self.CP.openpilotLongitudinalControl:
+      can_sends.extend(self._c1_longitudinal(CC, CS))
 
     new_actuators = actuators.as_builder()
     new_actuators.steeringAngleDeg = self.apply_angle_last
+    if CC.longActive:
+      new_actuators.accel = self.c1_accel
     self.frame += 1
     return new_actuators, can_sends
 
@@ -101,3 +112,52 @@ class CarController(CarControllerBase):
       stock = CS.c1_buttons_stock if self.c1_resume_bursts % 2 == 0 else None
       can_sends.append(create_c1_resume(self.packer, stock))
       self.c1_resume_frames -= 1
+
+  def _c1_longitudinal(self, CC, CS):
+    """V40 OP long, step 1: drive and coast only, stock ACC engaged and keeping the brakes.
+
+    One frame for each camera 0x160/0x280 frame, so the camera's cadence and masked copies carry through; volvo_c1.h
+    only takes the camera's recent frames with the request or the mode and traction replaced. While the camera brakes
+    (brake flags, brake mode) or asks for more decel than OP may, its frames go out unchanged."""
+    CCP = CarControllerParams
+    request_frames, mode_frames = CS.c1_stock_acc_request_frames, CS.c1_stock_acc_mode_frames
+    if request_frames:
+      self.c1_cam_accel = float(request_frames[-1]["ACC_AccelRequest"])
+    cam_brake_mode = any(int(f["ACC_Mode"]) == LongMode.BRAKE for f in mode_frames)
+    if mode_frames:
+      self.c1_cam_mode = LongMode(int(mode_frames[-1]["ACC_Mode"]))
+    cam_owns = (any(f["ACC_BrakeRequest"] or f["ACC_BrakeRequest_B"] for f in request_frames) or cam_brake_mode or
+                self.c1_cam_mode == LongMode.BRAKE or self.c1_cam_accel < CCP.C1_LONG_ACCEL_MIN)
+
+    if not CC.longActive:
+      self.c1_long_was_active = False
+      if not CC.enabled:
+        return []  # the panda forwards the camera's frames itself
+      # Engaged without long (an override): the panda may already block the camera's frames, so they go out unchanged.
+      # It only takes them while it blocks, so the car never gets both.
+      cam_owns = True
+    else:
+      if cam_owns or not self.c1_long_was_active:
+        # hand back from (or start at) the camera's request, so OP's ramps from where the car is
+        self.c1_accel = self.c1_cam_accel
+        self.c1_long_mode = self.c1_cam_mode
+      self.c1_long_was_active = True
+
+    if not cam_owns:
+      accel = min(max(CC.actuators.accel, CCP.C1_LONG_ACCEL_MIN), CCP.C1_LONG_ACCEL_MAX)
+      if CCP.C1_LONG_CAMERA_CAP:
+        accel = min(accel, max(self.c1_cam_accel, CCP.C1_LONG_ACCEL_MIN))
+      # ramp from the last request, within OP's range: after the camera's braking that is OP's floor
+      last = min(max(self.c1_accel, CCP.C1_LONG_ACCEL_MIN), CCP.C1_LONG_ACCEL_MAX)
+      accel = min(max(accel, last - CCP.C1_LONG_JERK_DOWN * DT_CTRL), last + CCP.C1_LONG_JERK_UP * DT_CTRL)
+      self.c1_accel = accel
+      mode = c1_next_long_mode(self.c1_long_mode, accel)
+      self.c1_long_mode = LongMode.COAST if mode == LongMode.BRAKE else mode
+
+    sends = []
+    for frame in request_frames:
+      accel = float(frame["ACC_AccelRequest"]) if cam_owns else self.c1_accel
+      sends.append(create_c1_acc_request(self.packer, frame, accel))
+    for frame in mode_frames:
+      sends.append(create_c1_acc_mode(self.packer, frame) if cam_owns else create_c1_acc_mode(self.packer, frame, self.c1_accel, self.c1_long_mode))
+    return sends

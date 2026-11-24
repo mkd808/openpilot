@@ -2,6 +2,7 @@ from opendbc.can import CANParser
 from opendbc.car import Bus, ButtonType, create_button_events, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarStateBase
+from opendbc.car.volvo.eucd_carstate import eucd_all_frames
 from opendbc.car.volvo.values import C1_BUTTON_STOCK_SIGNALS, DBC, volvo_c1_acc_owns_brake, volvo_c1_aol_allowed
 
 GearShifter = structs.CarState.GearShifter
@@ -17,6 +18,8 @@ class CarState(CarStateBase):
     self.c1_buttons_stock = None
     self.c1_lka_on = False  # dash LKA switch, CEM0 (0x210) byte 0 bit 2
     self.c1_aol_allowed = False
+    self.c1_stock_acc_request_frames = []
+    self.c1_stock_acc_mode_frames = []
     self.c1_button_states = dict.fromkeys(
       ("ACCOnOffBtn", "ACCStopBtn", "ACCSetBtn", "ACCResumeBtn", "ACCMinusBtn", "TimeGapIncreaseBtn", "TimeGapDecreaseBtn"), False
     )
@@ -84,6 +87,11 @@ class CarState(CarStateBase):
     self.c1_lka_on = bool(cp.vl["CEM0"]["LKA_State"])
     self.c1_aol_allowed = volvo_c1_aol_allowed(self.c1_lka_on, ret.cruiseState.available)
 
+    if self.CP.openpilotLongitudinalControl:
+      # every camera 0x160/0x280 frame since the last update; OP sends one frame for each
+      self.c1_stock_acc_request_frames = eucd_all_frames(cp_cam, "FSM2")
+      self.c1_stock_acc_mode_frames = eucd_all_frames(cp_cam, "FSM4")
+
     self.c1_msg_pscm = cp.vl["PSCM1"]
     self.c1_lka_torque = int(cp.vl["PSCM1"]["LKATorque"])
 
@@ -112,7 +120,7 @@ class CarState(CarStateBase):
         [
           ("FSM0", 100),
           ("FSM1", 50),
-        ],
+        ] + ([("FSM2", 50), ("FSM4", 40)] if CP.openpilotLongitudinalControl else []),
         2,
       ),
     }

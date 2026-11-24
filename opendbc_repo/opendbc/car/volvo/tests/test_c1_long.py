@@ -1,10 +1,17 @@
 import copy
+from types import SimpleNamespace
 
 import pytest
 
 from opendbc.can import CANPacker, CANParser
+from opendbc.car import structs
+from opendbc.car.volvo.carcontroller import CarController
 from opendbc.car.volvo.eucd_params import LongMode
+from opendbc.car.volvo.interface import CarInterface
+from opendbc.car.volvo.values import CAR, DBC as DBCS, CarControllerParams
 from opendbc.car.volvo.volvocan import C1_FSM2_MASK, c1_next_long_mode, c1_traction, create_c1_acc_mode, create_c1_acc_request
+from opendbc.safety.tests.libsafety import libsafety_py
+from opendbc.safety.tests.test_volvo_c1 import packet
 
 DBC = "volvo_v40_2017_pt"
 FSM2, FSM4 = 0x160, 0x280
@@ -108,3 +115,89 @@ def test_mode_hysteresis():
   assert c1_next_long_mode(LongMode.COAST, 0.08) == LongMode.DRIVE
   assert c1_next_long_mode(LongMode.DRIVE, 0.0) == LongMode.DRIVE
   assert c1_next_long_mode(LongMode.DRIVE, -0.08) == LongMode.COAST
+
+
+# Step 1 controller against the panda: everything it sends must pass volvo_c1.h
+lib = libsafety_py.libsafety
+FSM2_DRIVE = bytes.fromhex("b000dd54cfd001c5")  # FSM2_ENGAGE's bytes 0-6, request raw 69 (+0.4)
+FSM4_DRIVE_FRAME = FSM4_DRIVE[0]
+
+
+def long_params():
+  cp = CarInterface.get_non_essential_params(CAR.VOLVO_V40)
+  return CarInterface._get_params(cp, CAR.VOLVO_V40, {0: {}, 1: {}, 2: {}}, [], True, False, False)
+
+
+class Drive:
+  def __init__(self):
+    self.cc = CarController(DBCS[CAR.VOLVO_V40], long_params())
+    assert lib.set_safety_hooks(36, 18) == 0
+    lib.init_tests()
+    lib.set_timer(1_000_000)
+    lib.set_controls_allowed(True)
+
+  def step(self, accel, request=FSM2_DRIVE, mode=FSM4_DRIVE_FRAME, long_active=True, enabled=True):
+    for addr, dat in ((FSM2, request), (FSM4, mode)):
+      lib.safety_rx_hook(packet((addr, dat, 2)))
+    cs = SimpleNamespace(out=structs.CarState.new_message().as_reader(), c1_lka_torque=0, c1_brake_hold=False, c1_buttons_stock=None,
+                         c1_msg_pscm={'SteeringAngleServo': 0, 'byte0': 0, 'byte3': 0, 'byte4': 0, 'byte7': 0, 'LKAActive': 0},
+                         c1_stock_acc_request_frames=[parse("FSM2", FSM2, 50, request)],
+                         c1_stock_acc_mode_frames=[parse("FSM4", FSM4, 40, mode)])
+    cc = structs.CarControl.new_message(longActive=long_active, enabled=enabled)
+    cc.actuators.accel = accel
+    _, sends = self.cc.update(cc.as_reader(), cs, 0)
+    long_sends = [(a, d, b) for a, d, b in sends if a in (FSM2, FSM4)]
+    for msg in long_sends:
+      assert lib.safety_tx_hook(packet(msg)), msg
+    return {a: d for a, d, _ in long_sends}
+
+
+def test_controller_capped_to_camera_and_accepted():
+  drive = Drive()
+  for _ in range(200):
+    out = drive.step(1.0)
+  assert CarControllerParams.C1_LONG_CAMERA_CAP
+  assert out[FSM2][7] & 0x7F == 69  # held to the camera's +0.4
+  assert out[FSM4][6] & 0x3 == LongMode.DRIVE
+
+
+def test_controller_never_brakes():
+  drive = Drive()
+  for _ in range(300):
+    out = drive.step(-3.0)
+  assert (out[FSM2][7] & 0x7F) - 64 == -6  # -0.48
+  assert out[FSM2][2] & 0x20 == 0 and out[FSM4][6] & 0x3 == LongMode.COAST
+
+
+def test_controller_jerk_limited():
+  # starts from the camera's +0.4, then down at 4 m/s^3 (0.04 per 10 ms step)
+  drive = Drive()
+  for _ in range(10):
+    out = drive.step(-3.0)
+  assert out[FSM2][7] & 0x7F == 64
+
+
+def test_controller_passes_camera_braking_unchanged():
+  drive = Drive()
+  drive.step(0.5)
+  out = drive.step(0.5, request=FSM2_BRAKE, mode=FSM4_BRAKE[0])
+  assert out == {FSM2: FSM2_BRAKE, FSM4: FSM4_BRAKE[0]}
+
+
+def test_controller_silent_when_disengaged():
+  drive = Drive()
+  assert drive.step(0.5, long_active=False, enabled=False) == {}
+
+
+def test_controller_relays_camera_in_an_override():
+  drive = Drive()
+  drive.step(1.0)
+  assert drive.step(1.0, long_active=False) == {FSM2: FSM2_DRIVE, FSM4: FSM4_DRIVE_FRAME}
+
+
+def test_controller_takes_over_after_camera_braking_within_limits():
+  drive = Drive()
+  drive.step(0.5)
+  drive.step(0.5, request=FSM2_BRAKE, mode=FSM4_BRAKE[0])  # camera at -2.4 with the brake flags
+  out = drive.step(0.5)  # the camera drives again: OP ramps from its own floor, not the camera's -2.4
+  assert (out[FSM2][7] & 0x7F) - 64 == -6

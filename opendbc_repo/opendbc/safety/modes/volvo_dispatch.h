@@ -9,7 +9,7 @@
 static bool volvo_dispatch_c1;
 static bool volvo_dispatch_eucd;
 static safety_config volvo_dispatch_init(uint16_t param) {
-  volvo_dispatch_c1 = param == VOLVO_PARAM_C1;
+  volvo_dispatch_c1 = (param == VOLVO_PARAM_C1) || (param == (VOLVO_PARAM_C1 | VOLVO_C1_PARAM_LONG));
   volvo_dispatch_eucd = param == VOLVO_PARAM_EUCD;
   safety_config ret;
   if (volvo_dispatch_eucd) {
@@ -63,7 +63,7 @@ static void volvo_dispatch_optional_rx(const CANPacket_t *msg) {
   }
 }
 static bool volvo_dispatch_fwd(int bus_num, int addr) {
-  return volvo_dispatch_eucd && volvo_eucd_fwd_hook(bus_num, addr);
+  return (volvo_dispatch_eucd && volvo_eucd_fwd_hook(bus_num, addr)) || (volvo_dispatch_c1 && volvo_c1_fwd_hook(bus_num, addr));
 }
 const safety_hooks volvo_dispatch_hooks = {.init = volvo_dispatch_init, .rx = volvo_dispatch_rx, .tx = volvo_dispatch_tx,
   .optional_rx = volvo_dispatch_optional_rx, .fwd = volvo_dispatch_fwd,

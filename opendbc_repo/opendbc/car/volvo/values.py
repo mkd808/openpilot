@@ -18,6 +18,7 @@ class VolvoSafetyFlags(IntFlag):
   C1 = 2
   LCA2_MOD15 = 4
   EUCD = 8
+  C1_LONG = 16  # V40 experimental OP longitudinal, with C1
 
 
 class CarControllerParams:
@@ -30,7 +31,7 @@ class CarControllerParams:
   # V40 stop and go: Resume held this many frames at a held standstill, one burst per hold. volvo_c1.h lets 40 through.
   C1_RESUME_HOLD_FRAMES = int(0.3 / DT_CTRL)
   C1_RESUME_REARM_FRAMES = int(2.0 / DT_CTRL)  # no second burst this soon after one, even if the hold flickers
-  # V40 longitudinal encoders (0x160/0x280), fit to 7 stock-ACC routes. Not used for control yet.
+  # V40 longitudinal encoders (0x160/0x280), fit to 7 stock-ACC routes
   C1_ACCEL_REQUEST_MIN = -5.12  # 0x160 ACC_AccelRequest field range, 7 bits at 0.08
   C1_ACCEL_REQUEST_MAX = 5.04
   # 0x280 traction is 93 * request in drive and coast, no offset (MAE 4.8 / 3.5 counts; the V60's 97/94 fit worse)
@@ -41,6 +42,13 @@ class CarControllerParams:
   C1_BRAKE_EXIT = 0.04
   C1_DRIVE_ENTER = 0.04
   C1_DRIVE_EXIT = -0.04
+  # V40 OP longitudinal, step 1: drive and coast only, stock ACC keeps the brakes. volvo_c1.h allows -0.56 to +2.0.
+  C1_LONG_ACCEL_MIN = -0.48  # m/s^2; below it the camera's frames go out unchanged
+  C1_LONG_ACCEL_MAX = 1.0
+  C1_LONG_JERK_UP = 2.0  # m/s^3
+  C1_LONG_JERK_DOWN = 4.0
+  # First drives: never more accel than the camera's own request, so OP can only be gentler than stock ACC
+  C1_LONG_CAMERA_CAP = True
 
 
 @dataclass

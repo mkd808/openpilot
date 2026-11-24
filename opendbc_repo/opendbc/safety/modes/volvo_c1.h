@@ -9,6 +9,9 @@
 #define VOLVO_C1_TCM_0 0x40U
 #define VOLVO_C1_BRAKE_MESSAGES 0x1B0U  // BrakeMessages: byte 2 = BrakeStatus (bits 0-2) + hold flag (bit 6)
 #define VOLVO_C1_CEM_0 0x210U  // CEM0, dash LKA switch
+#define VOLVO_C1_ACC_REQUEST 0x160U  // camera ACC accel request and hydraulic brake flags
+#define VOLVO_C1_ACC_MODE 0x280U  // camera ACC mode and traction
+#define VOLVO_C1_PARAM_LONG 16U  // experimental OP longitudinal, drive and coast only
 #define VOLVO_MAIN_BUS 0U
 #define VOLVO_PARTY_BUS 2U
 #define VOLVO_C1_ANGLE_DEG_TO_CAN 22.753128F
@@ -119,11 +122,98 @@ static uint8_t volvo_c1_aol_permission(void) {
   const bool drive = volvo_c1_aol_gear_seen && volvo_c1_aol_drive &&
     (safety_get_ts_elapsed(microsecond_timer_get(), volvo_c1_aol_gear_ts) <= VOLVO_C1_AOL_GEAR_MAX_AGE_US);
   // Engaged stock ACC keeps steering as before; without it the LKA switch and the ACC main are both needed.
-  // The V40 has no OP longitudinal: the longitudinal axis is never granted.
+  // Always on lateral never grants the longitudinal axis; OP longitudinal needs engaged stock ACC (volvo_c1_long_allowed).
   if (drive && (controls_allowed || (acc_main_on && volvo_c1_aol_lka_on))) {
     permission = request & 1U;
   }
   return permission;
+}
+
+// Experimental OP longitudinal (param flag 16), drive and coast only. Stock ACC stays engaged and keeps the brakes.
+// OP's 0x160/0x280 must be one of the camera's frames from the last 100 ms with only the request (0x160 byte 7 bits
+// 6-0) or the mode and traction (0x280 byte 6 bits 1-0, byte 7) replaced, so the hydraulic brake flags and the masked
+// copies always come from the camera. While the camera brakes (0x160 brake flags, 0x280 brake mode) only its frame,
+// unchanged, may go out. The camera's frames stop at the panda only while OP may send its own.
+#define VOLVO_C1_CAM_FRAMES 5U
+#define VOLVO_C1_CAM_FRAME_MAX_AGE_US 100000U
+#define VOLVO_C1_LONG_REQUEST_MIN (-7)  // counts from 64 at ~0.08 m/s^2: -0.56, short of the camera's brake mode
+#define VOLVO_C1_LONG_REQUEST_MAX 25    // +2.0 m/s^2
+#define VOLVO_C1_LONG_TRACTION_MAX 186U  // drive traction for +2.0 m/s^2 (93 per m/s^2)
+typedef struct {
+  uint8_t data[VOLVO_C1_CAM_FRAMES][8];
+  uint32_t ts[VOLVO_C1_CAM_FRAMES];
+  bool valid[VOLVO_C1_CAM_FRAMES];
+  uint8_t index;
+} VolvoC1CamFrames;
+static bool volvo_c1_long = false;
+static VolvoC1CamFrames volvo_c1_cam_request;
+static VolvoC1CamFrames volvo_c1_cam_mode;
+
+static void volvo_c1_cam_frames_clear(VolvoC1CamFrames *frames) {
+  frames->index = 0U;
+  for (uint8_t i = 0U; i < VOLVO_C1_CAM_FRAMES; i++) {
+    frames->valid[i] = false;
+  }
+}
+
+static void volvo_c1_cam_frames_store(VolvoC1CamFrames *frames, const CANPacket_t *msg) {
+  for (uint8_t byte = 0U; byte < 8U; byte++) {
+    frames->data[frames->index][byte] = msg->data[byte];
+  }
+  frames->ts[frames->index] = microsecond_timer_get();
+  frames->valid[frames->index] = true;
+  frames->index = (frames->index + 1U) % VOLVO_C1_CAM_FRAMES;
+}
+
+static bool volvo_c1_cam_frame_fresh(const VolvoC1CamFrames *frames, uint8_t i) {
+  return frames->valid[i] &&
+         (safety_get_ts_elapsed(microsecond_timer_get(), frames->ts[i]) <= VOLVO_C1_CAM_FRAME_MAX_AGE_US);
+}
+
+static bool volvo_c1_long_allowed(void) {
+  return volvo_c1_long && controls_allowed && !gas_pressed_prev;
+}
+
+static bool volvo_c1_acc_request_tx_ok(const CANPacket_t *msg) {
+  const int request = (int)(msg->data[7] & 0x7FU) - 64;
+  const bool in_limits = (request >= VOLVO_C1_LONG_REQUEST_MIN) && (request <= VOLVO_C1_LONG_REQUEST_MAX);
+  bool ok = false;
+  for (uint8_t i = 0U; i < VOLVO_C1_CAM_FRAMES; i++) {
+    if (volvo_c1_cam_frame_fresh(&volvo_c1_cam_request, i)) {
+      const uint8_t *cam = volvo_c1_cam_request.data[i];
+      bool same = (msg->data[7] & 0x80U) == (cam[7] & 0x80U);
+      for (uint8_t byte = 0U; byte < 7U; byte++) {
+        same = same && (msg->data[byte] == cam[byte]);
+      }
+      // Signals: ACC_BrakeRequest (byte 2 bit 5), ACC_BrakeRequest_B (byte 5 bit 5)
+      const bool cam_brakes = ((cam[2] & 0x20U) != 0U) || ((cam[5] & 0x20U) != 0U);
+      const bool unchanged = same && (msg->data[7] == cam[7]);
+      ok = ok || unchanged || (same && in_limits && !cam_brakes);
+    }
+  }
+  return ok;
+}
+
+static bool volvo_c1_acc_mode_tx_ok(const CANPacket_t *msg) {
+  // Signals: ACC_Mode (byte 6 bits 1-0: 0 brake, 1 coast, 2 drive), ACC_TractionRequest (byte 7, signed in coast)
+  const unsigned int mode = (unsigned int)msg->data[6] & 0x3U;
+  const unsigned int traction = msg->data[7];
+  const bool coast_ok = (mode == 1U) && (traction >= 0x81U);  // -127 to -1: engine drag only
+  const bool drive_ok = (mode == 2U) && (traction <= VOLVO_C1_LONG_TRACTION_MAX);
+  bool ok = false;
+  for (uint8_t i = 0U; i < VOLVO_C1_CAM_FRAMES; i++) {
+    if (volvo_c1_cam_frame_fresh(&volvo_c1_cam_mode, i)) {
+      const uint8_t *cam = volvo_c1_cam_mode.data[i];
+      bool same = (msg->data[6] & 0xFCU) == (cam[6] & 0xFCU);
+      for (uint8_t byte = 0U; byte < 6U; byte++) {
+        same = same && (msg->data[byte] == cam[byte]);
+      }
+      const bool cam_brakes = (cam[6] & 0x3U) == 0U;
+      const bool unchanged = same && (msg->data[6] == cam[6]) && (msg->data[7] == cam[7]);
+      ok = ok || unchanged || (same && !cam_brakes && (coast_ok || drive_ok));
+    }
+  }
+  return ok;
 }
 
 static void volvo_c1_rx_hook(const CANPacket_t *msg) {
@@ -171,6 +261,15 @@ static void volvo_c1_rx_hook(const CANPacket_t *msg) {
 }
 
 static void volvo_c1_optional_rx(const CANPacket_t *msg) {
+  if (volvo_c1_long && (msg->bus == VOLVO_PARTY_BUS) && (GET_LEN(msg) == 8U)) {
+    if (msg->addr == VOLVO_C1_ACC_REQUEST) {
+      volvo_c1_cam_frames_store(&volvo_c1_cam_request, msg);
+    }
+    if (msg->addr == VOLVO_C1_ACC_MODE) {
+      volvo_c1_cam_frames_store(&volvo_c1_cam_mode, msg);
+    }
+  }
+
   if (msg->bus == VOLVO_MAIN_BUS) {
     if ((msg->addr == VOLVO_C1_BUTTONS) && (GET_LEN(msg) == 8U)) {
       for (unsigned int i = 0U; i < 8U; i++) {
@@ -314,10 +413,24 @@ static bool volvo_c1_tx_hook(const CANPacket_t *msg) {
     }
     tx &= (zero_shape && cancel_or_none) || resume_ok;
   }
+
+  if (msg->addr == VOLVO_C1_ACC_REQUEST) {
+    tx &= volvo_c1_long_allowed() && volvo_c1_acc_request_tx_ok(msg);
+  }
+  if (msg->addr == VOLVO_C1_ACC_MODE) {
+    tx &= volvo_c1_long_allowed() && volvo_c1_acc_mode_tx_ok(msg);
+  }
   return tx;
 }
+
+static bool volvo_c1_fwd_hook(int bus_num, int addr) {
+  const bool acc_msg = ((unsigned int)addr == VOLVO_C1_ACC_REQUEST) || ((unsigned int)addr == VOLVO_C1_ACC_MODE);
+  return ((unsigned int)bus_num == VOLVO_PARTY_BUS) && acc_msg && volvo_c1_long_allowed();
+}
 static safety_config volvo_c1_init(uint16_t param) {
-  (void)param;
+  volvo_c1_long = GET_FLAG(param, VOLVO_C1_PARAM_LONG);
+  volvo_c1_cam_frames_clear(&volvo_c1_cam_request);
+  volvo_c1_cam_frames_clear(&volvo_c1_cam_mode);
   volvo_c1_pressure_bits = false;
   volvo_c1_brake_status = 0U;
   volvo_c1_brake_hold = false;
@@ -340,6 +453,14 @@ static safety_config volvo_c1_init(uint16_t param) {
     {VOLVO_C1_PSCM_1, VOLVO_PARTY_BUS, 8, .check_relay = true},
     {VOLVO_C1_BUTTONS, VOLVO_MAIN_BUS, 8, .check_relay = false},
   };
+  // check_relay off: the camera's own frames reach the car whenever OP may not send
+  static const CanMsg VOLVO_C1_LONG_TX_MSGS[] = {
+    {VOLVO_C1_FSM_1, VOLVO_MAIN_BUS, 8, .check_relay = true},
+    {VOLVO_C1_PSCM_1, VOLVO_PARTY_BUS, 8, .check_relay = true},
+    {VOLVO_C1_BUTTONS, VOLVO_MAIN_BUS, 8, .check_relay = false},
+    {VOLVO_C1_ACC_REQUEST, VOLVO_MAIN_BUS, 8, .check_relay = false},
+    {VOLVO_C1_ACC_MODE, VOLVO_MAIN_BUS, 8, .check_relay = false},
+  };
   static RxCheck volvo_c1_rx_checks[] = {
     {.msg = {{VOLVO_C1_PSCM_1, VOLVO_MAIN_BUS, 8, 50U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
     {.msg = {{VOLVO_C1_FSM_0, VOLVO_PARTY_BUS, 8, 100U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
@@ -348,6 +469,10 @@ static safety_config volvo_c1_init(uint16_t param) {
     {.msg = {{VOLVO_C1_BRAKE_MESSAGES, VOLVO_MAIN_BUS, 8, 50U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
     {.msg = {{VOLVO_C1_CEM_0, VOLVO_MAIN_BUS, 8, 40U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
   };
-  return BUILD_SAFETY_CFG(volvo_c1_rx_checks, VOLVO_C1_TX_MSGS);
+  safety_config ret = BUILD_SAFETY_CFG(volvo_c1_rx_checks, VOLVO_C1_TX_MSGS);
+  if (volvo_c1_long) {
+    ret = BUILD_SAFETY_CFG(volvo_c1_rx_checks, VOLVO_C1_LONG_TX_MSGS);
+  }
+  return ret;
 }
 const safety_hooks volvo_c1_hooks = {.init = volvo_c1_init, .rx = volvo_c1_rx_hook, .tx = volvo_c1_tx_hook};
