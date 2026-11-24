@@ -9,6 +9,10 @@ Small scripts for the CAN CSV exports (`time,addr,bus,data`). They need only num
 - `decode_acc_msgs.py LOG.csv [--window START END]`: byte-by-byte summary of the camera ACC messages 0x270 (FSM3) and
   0x280 (FSM4), plus every change in a time window, to line up with an event.
 
+- `replay_encode.py ROUTE_DIR_OR_RLOG...`: replays the camera's 0x160/0x280 frames from rlogs through the V40 long
+  encoders in `volvocan.py`. Every distinct frame must re-pack byte-identical and every masked 0x160 must be the frame
+  before it with `C1_FSM2_MASK`; it also scores the traction and mode models against stock. Needs the openpilot env.
+
 - `state_table.py LOG.csv`: the values stock ACC sends in 0x270 and 0x280 in each brake and ACC state (idle, ACC braking,
   hold, standby, off). This is the reference table for keeping the camera's values consistent with each other.
 

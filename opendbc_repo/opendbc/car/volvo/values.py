@@ -30,6 +30,17 @@ class CarControllerParams:
   # V40 stop and go: Resume held this many frames at a held standstill, one burst per hold. volvo_c1.h lets 40 through.
   C1_RESUME_HOLD_FRAMES = int(0.3 / DT_CTRL)
   C1_RESUME_REARM_FRAMES = int(2.0 / DT_CTRL)  # no second burst this soon after one, even if the hold flickers
+  # V40 longitudinal encoders (0x160/0x280), fit to 7 stock-ACC routes. Not used for control yet.
+  C1_ACCEL_REQUEST_MIN = -5.12  # 0x160 ACC_AccelRequest field range, 7 bits at 0.08
+  C1_ACCEL_REQUEST_MAX = 5.04
+  # 0x280 traction is 93 * request in drive and coast, no offset (MAE 4.8 / 3.5 counts; the V60's 97/94 fit worse)
+  C1_TRACTION_GAIN = 93.
+  # Mode from the request alone, with the camera's hysteresis: brake below -0.6 until the request is positive,
+  # drive above zero until it goes negative. Agrees with the stock 0x280 mode in 89% of ACC frames (V60's: 84%).
+  C1_BRAKE_ENTER = -0.60  # m/s^2
+  C1_BRAKE_EXIT = 0.04
+  C1_DRIVE_ENTER = 0.04
+  C1_DRIVE_EXIT = -0.04
 
 
 @dataclass
