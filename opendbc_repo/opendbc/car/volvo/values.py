@@ -42,10 +42,12 @@ class CarControllerParams:
   C1_BRAKE_EXIT = 0.04
   C1_DRIVE_ENTER = 0.04
   C1_DRIVE_EXIT = -0.04
-  # V40 OP longitudinal, step 2a: drive, coast and light braking while the camera isn't braking. OP brakes with brake
-  # mode and both hydraulic flags, like the camera. Whenever the camera brakes, or the car is at a standstill, the
-  # camera's frames go out unchanged. volvo_c1.h allows -1.04 to +2.0, and the flags only with a request at or below 0.
-  C1_LONG_ACCEL_MIN = -1.0  # m/s^2; below it the camera's frames go out unchanged
+  # V40 OP longitudinal: drive and coast only, the camera keeps all braking. Step 2a's own hydraulic braking (brake
+  # mode and both flags while the camera only coasted) set the brake status to ACC braking but built no pressure, and
+  # after about 1.5 s stock ACC shut down as unavailable until an ignition cycle (route 7c7d3d5e5ff31d51/00000013,
+  # 205.6-207.1 s). Until the missing piece is found, OP never sends brake mode or the flags. Whenever the camera
+  # brakes, or the car is at a standstill, its frames go out unchanged. volvo_c1.h allows -0.56 to +2.0.
+  C1_LONG_ACCEL_MIN = -0.48  # m/s^2; below it the camera's frames go out unchanged
   C1_LONG_ACCEL_MAX = 1.0
   C1_LONG_JERK_UP = 2.0  # m/s^3
   C1_LONG_JERK_DOWN = 4.0

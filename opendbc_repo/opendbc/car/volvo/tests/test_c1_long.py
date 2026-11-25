@@ -118,7 +118,7 @@ def test_mode_hysteresis():
   assert c1_next_long_mode(LongMode.DRIVE, -0.08) == LongMode.COAST
 
 
-# Step 2a controller against the panda: everything it sends must pass volvo_c1.h
+# Drive-and-coast controller against the panda: everything it sends must pass volvo_c1.h
 lib = libsafety_py.libsafety
 FSM2_DRIVE = bytes.fromhex("b000dd54cfd001c5")  # FSM2_ENGAGE's bytes 0-6, request raw 69 (+0.4)
 FSM4_DRIVE_FRAME = FSM4_DRIVE[0]
@@ -166,32 +166,19 @@ def test_controller_capped_to_camera_and_accepted():
   assert out[FSM4][6] & 0x3 == LongMode.DRIVE
 
 
-def test_controller_brakes_lightly():
+def test_controller_never_brakes():
+  # step 2a's own braking faulted stock ACC (route 00000013, 207 s): OP holds at its coast floor, no flags, no brake mode
   drive = Drive()
   for _ in range(300):
     out = drive.step(-3.0)
-  assert (out[FSM2][7] & 0x7F) - 64 in (-12, -13)  # held at -1.0
-  assert out[FSM2][2] & 0x20 and out[FSM2][5] & 0x20  # both hydraulic flags
-  assert out[FSM4][6] & 0x3 == LongMode.BRAKE and out[FSM4][7] == 0
+  assert (out[FSM2][7] & 0x7F) - 64 == -6  # -0.48
+  assert out[FSM2][2] & 0x20 == 0 and out[FSM2][5] & 0x20 == 0
+  assert out[FSM4][6] & 0x3 == LongMode.COAST
 
 
-def test_controller_brake_flags_follow_brake_mode():
-  # coast at -0.48: no flags; past brake entry: flags; back above zero: flags off, drive
-  drive = Drive()
-  for _ in range(300):
-    out = drive.step(-0.48)
-  assert out[FSM2][2] & 0x20 == 0 and out[FSM4][6] & 0x3 == LongMode.COAST
-  for _ in range(100):
-    out = drive.step(-0.8)
-  assert out[FSM2][2] & 0x20 and out[FSM4][6] & 0x3 == LongMode.BRAKE
-  for _ in range(100):
-    out = drive.step(0.3)
-  assert out[FSM2][2] & 0x20 == 0 and out[FSM2][5] & 0x20 == 0 and out[FSM4][6] & 0x3 == LongMode.DRIVE
-
-
-def test_controller_brakes_through_camera_engine_braking():
+def test_controller_coasts_through_camera_engine_braking():
   # route 00000012 at 25 s: the camera flips 0x280 between coast and brake mode without the hydraulic flags (engine
-  # braking) while OP wants -0.8. OP's braking must not drop out on the camera's brake-mode frames.
+  # braking). OP's request ramps down once without restarts, never with the flags; the camera's brake mode goes out as is.
   fsm2_coast = request(FSM2_ENGAGE, -0.16)
   drive = Drive()
   requests = []
@@ -199,20 +186,13 @@ def test_controller_brakes_through_camera_engine_braking():
     mode = FSM4_BRAKE[0] if (i // 5) % 2 else FSM4_COAST[0]
     out = drive.step(-0.8, request=fsm2_coast, mode=mode)
     requests.append((out[FSM2][7] & 0x7F) - 64)
+    assert out[FSM2][2] & 0x20 == 0 and out[FSM2][5] & 0x20 == 0
     if mode == FSM4_BRAKE[0]:
-      assert out[FSM4] == FSM4_BRAKE[0]  # the camera's brake mode goes out unchanged
-    if requests[-1] <= -8:
-      assert out[FSM2][2] & 0x20 and out[FSM2][5] & 0x20
-  assert all(b <= a for a, b in zip(requests, requests[1:], strict=False))  # one ramp down, no restarts
-  assert requests[-1] in (-10, -11)  # -0.8
-
-
-def test_controller_starts_coasting_from_camera_engine_braking():
-  # engaging while the camera engine-brakes (brake mode, no flags): OP doesn't add the hydraulic flags for a gentle -0.3
-  drive = Drive()
-  for _ in range(50):
-    out = drive.step(-0.3, request=request(FSM2_ENGAGE, -0.4), mode=FSM4_BRAKE[0])
-    assert out[FSM2][2] & 0x20 == 0
+      assert out[FSM4] == FSM4_BRAKE[0]
+    else:
+      assert out[FSM4][6] & 0x3 == LongMode.COAST
+  assert all(b <= a for a, b in zip(requests, requests[1:], strict=False))
+  assert requests[-1] == -6
 
 
 def test_controller_hands_standstill_to_camera():
@@ -243,8 +223,8 @@ def test_handoff_keeps_op_frames_at_standstill():
   for _ in range(100):
     drive.step(-1.0, v_ego=3.)
   out = drive.step(-1.0, standstill=True)
-  assert out[FSM2] != FSM2_DRIVE and out[FSM2][2] & 0x20  # still OP braking, never the camera's +0.4
-  assert out[FSM4][6] & 0x3 == LongMode.BRAKE
+  assert (out[FSM2][7] & 0x7F) - 64 == -6 and out[FSM2][2] & 0x20 == 0  # still OP's coast, never the camera's +0.4
+  assert out[FSM4][6] & 0x3 == LongMode.COAST
 
 
 def test_handoff_ends_when_acc_is_off():
@@ -300,4 +280,5 @@ def test_controller_takes_over_after_camera_braking_within_limits():
   drive.step(0.5)
   drive.step(0.5, request=FSM2_BRAKE, mode=FSM4_BRAKE[0])  # camera at -2.4 with the brake flags
   out = drive.step(0.5)  # the camera drives again: OP ramps from its own floor, not the camera's -2.4
-  assert (out[FSM2][7] & 0x7F) - 64 in (-12, -13)
+  assert (out[FSM2][7] & 0x7F) - 64 == -6
+  assert out[FSM2][2] & 0x20 == 0 and out[FSM4][6] & 0x3 == LongMode.COAST
