@@ -1,6 +1,7 @@
 from opendbc.can import CANParser
 from opendbc.car import Bus, ButtonType, create_button_events, structs
 from opendbc.car.common.conversions import Conversions as CV
+from opendbc.car.dashboard_speed_limit import Tracker as LimitTracker, parser_expiry, volvo_sign
 from opendbc.car.interfaces import CarStateBase
 from opendbc.car.volvo.eucd_carstate import eucd_all_frames
 from opendbc.car.volvo.values import C1_BUTTON_STOCK_SIGNALS, DBC, volvo_c1_acc_owns_brake, volvo_c1_aol_allowed
@@ -20,6 +21,8 @@ class CarState(CarStateBase):
     self.c1_aol_allowed = False
     self.c1_stock_acc_request_frames = []
     self.c1_stock_acc_mode_frames = []
+    # The FSM's road-sign speed limit (RSI), the Speed Limit Controller's "Dashboard" source
+    self.dashboard_limit = LimitTracker()
     self.c1_button_states = dict.fromkeys(
       ("ACCOnOffBtn", "ACCStopBtn", "ACCSetBtn", "ACCResumeBtn", "ACCMinusBtn", "TimeGapIncreaseBtn", "TimeGapDecreaseBtn"), False
     )
@@ -95,6 +98,13 @@ class CarState(CarStateBase):
     self.c1_msg_pscm = cp.vl["PSCM1"]
     self.c1_lka_torque = int(cp.vl["PSCM1"]["LKATorque"])
 
+    # FSM5 (0x355) SpeedSign: the camera's road-sign reading in 5 km/h steps, 0 = no sign. On route
+    # 7c7d3d5e5ff31d51/00000016 it read 40/50/60 and, unlike the vision model, not the roundabout's 25 advisory.
+    timestamp, expiry = parser_expiry(cp_cam, "FSM5", "SpeedSign")
+    if timestamp > self.dashboard_limit.observation.observed_ns:
+      status, value_mps = volvo_sign(cp_cam.vl["FSM5"]["SpeedSign"])
+      self.dashboard_limit.update(timestamp, status, value_mps, valid_until_ns=expiry)
+
     return ret
 
   @staticmethod
@@ -120,6 +130,7 @@ class CarState(CarStateBase):
         [
           ("FSM0", 100),
           ("FSM1", 50),
+          ("FSM5", 10),
         ] + ([("FSM2", 50), ("FSM4", 40)] if CP.openpilotLongitudinalControl else []),
         2,
       ),
