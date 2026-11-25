@@ -129,14 +129,17 @@ static uint8_t volvo_c1_aol_permission(void) {
   return permission;
 }
 
-// Experimental OP longitudinal (param flag 16), drive and coast only. Stock ACC stays engaged and keeps the brakes.
-// OP's 0x160/0x280 must be one of the camera's frames from the last 100 ms with only the request (0x160 byte 7 bits
-// 6-0) or the mode and traction (0x280 byte 6 bits 1-0, byte 7) replaced, so the hydraulic brake flags and the masked
-// copies always come from the camera. While the camera brakes (0x160 brake flags, 0x280 brake mode) only its frame,
-// unchanged, may go out. The camera's frames stop at the panda only while OP may send its own.
+// Experimental OP longitudinal (param flag 16): drive, coast and light braking. Stock ACC stays engaged and keeps its
+// own braking. OP's 0x160/0x280 must be one of the camera's frames from the last 100 ms with only the request (0x160
+// byte 7 bits 6-0), the two hydraulic brake flags (0x160 byte 2 bit 5, byte 5 bit 5) or the mode and traction (0x280
+// byte 6 bits 1-0, byte 7) replaced, so the masked copies always come from the camera. OP sets both flags or neither,
+// and only with a request at or below zero; its brake mode carries traction 0. While the camera brakes (0x160 brake
+// flags, 0x280 brake mode) only its frame, unchanged, may go out. The camera's frames stop at the panda only while OP
+// may send its own.
 #define VOLVO_C1_CAM_FRAMES 5U
 #define VOLVO_C1_CAM_FRAME_MAX_AGE_US 100000U
-#define VOLVO_C1_LONG_REQUEST_MIN (-7)  // counts from 64 at ~0.08 m/s^2: -0.56, short of the camera's brake mode
+#define VOLVO_C1_LONG_REQUEST_MIN (-13)  // counts from 64 at ~0.08 m/s^2: -1.04 (about -1.0 at the brake side's ~0.075)
+#define VOLVO_C1_LONG_BRAKE_REQUEST_MAX 0  // the hydraulic flags only with a request at or below zero
 #define VOLVO_C1_LONG_REQUEST_MAX 25    // +2.0 m/s^2
 #define VOLVO_C1_LONG_TRACTION_MAX 186U  // drive traction for +2.0 m/s^2 (93 per m/s^2)
 typedef struct {
@@ -176,19 +179,25 @@ static bool volvo_c1_long_allowed(void) {
 
 static bool volvo_c1_acc_request_tx_ok(const CANPacket_t *msg) {
   const int request = (int)(msg->data[7] & 0x7FU) - 64;
-  const bool in_limits = (request >= VOLVO_C1_LONG_REQUEST_MIN) && (request <= VOLVO_C1_LONG_REQUEST_MAX);
+  // Signals: ACC_BrakeRequest (byte 2 bit 5), ACC_BrakeRequest_B (byte 5 bit 5)
+  const bool op_brake = (msg->data[2] & 0x20U) != 0U;
+  const bool op_brake_b = (msg->data[5] & 0x20U) != 0U;
+  const bool brake_ok = (op_brake == op_brake_b) && (!op_brake || (request <= VOLVO_C1_LONG_BRAKE_REQUEST_MAX));
+  const bool in_limits = (request >= VOLVO_C1_LONG_REQUEST_MIN) && (request <= VOLVO_C1_LONG_REQUEST_MAX) && brake_ok;
   bool ok = false;
   for (uint8_t i = 0U; i < VOLVO_C1_CAM_FRAMES; i++) {
     if (volvo_c1_cam_frame_fresh(&volvo_c1_cam_request, i)) {
       const uint8_t *cam = volvo_c1_cam_request.data[i];
       bool same = (msg->data[7] & 0x80U) == (cam[7] & 0x80U);
+      bool same_but_flags = same;
       for (uint8_t byte = 0U; byte < 7U; byte++) {
+        const unsigned int keep = ((byte == 2U) || (byte == 5U)) ? 0xDFU : 0xFFU;  // all but the brake flag
         same = same && (msg->data[byte] == cam[byte]);
+        same_but_flags = same_but_flags && ((msg->data[byte] & keep) == (cam[byte] & keep));
       }
-      // Signals: ACC_BrakeRequest (byte 2 bit 5), ACC_BrakeRequest_B (byte 5 bit 5)
       const bool cam_brakes = ((cam[2] & 0x20U) != 0U) || ((cam[5] & 0x20U) != 0U);
       const bool unchanged = same && (msg->data[7] == cam[7]);
-      ok = ok || unchanged || (same && in_limits && !cam_brakes);
+      ok = ok || unchanged || (same_but_flags && in_limits && !cam_brakes);
     }
   }
   return ok;
@@ -200,6 +209,7 @@ static bool volvo_c1_acc_mode_tx_ok(const CANPacket_t *msg) {
   const unsigned int traction = msg->data[7];
   const bool coast_ok = (mode == 1U) && (traction >= 0x81U);  // -127 to -1: engine drag only
   const bool drive_ok = (mode == 2U) && (traction <= VOLVO_C1_LONG_TRACTION_MAX);
+  const bool brake_ok = (mode == 0U) && (traction == 0U);
   bool ok = false;
   for (uint8_t i = 0U; i < VOLVO_C1_CAM_FRAMES; i++) {
     if (volvo_c1_cam_frame_fresh(&volvo_c1_cam_mode, i)) {
@@ -210,7 +220,7 @@ static bool volvo_c1_acc_mode_tx_ok(const CANPacket_t *msg) {
       }
       const bool cam_brakes = (cam[6] & 0x3U) == 0U;
       const bool unchanged = same && (msg->data[6] == cam[6]) && (msg->data[7] == cam[7]);
-      ok = ok || unchanged || (same && !cam_brakes && (coast_ok || drive_ok));
+      ok = ok || unchanged || (same && !cam_brakes && (coast_ok || drive_ok || brake_ok));
     }
   }
   return ok;
