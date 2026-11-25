@@ -11,7 +11,7 @@ import openpilot.cereal.messaging as messaging
 
 from openpilot.cereal import log
 from opendbc.car.structs import car
-from opendbc.car.volvo.values import volvo_c1_stock_acc_owns_cruise
+from opendbc.car.volvo.values import CAR as VOLVO_CAR, volvo_c1_stock_acc_owns_cruise
 from opendbc.car.hyundai.ev6_aol import qualified as ev6_aol_qualified
 from opendbc.car.hyundai.values import HyundaiFlags
 from opendbc.car.honda.stock_aol import qualified as honda_aol_qualified, temporary_restriction as honda_temporary_restriction
@@ -28,6 +28,7 @@ from openpilot.starpilot.gps.source import observation as gps_observation
 from openpilot.selfdrive.car.car_events import CarEvents
 from openpilot.selfdrive.locationd.helpers import PoseCalibrator, Pose
 from openpilot.selfdrive.selfdrived.events import Events, ET, Alert, Priority as AlertPriority
+from openpilot.selfdrive.selfdrived.volvo_brake_gap import BrakeGapWarning
 from openpilot.starpilot.longitudinal.force_stop_alert import HoldAlertState, EVENT_TYPE as FORCE_STOP_HOLD
 from openpilot.selfdrive.selfdrived.helpers import (ExcessiveActuationCheck, jetlink_in_control, jetlink_lost_alert, throttled_param,
                                                     update_big_model_status, update_jetlink_swaps)
@@ -104,6 +105,9 @@ class SelfdriveD:
       self.CP = CP
 
     self.aol_replay = feature_enabled(self.params, self.CP, 'aol', os.environ)
+    # V40 OP long can only coast and the stock ACC camera ignores stationary cars: warn when OP needs braking nobody gives
+    volvo_v40_long = self.CP.carFingerprint == VOLVO_CAR.VOLVO_V40 and self.CP.openpilotLongitudinalControl
+    self.volvo_brake_gap = BrakeGapWarning() if volvo_v40_long else None
     self.ordinary_axis_ack_required = axis_policy_for(self.CP).ordinary_axis_ack_required
     self.aol_cruise_main_required = axis_policy_for(self.CP).cruise_main_required
     self.axis_transport_required = self.aol_replay or self.ordinary_axis_ack_required
@@ -719,6 +723,12 @@ class SelfdriveD:
     stock_long_is_braking = self.enabled and not self.CP.openpilotLongitudinalControl and CS.aEgo < -1.25
     model_fcw = self.sm['modelV2'].meta.hardBrakePredicted and not CS.brakePressed and not stock_long_is_braking
     planner_fcw = self.sm['longitudinalPlan'].fcw and self.enabled
+    if self.volvo_brake_gap is not None:
+      lead = self.sm['radarState'].leadOne
+      planner_fcw |= self.volvo_brake_gap.update(time.monotonic(), self.sm['carControl'].longActive, CS.vEgo,
+                                                 self.sm['carControl'].actuators.accel,
+                                                 self.sm['carOutput'].actuatorsOutput.accel,
+                                                 lead.present, lead.dRel, lead.vRel)
     if (planner_fcw or model_fcw) and not self.CP.notCar:
       self.events.add(EventName.fcw)
 
