@@ -116,13 +116,13 @@ class CarController(CarControllerBase):
       self.c1_resume_frames -= 1
 
   def _c1_longitudinal(self, CC, CS):
-    """V40 OP long, step 2b: drive, coast and braking to -2.0, stock ACC engaged and keeping its own braking.
+    """V40 OP long: drive and coast, stock ACC engaged and keeping all braking (see C1_LONG_ACCEL_MIN).
 
     One frame for each camera 0x160/0x280 frame, so the camera's cadence and masked copies carry through; volvo_c1.h
     only takes the camera's recent frames with the request, the hydraulic brake flags or the mode and traction replaced.
-    OP brakes like the camera does: brake mode, traction 0 and both flags. While the camera brakes (brake flags), asks
+    OP never sends brake mode or the hydraulic flags. While the camera brakes (brake flags), asks
     for more decel than OP may, or the car is at a standstill (the camera's hold), its frames go out unchanged. The
-    camera's brake mode without the flags is engine braking only: OP keeps the request and the flags then, and the
+    camera's brake mode without the flags is engine braking only: OP keeps the request then, and the
     camera's 0x280 (brake mode, no traction) goes out unchanged, since volvo_c1.h passes only that while the camera is in
     brake mode. A stop OP would have to finish while the camera asks to drive is handed to the driver by cancelling
     stock ACC (C1_LONG_HANDOFF_SPEED); until ACC is off OP's frames keep going out, also at a standstill."""
@@ -166,16 +166,15 @@ class CarController(CarControllerBase):
       last = min(max(self.c1_accel, CCP.C1_LONG_ACCEL_MIN), CCP.C1_LONG_ACCEL_MAX)
       accel = min(max(accel, last - CCP.C1_LONG_JERK_DOWN * DT_CTRL), last + CCP.C1_LONG_JERK_UP * DT_CTRL)
       self.c1_accel = accel
-      self.c1_long_mode = c1_next_long_mode(self.c1_long_mode, accel)
+      mode = c1_next_long_mode(self.c1_long_mode, accel)
+      self.c1_long_mode = LongMode.COAST if mode == LongMode.BRAKE else mode
 
     sends = []
     for frame in request_frames:
       if cam_owns:
         sends.append(create_c1_acc_request(self.packer, frame, float(frame["ACC_AccelRequest"])))
       else:
-        # the hydraulic flags only with a negative request, as volvo_c1.h requires; brake mode without them is engine braking
-        brake = self.c1_long_mode == LongMode.BRAKE and self.c1_accel < 0.
-        sends.append(create_c1_acc_request(self.packer, frame, self.c1_accel, brake))
+        sends.append(create_c1_acc_request(self.packer, frame, self.c1_accel))
     for frame in mode_frames:
       cam_frame = cam_owns or int(frame["ACC_Mode"]) == LongMode.BRAKE
       sends.append(create_c1_acc_mode(self.packer, frame) if cam_frame else create_c1_acc_mode(self.packer, frame, self.c1_accel, self.c1_long_mode))

@@ -1,6 +1,5 @@
-"""V40 (C1) experimental OP longitudinal, step 2b (safety param flag 16): OP's 0x160/0x280 are the camera's own recent
-frames with only the request, the hydraulic brake flags or the mode and traction replaced. OP may brake to about -2.0 while the
-camera doesn't; while the camera brakes, only its own frames go out."""
+"""V40 (C1) experimental OP longitudinal, drive and coast only (safety param flag 16): OP's 0x160/0x280 are the camera's
+own recent frames with only the request or the mode and traction replaced, and the camera keeps the brakes."""
 import unittest
 from opendbc.can import CANPacker
 from opendbc.safety.tests.libsafety import libsafety_py
@@ -86,7 +85,7 @@ class TestVolvoC1Long(unittest.TestCase):
     for counts in range(-64, 64):
       with self.subTest(counts=counts):
         unchanged = counts == -17  # the camera's own frame (raw 47) may go back as it is
-        self.assertEqual(-26 <= counts <= 25 or unchanged, bool(self._tx(ACC_REQUEST, with_request(REQUEST, counts))))
+        self.assertEqual(-7 <= counts <= 25 or unchanged, bool(self._tx(ACC_REQUEST, with_request(REQUEST, counts))))
 
   def test_request_only_replaces_the_request_bits(self):
     self._engage()
@@ -113,27 +112,6 @@ class TestVolvoC1Long(unittest.TestCase):
     self.assertFalse(self._tx(ACC_MODE, with_mode(MODE_BRAKE, 1, -20)))
     self.assertFalse(self._tx(ACC_MODE, with_mode(MODE_BRAKE, 2, 20)))
 
-  def test_op_brake_flags(self):
-    self._engage()
-    self._cam(ACC_REQUEST, REQUEST)
-    self._cam(ACC_REQUEST, REQUEST_MASKED)
-    for stock in (REQUEST, REQUEST_MASKED):
-      for counts in range(-64, 64):
-        for flags in ((0, 0), (1, 1), (1, 0), (0, 1)):
-          dat = bytearray(with_request(stock, counts))
-          dat[2] |= 0x20 * flags[0]
-          dat[5] |= 0x20 * flags[1]
-          both, neither = flags == (1, 1), flags == (0, 0)
-          expected = -26 <= counts <= 25 and (neither or (both and counts <= 0))
-          with self.subTest(stock=stock.hex(), counts=counts, flags=flags):
-            self.assertEqual(expected or bytes(dat) == stock, bool(self._tx(ACC_REQUEST, bytes(dat))))
-
-  def test_op_brake_flags_not_while_camera_brakes(self):
-    self._engage()
-    self._cam(ACC_REQUEST, REQUEST_BRAKE)
-    for counts in (-26, -13, -7, 0):
-      self.assertFalse(self._tx(ACC_REQUEST, with_request(REQUEST_BRAKE, counts)))
-
   def test_mode_and_traction(self):
     self._engage()
     self._cam(ACC_MODE, MODE_DRIVE)
@@ -141,7 +119,7 @@ class TestVolvoC1Long(unittest.TestCase):
       with self.subTest(traction=traction):
         self.assertEqual(traction <= 186, bool(self._tx(ACC_MODE, with_mode(MODE_DRIVE, 2, traction))))
         self.assertEqual(traction >= 0x81, bool(self._tx(ACC_MODE, with_mode(MODE_DRIVE, 1, traction))))
-        self.assertEqual(traction == 0, bool(self._tx(ACC_MODE, with_mode(MODE_DRIVE, 0, traction))))  # brake: no traction
+        self.assertFalse(self._tx(ACC_MODE, with_mode(MODE_DRIVE, 0, traction)))  # OP never picks brake mode
         self.assertFalse(self._tx(ACC_MODE, with_mode(MODE_DRIVE, 3, traction)))
     self._cam(ACC_MODE, MODE_COAST)
     self.assertTrue(self._tx(ACC_MODE, with_mode(MODE_COAST, 2, 50)))
