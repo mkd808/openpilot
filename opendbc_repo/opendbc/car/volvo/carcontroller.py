@@ -114,7 +114,7 @@ class CarController(CarControllerBase):
       self.c1_resume_frames -= 1
 
   def _c1_longitudinal(self, CC, CS):
-    """V40 OP long, step 2a: drive, coast and light braking, stock ACC engaged and keeping its own braking.
+    """V40 OP long, step 2b: drive, coast and braking to -2.0, stock ACC engaged and keeping its own braking.
 
     One frame for each camera 0x160/0x280 frame, so the camera's cadence and masked copies carry through; volvo_c1.h
     only takes the camera's recent frames with the request, the hydraulic brake flags or the mode and traction replaced.

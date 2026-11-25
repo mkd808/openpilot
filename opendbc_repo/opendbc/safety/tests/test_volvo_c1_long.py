@@ -1,5 +1,5 @@
-"""V40 (C1) experimental OP longitudinal, step 2a (safety param flag 16): OP's 0x160/0x280 are the camera's own recent
-frames with only the request, the hydraulic brake flags or the mode and traction replaced. OP may brake lightly while the
+"""V40 (C1) experimental OP longitudinal, step 2b (safety param flag 16): OP's 0x160/0x280 are the camera's own recent
+frames with only the request, the hydraulic brake flags or the mode and traction replaced. OP may brake to about -2.0 while the
 camera doesn't; while the camera brakes, only its own frames go out."""
 import unittest
 from opendbc.can import CANPacker
@@ -86,7 +86,7 @@ class TestVolvoC1Long(unittest.TestCase):
     for counts in range(-64, 64):
       with self.subTest(counts=counts):
         unchanged = counts == -17  # the camera's own frame (raw 47) may go back as it is
-        self.assertEqual(-13 <= counts <= 25 or unchanged, bool(self._tx(ACC_REQUEST, with_request(REQUEST, counts))))
+        self.assertEqual(-26 <= counts <= 25 or unchanged, bool(self._tx(ACC_REQUEST, with_request(REQUEST, counts))))
 
   def test_request_only_replaces_the_request_bits(self):
     self._engage()
@@ -124,14 +124,14 @@ class TestVolvoC1Long(unittest.TestCase):
           dat[2] |= 0x20 * flags[0]
           dat[5] |= 0x20 * flags[1]
           both, neither = flags == (1, 1), flags == (0, 0)
-          expected = -13 <= counts <= 25 and (neither or (both and counts <= 0))
+          expected = -26 <= counts <= 25 and (neither or (both and counts <= 0))
           with self.subTest(stock=stock.hex(), counts=counts, flags=flags):
             self.assertEqual(expected or bytes(dat) == stock, bool(self._tx(ACC_REQUEST, bytes(dat))))
 
   def test_op_brake_flags_not_while_camera_brakes(self):
     self._engage()
     self._cam(ACC_REQUEST, REQUEST_BRAKE)
-    for counts in (-13, -7, 0):
+    for counts in (-26, -13, -7, 0):
       self.assertFalse(self._tx(ACC_REQUEST, with_request(REQUEST_BRAKE, counts)))
 
   def test_mode_and_traction(self):

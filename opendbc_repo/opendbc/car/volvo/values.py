@@ -42,10 +42,10 @@ class CarControllerParams:
   C1_BRAKE_EXIT = 0.04
   C1_DRIVE_ENTER = 0.04
   C1_DRIVE_EXIT = -0.04
-  # V40 OP longitudinal, step 2a: drive, coast and light braking while the camera isn't braking. OP brakes with brake
+  # V40 OP longitudinal, step 2b: drive, coast and braking to -2.0 while the camera isn't braking. OP brakes with brake
   # mode and both hydraulic flags, like the camera. Whenever the camera brakes, or the car is at a standstill, the
-  # camera's frames go out unchanged. volvo_c1.h allows -1.04 to +2.0, and the flags only with a request at or below 0.
-  C1_LONG_ACCEL_MIN = -1.0  # m/s^2; below it the camera's frames go out unchanged
+  # camera's frames go out unchanged. volvo_c1.h allows -2.08 to +2.0, and the flags only with a request at or below 0.
+  C1_LONG_ACCEL_MIN = -2.0  # m/s^2; below it the camera's frames go out unchanged
   C1_LONG_ACCEL_MAX = 1.0
   C1_LONG_JERK_UP = 2.0  # m/s^3
   C1_LONG_JERK_DOWN = 4.0

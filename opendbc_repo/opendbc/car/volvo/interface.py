@@ -76,7 +76,7 @@ class CarInterface(CarInterfaceBase):
         ret.longitudinalTuning.kiBP = [0.]
         ret.longitudinalTuning.kiV = [0.2]
     elif c1:
-      # V40 OP long, step 2a (drive, coast, light braking): stock ACC engages, owns the set speed and keeps its own braking
+      # V40 OP long, step 2b (drive, coast, braking to -2.0): stock ACC engages, owns the set speed and keeps its own braking
       ret.openpilotLongitudinalControl = alpha_long
       if ret.openpilotLongitudinalControl:
         ret.longitudinalActuatorDelay = 0.4  # 0x160 request leads aEgo by 0.2-0.4 s in drive

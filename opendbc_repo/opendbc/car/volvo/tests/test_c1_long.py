@@ -117,7 +117,7 @@ def test_mode_hysteresis():
   assert c1_next_long_mode(LongMode.DRIVE, -0.08) == LongMode.COAST
 
 
-# Step 2a controller against the panda: everything it sends must pass volvo_c1.h
+# Step 2b controller against the panda: everything it sends must pass volvo_c1.h
 lib = libsafety_py.libsafety
 FSM2_DRIVE = bytes.fromhex("b000dd54cfd001c5")  # FSM2_ENGAGE's bytes 0-6, request raw 69 (+0.4)
 FSM4_DRIVE_FRAME = FSM4_DRIVE[0]
@@ -161,11 +161,11 @@ def test_controller_capped_to_camera_and_accepted():
   assert out[FSM4][6] & 0x3 == LongMode.DRIVE
 
 
-def test_controller_brakes_lightly():
+def test_controller_brakes_to_its_floor():
   drive = Drive()
   for _ in range(300):
     out = drive.step(-3.0)
-  assert (out[FSM2][7] & 0x7F) - 64 in (-12, -13)  # held at -1.0
+  assert (out[FSM2][7] & 0x7F) - 64 == -25  # held at -2.0
   assert out[FSM2][2] & 0x20 and out[FSM2][5] & 0x20  # both hydraulic flags
   assert out[FSM4][6] & 0x3 == LongMode.BRAKE and out[FSM4][7] == 0
 
@@ -222,4 +222,4 @@ def test_controller_takes_over_after_camera_braking_within_limits():
   drive.step(0.5)
   drive.step(0.5, request=FSM2_BRAKE, mode=FSM4_BRAKE[0])  # camera at -2.4 with the brake flags
   out = drive.step(0.5)  # the camera drives again: OP ramps from its own floor, not the camera's -2.4
-  assert (out[FSM2][7] & 0x7F) - 64 in (-12, -13)
+  assert (out[FSM2][7] & 0x7F) - 64 in (-24, -25)

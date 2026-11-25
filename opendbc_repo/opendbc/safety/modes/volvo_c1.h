@@ -129,7 +129,7 @@ static uint8_t volvo_c1_aol_permission(void) {
   return permission;
 }
 
-// Experimental OP longitudinal (param flag 16): drive, coast and light braking. Stock ACC stays engaged and keeps its
+// Experimental OP longitudinal (param flag 16): drive, coast and braking to about -2.0. Stock ACC stays engaged and keeps its
 // own braking. OP's 0x160/0x280 must be one of the camera's frames from the last 100 ms with only the request (0x160
 // byte 7 bits 6-0), the two hydraulic brake flags (0x160 byte 2 bit 5, byte 5 bit 5) or the mode and traction (0x280
 // byte 6 bits 1-0, byte 7) replaced, so the masked copies always come from the camera. OP sets both flags or neither,
@@ -138,7 +138,7 @@ static uint8_t volvo_c1_aol_permission(void) {
 // may send its own.
 #define VOLVO_C1_CAM_FRAMES 5U
 #define VOLVO_C1_CAM_FRAME_MAX_AGE_US 100000U
-#define VOLVO_C1_LONG_REQUEST_MIN (-13)  // counts from 64 at ~0.08 m/s^2: -1.04 (about -1.0 at the brake side's ~0.075)
+#define VOLVO_C1_LONG_REQUEST_MIN (-26)  // counts from 64 at ~0.08 m/s^2: -2.08 (about -1.9 at the brake side's ~0.075)
 #define VOLVO_C1_LONG_BRAKE_REQUEST_MAX 0  // the hydraulic flags only with a request at or below zero
 #define VOLVO_C1_LONG_REQUEST_MAX 25    // +2.0 m/s^2
 #define VOLVO_C1_LONG_TRACTION_MAX 186U  // drive traction for +2.0 m/s^2 (93 per m/s^2)
