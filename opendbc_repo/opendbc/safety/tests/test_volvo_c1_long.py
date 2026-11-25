@@ -112,6 +112,27 @@ class TestVolvoC1Long(unittest.TestCase):
     self.assertFalse(self._tx(ACC_MODE, with_mode(MODE_BRAKE, 1, -20)))
     self.assertFalse(self._tx(ACC_MODE, with_mode(MODE_BRAKE, 2, 20)))
 
+  def test_camera_keeps_the_brakes_with_either_flag(self):
+    # the camera has the brakes when either hydraulic flag is set, not only when both are
+    for byte in (2, 5):
+      self.setUp()
+      self._engage()
+      cam = bytearray(REQUEST)
+      cam[byte] |= 0x20
+      self._cam(ACC_REQUEST, bytes(cam))
+      self.assertTrue(self._tx(ACC_REQUEST, bytes(cam)))
+      for counts in (-7, 0, 5):
+        with self.subTest(byte=byte, counts=counts):
+          self.assertFalse(self._tx(ACC_REQUEST, with_request(bytes(cam), counts)))
+
+  def test_brake_flags_are_bit_5_only(self):
+    # other bits in the two flag bytes aren't brake flags: OP may still replace the request
+    self._engage()
+    cam = bytearray(REQUEST)  # byte 2 bit 0 is already set
+    cam[5] |= 0x01
+    self._cam(ACC_REQUEST, bytes(cam))
+    self.assertTrue(self._tx(ACC_REQUEST, with_request(bytes(cam), 5)))
+
   def test_mode_and_traction(self):
     self._engage()
     self._cam(ACC_MODE, MODE_DRIVE)
