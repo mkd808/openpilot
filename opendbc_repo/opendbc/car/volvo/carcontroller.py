@@ -26,6 +26,8 @@ class CarController(CarControllerBase):
     self.c1_cam_accel = 0.0
     self.c1_cam_mode = LongMode.COAST
     self.c1_long_was_active = False
+    self.c1_handoff = False  # OP is cancelling stock ACC to hand a stop it can't finish to the driver
+    self.c1_handoff_frame = None  # frame the handoff's first cancel went out
 
   def update(self, CC, CS, now_nanos):
     can_sends = []
@@ -120,7 +122,8 @@ class CarController(CarControllerBase):
     only takes the camera's recent frames with the request, the hydraulic brake flags or the mode and traction replaced.
     OP brakes like the camera does: brake mode, traction 0 and both flags. While the camera brakes (brake flags, brake
     mode), asks for more decel than OP may, or the car is at a standstill (the camera's hold), its frames go out
-    unchanged."""
+    unchanged. A stop OP would have to finish while the camera asks to drive is handed to the driver by cancelling
+    stock ACC (C1_LONG_HANDOFF_SPEED); until ACC is off OP's frames keep going out, also at a standstill."""
     CCP = CarControllerParams
     request_frames, mode_frames = CS.c1_stock_acc_request_frames, CS.c1_stock_acc_mode_frames
     if request_frames:
@@ -128,8 +131,16 @@ class CarController(CarControllerBase):
     cam_brake_mode = any(int(f["ACC_Mode"]) == LongMode.BRAKE for f in mode_frames)
     if mode_frames:
       self.c1_cam_mode = LongMode(int(mode_frames[-1]["ACC_Mode"]))
-    cam_owns = (any(f["ACC_BrakeRequest"] or f["ACC_BrakeRequest_B"] for f in request_frames) or cam_brake_mode or
-                self.c1_cam_mode == LongMode.BRAKE or self.c1_cam_accel < CCP.C1_LONG_ACCEL_MIN or CS.out.standstill)
+    cam_brakes = (any(f["ACC_BrakeRequest"] or f["ACC_BrakeRequest_B"] for f in request_frames) or cam_brake_mode or
+                  self.c1_cam_mode == LongMode.BRAKE or self.c1_cam_accel < CCP.C1_LONG_ACCEL_MIN)
+
+    # Stop handoff (see C1_LONG_HANDOFF_SPEED): latched until ACC is off
+    if not CC.enabled:
+      self.c1_handoff = False
+    elif (CC.longActive and CS.out.vEgo < CCP.C1_LONG_HANDOFF_SPEED and CC.actuators.accel < CCP.C1_LONG_HANDOFF_ACCEL and
+          not cam_brakes and self.c1_cam_accel > 0.):
+      self.c1_handoff = True
+    cam_owns = cam_brakes or (CS.out.standstill and not self.c1_handoff)
 
     if not CC.longActive:
       self.c1_long_was_active = False
@@ -165,4 +176,10 @@ class CarController(CarControllerBase):
         sends.append(create_c1_acc_request(self.packer, frame, self.c1_accel, brake))
     for frame in mode_frames:
       sends.append(create_c1_acc_mode(self.packer, frame) if cam_owns else create_c1_acc_mode(self.packer, frame, self.c1_accel, self.c1_long_mode))
+    if self.c1_handoff and (self.c1_handoff_frame is None or (self.frame - self.c1_handoff_frame) % 10 == 0):
+      if self.c1_handoff_frame is None:
+        self.c1_handoff_frame = self.frame
+      sends.append(create_c1_cancel(self.packer))
+    if not self.c1_handoff:
+      self.c1_handoff_frame = None
     return sends

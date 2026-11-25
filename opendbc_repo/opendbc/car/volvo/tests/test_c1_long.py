@@ -15,6 +15,7 @@ from opendbc.safety.tests.test_volvo_c1 import packet
 
 DBC = "volvo_v40_2017_pt"
 FSM2, FSM4 = 0x160, 0x280
+BUTTONS = 0x10
 
 # stock camera frames, route 7c7d3d5e5ff31d51/0000000d (ACC stop and go); tools/volvo_c1/replay_encode.py checks every frame
 FSM2_ACC_OFF = bytes.fromhex("9000df5408d001bf")
@@ -136,10 +137,11 @@ class Drive:
     lib.set_timer(1_000_000)
     lib.set_controls_allowed(True)
 
-  def step(self, accel, request=FSM2_DRIVE, mode=FSM4_DRIVE_FRAME, long_active=True, enabled=True, standstill=False):
+  def step(self, accel, request=FSM2_DRIVE, mode=FSM4_DRIVE_FRAME, long_active=True, enabled=True, standstill=False, v_ego=20.):
     for addr, dat in ((FSM2, request), (FSM4, mode)):
       lib.safety_rx_hook(packet((addr, dat, 2)))
-    cs = SimpleNamespace(out=structs.CarState.new_message(standstill=standstill).as_reader(), c1_lka_torque=0, c1_brake_hold=False, c1_buttons_stock=None,
+    out = structs.CarState.new_message(standstill=standstill, vEgo=0. if standstill else v_ego).as_reader()
+    cs = SimpleNamespace(out=out, c1_lka_torque=0, c1_brake_hold=False, c1_buttons_stock=None,
                          c1_msg_pscm={'SteeringAngleServo': 0, 'byte0': 0, 'byte3': 0, 'byte4': 0, 'byte7': 0, 'LKAActive': 0},
                          c1_stock_acc_request_frames=[parse("FSM2", FSM2, 50, request)],
                          c1_stock_acc_mode_frames=[parse("FSM4", FSM4, 40, mode)])
@@ -148,6 +150,9 @@ class Drive:
     _, sends = self.cc.update(cc.as_reader(), cs, 0)
     long_sends = [(a, d, b) for a, d, b in sends if a in (FSM2, FSM4)]
     for msg in long_sends:
+      assert lib.safety_tx_hook(packet(msg)), msg
+    self.cancels = [(a, d, b) for a, d, b in sends if a == BUTTONS]
+    for msg in self.cancels:
       assert lib.safety_tx_hook(packet(msg)), msg
     return {a: d for a, d, _ in long_sends}
 
@@ -185,10 +190,57 @@ def test_controller_brake_flags_follow_brake_mode():
 
 
 def test_controller_hands_standstill_to_camera():
+  # the camera made this stop (it no longer asks to drive): at the standstill its frames go out, no cancel
+  fsm2_zero = request(FSM2_ENGAGE, 0.)
   drive = Drive()
   for _ in range(300):
-    drive.step(-3.0)
-  assert drive.step(-3.0, standstill=True) == {FSM2: FSM2_DRIVE, FSM4: FSM4_DRIVE_FRAME}
+    drive.step(-3.0, request=fsm2_zero, v_ego=2.)
+  assert drive.step(-3.0, request=fsm2_zero, standstill=True) == {FSM2: fsm2_zero, FSM4: FSM4_DRIVE_FRAME}
+  assert not drive.cancels
+
+
+def test_handoff_cancels_acc_when_op_would_stop_against_the_camera():
+  # slow, OP braking, the camera asking to accelerate (+0.4): OP cancels stock ACC and keeps its own frames
+  drive = Drive()
+  drive.step(-1.0, v_ego=3.)
+  assert drive.cancels and drive.cancels[0][1][7] == 0x10 and drive.cancels[0][2] == 0
+  sent = 0
+  for _ in range(30):
+    out = drive.step(-1.0, v_ego=2.)
+    sent += len(drive.cancels)
+  assert sent == 3  # every 10 frames while latched
+  assert (out[FSM2][7] & 0x7F) - 64 < 0  # OP's braking, not the camera's +0.4
+
+
+def test_handoff_keeps_op_frames_at_standstill():
+  drive = Drive()
+  for _ in range(100):
+    drive.step(-1.0, v_ego=3.)
+  out = drive.step(-1.0, standstill=True)
+  assert out[FSM2] != FSM2_DRIVE and out[FSM2][2] & 0x20  # still OP braking, never the camera's +0.4
+  assert out[FSM4][6] & 0x3 == LongMode.BRAKE
+
+
+def test_handoff_ends_when_acc_is_off():
+  drive = Drive()
+  drive.step(-1.0, v_ego=3.)
+  assert drive.step(-1.0, long_active=False, enabled=False) == {}
+  drive.step(0.3, v_ego=20.)
+  assert not drive.cancels
+
+
+@pytest.mark.parametrize("kwargs", [
+  dict(accel=-1.0, v_ego=5.),  # above 14 km/h
+  dict(accel=-0.2, v_ego=3.),  # only gentle coasting
+  dict(accel=-1.0, v_ego=3., request=request(FSM2_ENGAGE, 0.)),  # the camera isn't asking to accelerate
+  dict(accel=-1.0, v_ego=3., request=FSM2_BRAKE, mode=FSM4_BRAKE[0]),  # the camera is braking
+  dict(accel=-1.0, v_ego=3., long_active=False),  # override
+])
+def test_no_handoff(kwargs):
+  drive = Drive()
+  for _ in range(20):
+    drive.step(**kwargs)
+    assert not drive.cancels
 
 
 def test_controller_jerk_limited():

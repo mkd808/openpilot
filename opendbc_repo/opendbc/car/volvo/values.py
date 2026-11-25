@@ -51,6 +51,13 @@ class CarControllerParams:
   C1_LONG_JERK_DOWN = 4.0
   # First drives: never more accel than the camera's own request, so OP can only be gentler than stock ACC
   C1_LONG_CAMERA_CAP = True
+  # Stop handoff: OP never finishes a stop the camera isn't making. If OP brought the car to a standstill while the
+  # camera still asks to drive (no lead, below the set speed), the camera's frames would go out at the standstill and
+  # pull away. So below this speed, while OP asks to slow down and the camera isn't braking but asks to accelerate,
+  # OP cancels stock ACC: the driver gets openpilot's disengage alert, the car coasts and the driver brakes. Until ACC
+  # is off, OP's own frames keep going out, also at a standstill.
+  C1_LONG_HANDOFF_SPEED = 14 * CV.KPH_TO_MS
+  C1_LONG_HANDOFF_ACCEL = -0.3  # m/s^2; OP asks for more than gentle coasting
 
 
 @dataclass
