@@ -189,6 +189,32 @@ def test_controller_brake_flags_follow_brake_mode():
   assert out[FSM2][2] & 0x20 == 0 and out[FSM2][5] & 0x20 == 0 and out[FSM4][6] & 0x3 == LongMode.DRIVE
 
 
+def test_controller_brakes_through_camera_engine_braking():
+  # route 00000012 at 25 s: the camera flips 0x280 between coast and brake mode without the hydraulic flags (engine
+  # braking) while OP wants -0.8. OP's braking must not drop out on the camera's brake-mode frames.
+  fsm2_coast = request(FSM2_ENGAGE, -0.16)
+  drive = Drive()
+  requests = []
+  for i in range(150):
+    mode = FSM4_BRAKE[0] if (i // 5) % 2 else FSM4_COAST[0]
+    out = drive.step(-0.8, request=fsm2_coast, mode=mode)
+    requests.append((out[FSM2][7] & 0x7F) - 64)
+    if mode == FSM4_BRAKE[0]:
+      assert out[FSM4] == FSM4_BRAKE[0]  # the camera's brake mode goes out unchanged
+    if requests[-1] <= -8:
+      assert out[FSM2][2] & 0x20 and out[FSM2][5] & 0x20
+  assert all(b <= a for a, b in zip(requests, requests[1:], strict=False))  # one ramp down, no restarts
+  assert requests[-1] in (-10, -11)  # -0.8
+
+
+def test_controller_starts_coasting_from_camera_engine_braking():
+  # engaging while the camera engine-brakes (brake mode, no flags): OP doesn't add the hydraulic flags for a gentle -0.3
+  drive = Drive()
+  for _ in range(50):
+    out = drive.step(-0.3, request=request(FSM2_ENGAGE, -0.4), mode=FSM4_BRAKE[0])
+    assert out[FSM2][2] & 0x20 == 0
+
+
 def test_controller_hands_standstill_to_camera():
   # the camera made this stop (it no longer asks to drive): at the standstill its frames go out, no cancel
   fsm2_zero = request(FSM2_ENGAGE, 0.)
