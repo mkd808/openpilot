@@ -13,7 +13,10 @@ def params(alpha=False, release=False):
   return CarInterface._get_params(cp, CAR.VOLVO_V40, {0: {}, 1: {}, 2: {}}, [], alpha, release, False)
 
 
-def feed(parsers, time=1000000000, torque=10):
+FSM5_60 = bytes.fromhex("cb2f00080caa2000")
+
+
+def feed(parsers, time=1000000000, torque=10, fsm5=FSM5_60):
   packer = CANPacker('volvo_v40_2017_pt')
   messages = [
     packer.make_can_msg('VehicleSpeed1', 0, {'VehicleSpeed': 72}),
@@ -27,12 +30,29 @@ def feed(parsers, time=1000000000, torque=10):
     packer.make_can_msg('CEM0', 0, {'LKA_State': 1}),
     packer.make_can_msg('FSM0', 2, {'ACCStatusOnOff': 1, 'ACCStatusActive': 1}),
     packer.make_can_msg('FSM1', 2, {}),
+    (0x355, fsm5, 2),  # FSM5 as the camera sent it (route 00000016): SpeedSign 12 x 5 = 60 km/h
   ]
   for parser in parsers.values():
     parser.update([(time, messages)])
 
 
 class TestVolvoC1Host(unittest.TestCase):
+  def test_c1_fsm_road_sign_is_the_dashboard_speed_limit(self):
+    from opendbc.car.dashboard_speed_limit import Status
+    # route 00000016 FSM5 frames: 40, 50 and 60 km/h signs, and a frame with no sign
+    for time, frame, status, kph in [(1, "cb2f220808aa2000", Status.VALID, 40), (2, "cf2f2b080a552000", Status.VALID, 50),
+                                     (3, "cb2f00080caa2000", Status.VALID, 60), (4, "cb2f00080c402000", Status.VALID, 60),
+                                     (5, "cb2f000800552000", Status.ABSENT, 0)]:
+      with self.subTest(frame=frame):
+        cp = params()
+        cs = CarState(cp)
+        parsers = cs.get_can_parsers(cp)
+        feed(parsers, time * 1000000000, fsm5=bytes.fromhex(frame))
+        cs.update(parsers)
+        assert cs.dashboard_limit.observation.status == status
+        if status == Status.VALID:
+          assert cs.dashboard_limit.observation.speed_mps == pytest.approx(kph / 3.6)
+
   def test_c1_params_stock_long_unless_alpha(self):
     for alpha in [False, True]:
       for release in [False, True]:
