@@ -361,6 +361,29 @@ def test_brake_test_needs_a_clear_road(flag_file, kwargs):
     assert not drive.cc.c1_bt_active and not braking(out)
 
 
+def test_brake_test_sends_its_end_speed_as_the_target(flag_file):
+  # 0x280 byte 5 (SpeedTarget): the camera drives with target 60, OP brakes from 54 km/h towards 54 - 15 = 39
+  fsm4_60 = FSM4_DRIVE_FRAME[:5] + bytes([60]) + FSM4_DRIVE_FRAME[6:]
+  drive = Drive(param=50)
+  for _ in range(5):
+    drive.step(0.3, v_ego=15., mode=fsm4_60)
+  out = None
+  for _ in range(60):
+    out = drive.step(0.3, v_ego=15., lka=True, mode=fsm4_60)
+  assert braking(out) and out[FSM4][5] == 39
+
+
+def test_brake_test_target_over_camera_engine_braking(flag_file):
+  # the camera's brake mode without flags (engine braking) mid-test: OP's brake frame with its target still goes out
+  engine_brake_60 = FSM4_BRAKE[0][:5] + bytes([60]) + FSM4_BRAKE[0][6:]  # brake mode, no flags, cruising target
+  drive = Drive(param=50)
+  brake_test(drive, 60)
+  out = drive.step(0.3, v_ego=15., lka=True, mode=engine_brake_60)
+  assert braking(out) and out[FSM4][5] == 39  # OP's end speed, not the camera's 60
+  out = drive.step(0.3, v_ego=15., lka=True, mode=FSM4_BRAKE[0])
+  assert out[FSM4][5] == FSM4_BRAKE[0][5]  # the camera's 21 is already lower: kept
+
+
 def test_brake_test_needs_the_flag_file():
   drive = Drive(param=50)
   out = brake_test(drive, 60)

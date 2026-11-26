@@ -243,6 +243,13 @@ static bool volvo_c1_acc_request_tx_ok(const CANPacket_t *msg) {
   return ok;
 }
 
+// the camera's latest 0x160 asks for hydraulic braking (either flag)
+static bool volvo_c1_cam_hydraulic(void) {
+  const uint8_t last = (volvo_c1_cam_request.index + VOLVO_C1_CAM_FRAMES - 1U) % VOLVO_C1_CAM_FRAMES;
+  const uint8_t *cam = volvo_c1_cam_request.data[last];
+  return !volvo_c1_cam_frame_fresh(&volvo_c1_cam_request, last) || ((cam[2] & 0x20U) != 0U) || ((cam[5] & 0x20U) != 0U);
+}
+
 static bool volvo_c1_acc_mode_tx_ok(const CANPacket_t *msg) {
   // Signals: ACC_Mode (byte 6 bits 1-0: 0 brake, 1 coast, 2 drive), ACC_TractionRequest (byte 7, signed in coast)
   const unsigned int mode = (unsigned int)msg->data[6] & 0x3U;
@@ -254,13 +261,19 @@ static bool volvo_c1_acc_mode_tx_ok(const CANPacket_t *msg) {
   for (uint8_t i = 0U; i < VOLVO_C1_CAM_FRAMES; i++) {
     if (volvo_c1_cam_frame_fresh(&volvo_c1_cam_mode, i)) {
       const uint8_t *cam = volvo_c1_cam_mode.data[i];
-      bool same = (msg->data[6] & 0xFCU) == (cam[6] & 0xFCU);
-      for (uint8_t byte = 0U; byte < 6U; byte++) {
-        same = same && (msg->data[byte] == cam[byte]);
+      bool same_but_target = (msg->data[6] & 0xFCU) == (cam[6] & 0xFCU);
+      for (uint8_t byte = 0U; byte < 5U; byte++) {
+        same_but_target = same_but_target && (msg->data[byte] == cam[byte]);
       }
+      const bool same = same_but_target && (msg->data[5] == cam[5]);
+      // Test 5: in its brake mode OP may lower byte 5 (SpeedTarget), the speed the braking aims for, below the camera's:
+      // the camera drops it to the lead's speed, or 0, while it brakes, and OP's copies kept its cruising value
+      const bool target_ok = brake_ok && (msg->data[5] <= cam[5]);
       const bool cam_brakes = (cam[6] & 0x3U) == 0U;
       const bool unchanged = same && (msg->data[6] == cam[6]) && (msg->data[7] == cam[7]);
-      ok = ok || unchanged || (same && !cam_brakes && (coast_ok || drive_ok || brake_ok));
+      // the target may change also while the camera only engine-brakes (brake mode without its hydraulic flags)
+      ok = ok || unchanged || (same && !cam_brakes && (coast_ok || drive_ok || brake_ok)) ||
+           (same_but_target && target_ok && !volvo_c1_cam_hydraulic());
     }
   }
   return ok;

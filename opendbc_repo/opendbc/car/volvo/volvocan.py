@@ -107,10 +107,14 @@ def create_c1_fsm0_relay(packer, stock: dict, tracking: bool):
   return packer.make_can_msg("FSM0", 0, values)
 
 
-def create_c1_acc_mode(packer, stock_fsm4: dict, accel: float | None = None, mode: LongMode | None = None):
-  # 0x280 with OP's mode and its traction for accel; without a mode the stock frame is copied
+def create_c1_acc_mode(packer, stock_fsm4: dict, accel: float | None = None, mode: LongMode | None = None,
+                       target_kph: float | None = None):
+  # 0x280 with OP's mode and its traction for accel; without a mode the stock frame is copied. In brake mode a target
+  # speed (byte 5 SpeedTarget, the speed the braking aims for) replaces the camera's when it is lower.
   values = {**stock_fsm4}
   if mode is not None:
     values["ACC_Mode"] = int(mode)
     values["ACC_TractionRequest"] = c1_traction(accel, mode)
+    if mode == LongMode.BRAKE and target_kph is not None:
+      values["SpeedTarget"] = min(int(stock_fsm4["SpeedTarget"]), max(int(round(target_kph)), 0))
   return packer.make_can_msg("FSM4", 0, values)

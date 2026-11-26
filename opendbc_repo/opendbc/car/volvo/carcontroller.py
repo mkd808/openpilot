@@ -230,20 +230,24 @@ class CarController(CarControllerBase):
       mode = c1_next_long_mode(self.c1_long_mode, accel)
       self.c1_long_mode = LongMode.COAST if mode == LongMode.BRAKE else mode
 
+    self.c1_bt_flags = brake_test and not cam_owns and self.c1_long_mode == LongMode.BRAKE and self.c1_accel < 0. and not self.c1_bt_release
     sends = []
     for frame in request_frames:
       if cam_owns:
         sends.append(create_c1_acc_request(self.packer, frame, float(frame["ACC_AccelRequest"])))
       else:
-        brake = brake_test and self.c1_long_mode == LongMode.BRAKE and self.c1_accel < 0. and not self.c1_bt_release
+        brake = self.c1_bt_flags
         sends.append(create_c1_acc_request(self.packer, frame, self.c1_accel, brake))
         if brake:
           # relay the car's 0x1B0 to the camera from OP's first braking frame on, as volvo_c1.h allows
           self.c1_bt_relay_until = self.frame + CCP.C1_BRAKE_TEST_RELAY_TAIL_FRAMES
     for frame in mode_frames:
-      cam_frame = cam_owns or int(frame["ACC_Mode"]) == LongMode.BRAKE
-      sends.append(create_c1_acc_mode(self.packer, frame) if cam_frame else create_c1_acc_mode(self.packer, frame, self.c1_accel, self.c1_long_mode))
-    self.c1_bt_flags = brake_test and not cam_owns and self.c1_long_mode == LongMode.BRAKE and self.c1_accel < 0. and not self.c1_bt_release
+      # the camera's engine-braking frames go out as they are, except while OP brakes hydraulically: then OP's brake frame
+      # with its target speed (volvo_c1.h allows it while the camera itself isn't braking hydraulically)
+      cam_frame = cam_owns or (int(frame["ACC_Mode"]) == LongMode.BRAKE and not self.c1_bt_flags)
+      target_kph = (self.c1_bt_v0 - CCP.C1_BRAKE_TEST_DROP) * 3.6 if self.c1_bt_flags else None
+      sends.append(create_c1_acc_mode(self.packer, frame) if cam_frame else
+                   create_c1_acc_mode(self.packer, frame, self.c1_accel, self.c1_long_mode, target_kph))
     if self.frame <= self.c1_bt_relay_until:
       for frame in getattr(CS, "c1_brake_msg_frames", []):
         sends.append(create_c1_brake_relay(self.packer, frame))

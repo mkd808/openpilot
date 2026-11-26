@@ -246,6 +246,47 @@ class TestVolvoC1BrakeTest(TestVolvoC1Long):
         self.assertFalse(self._tx(ACC_MODE, with_mode(MODE_DRIVE, 3, traction)))
 
 
+def with_target(dat: bytes, kph: int) -> bytes:
+  return dat[:5] + bytes([kph]) + dat[6:]
+
+
+class TestVolvoC1BrakeTarget(unittest.TestCase):
+  """Test 5: in OP's brake mode 0x280 byte 5 (SpeedTarget) may be lowered below the camera's, never raised."""
+  def setUp(self, param=C1_BRAKE_TEST):
+    self.assertEqual(0, lib.set_safety_hooks(VOLVO, param))
+    lib.init_tests()
+    lib.set_timer(1_000_000)
+    lib.set_controls_allowed(True)
+    lib.safety_rx_hook(packet((ACC_REQUEST, REQUEST, 2)))  # camera not braking hydraulically
+
+  def _tx(self, dat):
+    return bool(lib.safety_tx_hook(packet((ACC_MODE, dat, 0))))
+
+  def test_lower_target_in_brake_mode(self):
+    lib.safety_rx_hook(packet((ACC_MODE, MODE_DRIVE, 2)))  # camera target 0x1d = 29 km/h
+    brake = with_mode(MODE_DRIVE, 0, 0)
+    for kph in range(64):
+      with self.subTest(kph=kph):
+        self.assertEqual(kph <= 29, self._tx(with_target(brake, kph)))
+
+  def test_target_only_in_brake_mode(self):
+    lib.safety_rx_hook(packet((ACC_MODE, MODE_DRIVE, 2)))
+    self.assertFalse(self._tx(with_target(with_mode(MODE_DRIVE, 1, -20), 10)))
+    self.assertFalse(self._tx(with_target(with_mode(MODE_DRIVE, 2, 20), 10)))
+
+  def test_target_over_camera_engine_braking_but_not_hydraulic(self):
+    lib.safety_rx_hook(packet((ACC_MODE, MODE_BRAKE, 2)))  # camera brake mode, target 0x15 = 21
+    self.assertTrue(self._tx(with_target(MODE_BRAKE, 10)))  # camera only engine-braking
+    lib.safety_rx_hook(packet((ACC_REQUEST, REQUEST_BRAKE, 2)))
+    self.assertFalse(self._tx(with_target(MODE_BRAKE, 10)))  # camera braking hydraulically: its frame only
+    self.assertTrue(self._tx(MODE_BRAKE))
+
+  def test_not_without_the_brake_test_flag(self):
+    self.setUp(C1_LONG)
+    lib.safety_rx_hook(packet((ACC_MODE, MODE_DRIVE, 2)))
+    self.assertFalse(self._tx(with_target(with_mode(MODE_DRIVE, 0, 0), 10)))
+
+
 # car 0x1B0 frames, route 00000019: ACC braking (status 5, pressure 51/36), driving, and a driver's braking (status 0, pressure)
 BRAKE_ACC = bytes.fromhex("fc33a5020024c000")
 BRAKE_NONE = bytes.fromhex("fc00a0000000c000")
