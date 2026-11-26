@@ -238,6 +238,7 @@ def test_handoff_ends_when_acc_is_off():
 @pytest.mark.parametrize("kwargs", [
   dict(accel=-1.0, v_ego=5.),  # above 14 km/h
   dict(accel=-0.2, v_ego=3.),  # only gentle coasting
+  dict(accel=-0.46, v_ego=1.7),  # route 00000020 at 109.6 s: the lead pulls away, OP's planner lags behind
   dict(accel=-1.0, v_ego=3., request=request(FSM2_ENGAGE, 0.)),  # the camera isn't asking to accelerate
   dict(accel=-1.0, v_ego=3., request=FSM2_BRAKE, mode=FSM4_BRAKE[0]),  # the camera is braking
   dict(accel=-1.0, v_ego=3., long_active=False),  # override
