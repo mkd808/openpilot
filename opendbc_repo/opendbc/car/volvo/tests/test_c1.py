@@ -37,6 +37,19 @@ def feed(parsers, time=1000000000, torque=10, fsm5=FSM5_60):
 
 
 class TestVolvoC1Host(unittest.TestCase):
+  def test_c1_brake_hold_is_only_the_hold_flag(self):
+    # ACC braking (status 5) or its transition (status 1) isn't a hold; only the hold flag is
+    packer = CANPacker('volvo_v40_2017_pt')
+    for status, hold, expected in [(5, 0, False), (1, 0, False), (0, 0, False), (1, 1, True), (0, 1, True)]:
+      with self.subTest(status=status, hold=hold):
+        cp = params()
+        cs = CarState(cp)
+        parsers = cs.get_can_parsers(cp)
+        feed(parsers)
+        for parser in parsers.values():
+          parser.update([(1000000001, [packer.make_can_msg('BrakeMessages', 0, {'BrakeStatus': status, 'BrakeHold': hold})])])
+        assert cs.update(parsers).brakeHoldActive == expected
+
   def test_c1_fsm_road_sign_is_the_dashboard_speed_limit(self):
     from opendbc.car.dashboard_speed_limit import Status
     # route 00000016 FSM5 frames: 40, 50 and 60 km/h signs, and a frame with no sign
