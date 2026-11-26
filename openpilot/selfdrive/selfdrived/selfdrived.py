@@ -108,6 +108,9 @@ class SelfdriveD:
     # V40 OP long can only coast and the stock ACC camera ignores stationary cars: warn when OP needs braking nobody gives
     volvo_v40_long = self.CP.carFingerprint == VOLVO_CAR.VOLVO_V40 and self.CP.openpilotLongitudinalControl
     self.volvo_brake_gap = BrakeGapWarning() if volvo_v40_long else None
+    from opendbc.car.volvo.values import CarControllerParams as VolvoCCP
+    from openpilot.selfdrive.controls.lib.volvo_resume_shadow import ResumeAssistFlag
+    self.volvo_op_braking_flag = ResumeAssistFlag(VolvoCCP.C1_OP_BRAKE_FLAG)  # step 2b's flag file, checked once a second
     self.ordinary_axis_ack_required = axis_policy_for(self.CP).ordinary_axis_ack_required
     self.aol_cruise_main_required = axis_policy_for(self.CP).cruise_main_required
     self.axis_transport_required = self.aol_replay or self.ordinary_axis_ack_required
@@ -728,7 +731,8 @@ class SelfdriveD:
       planner_fcw |= self.volvo_brake_gap.update(time.monotonic(), self.sm['carControl'].longActive, CS.vEgo,
                                                  self.sm['carControl'].actuators.accel,
                                                  self.sm['carOutput'].actuatorsOutput.accel,
-                                                 lead.present, lead.dRel, lead.vRel)
+                                                 lead.present, lead.dRel, lead.vRel,
+                                                 op_braking=self.volvo_op_braking_flag.enabled(time.monotonic()))
     if (planner_fcw or model_fcw) and not self.CP.notCar:
       self.events.add(EventName.fcw)
 

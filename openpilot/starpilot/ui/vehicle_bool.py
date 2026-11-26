@@ -4,7 +4,7 @@ VEHICLE_BOOL_KEYS = frozenset(("AlphaLongitudinalEnabled", "SubaruAvhStartup", "
                               "GMPedalLongitudinal", "DisableOpenpilotLongitudinal", "LongPitch", "VoltSNG", "SNGHack", "GMAutoHold", "VoltOnePedalMode",
                               "TeslaCoopSteering", "TeslaAOLScreenTap", "TeslaAOLDisengageOnBrake",
                               "RemoteStartBootsComma", "HKGRemoteStartBootsComma", "IgnoreIgnitionLine", "TeslaWakeOnCAN",
-                              "VolvoC1ResumeAssist", "VolvoC1BrakeTest"))
+                              "VolvoC1ResumeAssist", "VolvoC1BrakeTest", "VolvoC1OpBraking"))
 
 
 def confirmation_question(request):
@@ -58,4 +58,9 @@ def confirmation_question(request):
       return ("Turn on the Volvo V40 brake test? Flipping the LKA button with OP long active above 30 km/h and no lead " +
               "makes StarPilot brake at -1.0 m/s^2 for up to 4 s. Stock ACC may switch off until the next ignition cycle.")
     return "Turn off the Volvo V40 brake test? The LKA button goes back to normal."
+  if request.key == "VolvoC1OpBraking":
+    if request.value == "On":
+      return ("Turn on Volvo V40 OP braking (alpha)? Behind a lead above 20 km/h StarPilot may brake gently itself; " +
+              "stock ACC still does firmer braking and stops. Stock ACC may switch off if the car objects.")
+    return "Turn off Volvo V40 OP braking? StarPilot goes back to coasting only; stock ACC does all braking."
   raise ValueError("Unsupported vehicle preference")

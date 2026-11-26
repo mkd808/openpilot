@@ -489,3 +489,70 @@ def test_no_fsm0_relay_without_the_test():
   for _ in range(30):
     drive.step(0.3, v_ego=15., fsm0=FSM0_ACTIVE)
     assert not drive.relays
+
+
+# Step 2b: OP's planner braking behind a lead (flag file C1_OP_BRAKE_FLAG), same panda permission as the brake test
+@pytest.fixture
+def op_flag(monkeypatch):
+  import opendbc.car.volvo.carcontroller as carcontroller
+  monkeypatch.setattr(carcontroller.os.path, "exists", lambda path: path == CarControllerParams.C1_OP_BRAKE_FLAG)
+
+
+def op_brake(drive, frames, accel=-1.5, **kwargs):
+  out = None
+  for _ in range(frames):
+    out = drive.step(accel, **{"v_ego": 15., "lead": True, **kwargs})
+  return out
+
+
+def test_op_brake_behind_a_lead(op_flag):
+  drive = Drive(param=50)
+  out = op_brake(drive, 200)
+  assert drive.cc.c1_ob_active and braking(out) and out[FSM4][7] == 0
+  assert (out[FSM2][7] & 0x7F) - 64 == -16  # the planner's -1.5 capped at -1.0 actual (-1.25 request)
+  assert out[FSM4][5] <= 39  # target speed 54 - 15 km/h
+
+
+def test_op_brake_follows_a_milder_planner(op_flag):
+  drive = Drive(param=50)
+  out = op_brake(drive, 200, accel=-0.75)
+  assert braking(out) and (out[FSM2][7] & 0x7F) - 64 == -12  # -0.96 request from the table for -0.75
+
+
+@pytest.mark.parametrize("kwargs", [{"lead": False}, {"v_ego": 4.}, {"accel": -0.3}, {"gas": True}])
+def test_no_op_brake(op_flag, kwargs):
+  drive = Drive(param=50)
+  out = op_brake(drive, 200, **kwargs)
+  assert not drive.cc.c1_ob_active and not braking(out)
+
+
+def test_no_op_brake_without_the_flag():
+  drive = Drive(param=50)
+  out = op_brake(drive, 200)
+  assert not drive.cc.c1_ob_active and not braking(out)
+
+
+def test_op_brake_hands_to_the_camera_braking(op_flag):
+  drive = Drive(param=50)
+  op_brake(drive, 100)
+  out = drive.step(-1.5, request=FSM2_BRAKE, mode=FSM4_BRAKE[0], v_ego=15., lead=True)
+  assert out == {FSM2: FSM2_BRAKE, FSM4: FSM4_BRAKE[0]}
+
+
+def test_op_brake_ramps_out_when_the_lead_goes(op_flag):
+  drive = Drive(param=50)
+  op_brake(drive, 200)
+  out = op_brake(drive, 30, lead=False)
+  assert drive.cc.c1_ob_active  # still ramping back up at 2 m/s^3 (-1.25 -> -0.48 takes ~0.4 s)
+  out = op_brake(drive, 30, lead=False)
+  assert not drive.cc.c1_ob_active and not braking(out)
+  assert (out[FSM2][7] & 0x7F) - 64 >= -6  # back on the coast floor
+
+
+def test_op_brake_overshoot_release(op_flag):
+  drive = Drive(param=50)
+  op_brake(drive, 200)
+  out = op_brake(drive, 1, a_ego=-1.4)  # 0.4 harder than the -1.0 target
+  assert drive.cc.c1_ob_release and out[FSM2][2] & 0x20 == 0
+  out = op_brake(drive, 1, a_ego=-0.95)
+  assert not drive.cc.c1_ob_release and braking(out)

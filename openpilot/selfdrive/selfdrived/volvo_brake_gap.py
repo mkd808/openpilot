@@ -17,10 +17,15 @@ Replayed over routes 0f, 10, 12, 13 and 16 it fires once: route 16 at 126.0 s, 5
 """
 
 WANT_BELOW = -0.8  # m/s^2, OP's desired accel
+WANT_MARGIN = 0.3  # m/s^2: OP wants this much more than the accel that went out (step 2b: OP may brake to ~-1.0 itself)
 NEED_ABOVE = 1.0  # m/s^2, decel needed to stop behind the closing lead
 HOLD_S = 0.3
 MIN_SPEED = 3.0  # m/s
-OP_FLOOR = -0.5  # m/s^2: below this the accel that went out is the camera's own braking
+# m/s^2: below this the accel that went out is the camera's own braking. OP coasting only: -0.5. With step 2b's OP
+# braking on (its flag file), OP's own request may go to ~-1.28, so -1.35. With OP braking off the -0.5 floor still
+# tells the camera's early braking from OP's coasting (route 00000013 at 157.7 s).
+OP_FLOOR = -0.5
+OP_FLOOR_OP_BRAKING = -1.35
 STANDOFF = 4.0  # m, stopping gap behind the lead
 
 
@@ -36,9 +41,10 @@ class BrakeGapWarning:
     self.since: float | None = None
 
   def update(self, t: float, long_active: bool, v_ego: float, desired_accel: float, output_accel: float,
-             lead_present: bool, d_rel: float, v_rel: float) -> bool:
-    short = (long_active and v_ego > MIN_SPEED and output_accel >= OP_FLOOR and desired_accel < WANT_BELOW and
-             lead_present and stopping_decel(d_rel, v_rel) > NEED_ABOVE)
+             lead_present: bool, d_rel: float, v_rel: float, op_braking: bool = False) -> bool:
+    floor = OP_FLOOR_OP_BRAKING if op_braking else OP_FLOOR
+    short = (long_active and v_ego > MIN_SPEED and output_accel >= floor and desired_accel < WANT_BELOW and
+             desired_accel < output_accel - WANT_MARGIN and lead_present and stopping_decel(d_rel, v_rel) > NEED_ABOVE)
     if not short:
       self.since = None
       return False

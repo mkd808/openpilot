@@ -43,6 +43,11 @@ class CarController(CarControllerBase):
     self.c1_bt_release = False  # overshoot: flags dropped until the car is back near the request
     self.c1_bt_flags = False  # OP's hydraulic flags went out this frame
     self.c1_bt_pressure_logged = False
+    # step 2b: OP's planner braking (C1_OP_BRAKE_FLAG), same panda permission as the brake test
+    self.c1_ob_armed = False  # the flag file is on the device
+    self.c1_ob_check_frame = None
+    self.c1_ob_active = False  # OP's planner brakes, or ramps back out of it
+    self.c1_ob_release = False  # overshoot: flags dropped until the car is back near the target
 
   def update(self, CC, CS, now_nanos):
     can_sends = []
@@ -157,6 +162,17 @@ class CarController(CarControllerBase):
       carlog.warning(f"volvo_c1_brake_test start at {CS.out.vEgo * 3.6:.1f} km/h")
     return self.c1_bt_active
 
+  def _c1_op_brake_allowed(self, CC, CS, cam_brakes) -> bool:
+    """Step 2b: may OP's planner brake now (see C1_OP_BRAKE_FLAG)?"""
+    CCP = CarControllerParams
+    if not self.c1_bt_capable:
+      return False
+    if self.c1_ob_check_frame is None or self.frame - self.c1_ob_check_frame >= CCP.C1_BRAKE_TEST_FLAG_CHECK_FRAMES:
+      self.c1_ob_armed = os.path.exists(CCP.C1_OP_BRAKE_FLAG)
+      self.c1_ob_check_frame = self.frame
+    return bool(self.c1_ob_armed and CC.longActive and CC.hudControl.leadVisible and CS.out.vEgo >= CCP.C1_OP_BRAKE_MIN_SPEED and
+                not CS.out.gasPressed and not CS.out.brakePressed and not cam_brakes)
+
   def _c1_longitudinal(self, CC, CS):
     """V40 OP long: drive and coast, stock ACC engaged and keeping all braking (see C1_LONG_ACCEL_MIN).
 
@@ -185,6 +201,12 @@ class CarController(CarControllerBase):
       self.c1_handoff = True
     cam_owns = cam_brakes or (CS.out.standstill and not self.c1_handoff)
     brake_test = self._c1_brake_test(CC, CS, cam_brakes)
+    op_brake_ok = not brake_test and self._c1_op_brake_allowed(CC, CS, cam_brakes)
+    if op_brake_ok and CC.actuators.accel < CCP.C1_OP_BRAKE_ENTER and not self.c1_ob_active:
+      self.c1_ob_active, self.c1_ob_release = True, False
+      carlog.warning(f"volvo_c1_op_brake start at {CS.out.vEgo * 3.6:.1f} km/h, planner {CC.actuators.accel:+.2f}")
+    if brake_test or not CC.longActive:
+      self.c1_ob_active = False
 
     if not CC.longActive:
       self.c1_long_was_active = False
@@ -220,6 +242,30 @@ class CarController(CarControllerBase):
       elif CS.out.aEgo > CCP.C1_BRAKE_TEST_ACCEL - CCP.C1_BRAKE_TEST_REAPPLY:
         self.c1_bt_release = False
       self.c1_long_mode = LongMode.BRAKE if self.c1_accel < 0. else LongMode.COAST
+    elif not cam_owns and self.c1_ob_active:
+      # step 2b: the planner's braking, never deeper than C1_OP_BRAKE_ACCEL_MIN actual; back to coasting once the need
+      # ends or a condition fails, ramping up at the normal jerk limit, then the normal path takes over
+      braking = op_brake_ok and CC.actuators.accel < CCP.C1_OP_BRAKE_EXIT
+      target = max(CC.actuators.accel, CCP.C1_OP_BRAKE_ACCEL_MIN) if braking else CCP.C1_LONG_ACCEL_MIN
+      if braking:
+        ease = float(np.clip(CCP.C1_BRAKE_TEST_EASE_GAIN * (target - CS.out.aEgo), 0., CCP.C1_BRAKE_TEST_EASE))
+        goal = float(np.interp(target, CCP.C1_BRAKE_ACCEL_BP, CCP.C1_BRAKE_REQUEST_V)) + ease
+        if CS.out.aEgo < target - CCP.C1_BRAKE_TEST_OVERSHOOT:
+          if not self.c1_ob_release:
+            carlog.warning(f"volvo_c1_op_brake overshoot release at {CS.out.aEgo:+.2f} m/s^2, target {target:+.2f}")
+          self.c1_ob_release = True
+        elif CS.out.aEgo > target - CCP.C1_BRAKE_TEST_REAPPLY:
+          self.c1_ob_release = False
+      else:
+        goal = target
+        self.c1_ob_release = False
+      ramp = CCP.C1_BRAKE_TEST_FAST_RAMP if self.c1_accel > CCP.C1_BRAKE_TEST_FAST_UNTIL else CCP.C1_BRAKE_TEST_RAMP
+      self.c1_accel = min(max(goal, self.c1_accel - ramp * DT_CTRL), self.c1_accel + CCP.C1_LONG_JERK_UP * DT_CTRL)
+      self.c1_long_mode = c1_next_long_mode(self.c1_long_mode, self.c1_accel)
+      if not braking and self.c1_accel >= CCP.C1_LONG_ACCEL_MIN:
+        self.c1_ob_active = False
+        self.c1_long_mode = LongMode.COAST if self.c1_long_mode == LongMode.BRAKE else self.c1_long_mode
+        carlog.warning(f"volvo_c1_op_brake end at {CS.out.vEgo * 3.6:.1f} km/h")
     elif not cam_owns:
       accel = min(max(CC.actuators.accel, CCP.C1_LONG_ACCEL_MIN), CCP.C1_LONG_ACCEL_MAX)
       if CCP.C1_LONG_CAMERA_CAP:
@@ -231,7 +277,9 @@ class CarController(CarControllerBase):
       mode = c1_next_long_mode(self.c1_long_mode, accel)
       self.c1_long_mode = LongMode.COAST if mode == LongMode.BRAKE else mode
 
-    self.c1_bt_flags = brake_test and not cam_owns and self.c1_long_mode == LongMode.BRAKE and self.c1_accel < 0. and not self.c1_bt_release
+    test_flags = brake_test and not self.c1_bt_release
+    op_flags = self.c1_ob_active and not self.c1_ob_release
+    self.c1_bt_flags = (test_flags or op_flags) and not cam_owns and self.c1_long_mode == LongMode.BRAKE and self.c1_accel < 0.
     sends = []
     for frame in request_frames:
       if cam_owns:
@@ -246,7 +294,9 @@ class CarController(CarControllerBase):
       # the camera's engine-braking frames go out as they are, except while OP brakes hydraulically: then OP's brake frame
       # with its target speed (volvo_c1.h allows it while the camera itself isn't braking hydraulically)
       cam_frame = cam_owns or (int(frame["ACC_Mode"]) == LongMode.BRAKE and not self.c1_bt_flags)
-      target_kph = (self.c1_bt_v0 - CCP.C1_BRAKE_TEST_DROP) * 3.6 if self.c1_bt_flags else None
+      # the speed the braking aims for: the test's end speed, or for the planner 15 km/h below the current speed
+      start = self.c1_bt_v0 if brake_test else CS.out.vEgo
+      target_kph = (start - CCP.C1_BRAKE_TEST_DROP) * 3.6 if self.c1_bt_flags else None
       sends.append(create_c1_acc_mode(self.packer, frame) if cam_frame else
                    create_c1_acc_mode(self.packer, frame, self.c1_accel, self.c1_long_mode, target_kph))
     if self.frame <= self.c1_bt_relay_until:
