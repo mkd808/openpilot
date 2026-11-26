@@ -43,15 +43,27 @@ static uint8_t volvo_c1_fsm_checksum(const CANPacket_t *msg) {
 // pressure bits are ignored while ACC owns the brake. When the driver taps the pedal, ACC cancels and the
 // state clears within about a frame, which brings the pedal back at once. 0x1B0 is in the rx checks, so
 // losing it invalidates controls instead of leaving the mask stuck. Mirrors volvo_c1_acc_owns_brake().
+// The pressure ACC built bleeds off for up to ~0.7 s after the status clears (route 0000001b at 89.3 s: status 0 with
+// pressure 125). While ACC stays active the pressure bits keep counting as ACC's for VOLVO_C1_ACC_BRAKE_GRACE_US after
+// ACC last owned the brake. A driver's tap cancels ACC, which ends the grace at once.
+#define VOLVO_C1_ACC_BRAKE_GRACE_US 1000000U
 static bool volvo_c1_pressure_bits = false;
 static unsigned int volvo_c1_brake_status = 0U;
 static bool volvo_c1_brake_hold = false;
 static bool volvo_c1_acc_active = false;
+static bool volvo_c1_acc_braked = false;
+static uint32_t volvo_c1_acc_brake_ts = 0U;
 
 static void volvo_c1_update_brake_pressed(void) {
   const bool acc_owns_brake = (volvo_c1_brake_status == 5U) ||
                               (volvo_c1_acc_active && ((volvo_c1_brake_status == 1U) || volvo_c1_brake_hold));
-  brake_pressed = volvo_c1_pressure_bits && !acc_owns_brake;
+  if (acc_owns_brake) {
+    volvo_c1_acc_braked = true;
+    volvo_c1_acc_brake_ts = microsecond_timer_get();
+  }
+  const bool grace = volvo_c1_acc_active && volvo_c1_acc_braked &&
+                     (safety_get_ts_elapsed(microsecond_timer_get(), volvo_c1_acc_brake_ts) <= VOLVO_C1_ACC_BRAKE_GRACE_US);
+  brake_pressed = volvo_c1_pressure_bits && !acc_owns_brake && !grace;
 }
 
 // Resume button (0x10 byte 7 = 0x20) for stop and go. Stock ACC holds the car at standstill (0x1B0 hold flag)
@@ -165,6 +177,14 @@ static bool volvo_c1_op_braked = false;
 static uint32_t volvo_c1_op_brake_ts = 0U;
 static bool volvo_c1_relayed = false;
 static uint32_t volvo_c1_relay_ts = 0U;
+// Test 3: with the brake status hidden the camera no longer faults, but the brake module kept ramping pressure past
+// OP's request (route 0000001b: -0.96 asked, -2.4 reached). The camera sets FSM0 (0x30) byte 7 bit 0
+// (ACCStatusTracking) in every frame while it brakes and OP's copies didn't. While OP brakes, OP may relay FSM0 to
+// the car (bus 0) with only that bit set, and only while the camera reports ACC active (byte 7 bit 2). While OP
+// relays it, the camera's own FSM0 isn't forwarded to the car.
+static VolvoC1CamFrames volvo_c1_fsm0_frames;
+static bool volvo_c1_fsm0_relayed = false;
+static uint32_t volvo_c1_fsm0_relay_ts = 0U;
 static VolvoC1CamFrames volvo_c1_cam_request;
 static VolvoC1CamFrames volvo_c1_cam_mode;
 
@@ -273,6 +293,24 @@ static bool volvo_c1_brake_relay_ok(const CANPacket_t *msg) {
   return ok;
 }
 
+static bool volvo_c1_fsm0_relay_ok(const CANPacket_t *msg) {
+  bool ok = false;
+  for (uint8_t i = 0U; i < VOLVO_C1_CAM_FRAMES; i++) {
+    if (volvo_c1_cam_frame_fresh(&volvo_c1_fsm0_frames, i)) {
+      const uint8_t *cam = volvo_c1_fsm0_frames.data[i];
+      bool same = (msg->data[7] & 0xFEU) == (cam[7] & 0xFEU);
+      for (uint8_t byte = 0U; byte < 7U; byte++) {
+        same = same && (msg->data[byte] == cam[byte]);
+      }
+      // Signals: ACCStatusTracking (byte 7 bit 0), ACCStatusActive (byte 7 bit 2)
+      const bool unchanged = same && (msg->data[7] == cam[7]);
+      const bool tracking_set = same && ((msg->data[7] & 0x1U) != 0U) && ((cam[7] & 0x4U) != 0U);
+      ok = ok || unchanged || tracking_set;
+    }
+  }
+  return ok;
+}
+
 static void volvo_c1_rx_hook(const CANPacket_t *msg) {
   if (msg->bus == VOLVO_MAIN_BUS) {
     if (msg->addr == VOLVO_C1_PSCM_1) {
@@ -310,6 +348,9 @@ static void volvo_c1_rx_hook(const CANPacket_t *msg) {
     }
   }
 
+  if ((msg->bus == VOLVO_PARTY_BUS) && (msg->addr == VOLVO_C1_FSM_0) && volvo_c1_brake_test && (GET_LEN(msg) == 8U)) {
+    volvo_c1_cam_frames_store(&volvo_c1_fsm0_frames, msg);
+  }
   if ((msg->bus == VOLVO_PARTY_BUS) && (msg->addr == VOLVO_C1_FSM_0)) {
     // Signals: ACCStatusOnOff (bit 57), ACCStatusActive (bit 58)
     acc_main_on = GET_BIT(msg, 57U);
@@ -489,6 +530,14 @@ static bool volvo_c1_tx_hook(const CANPacket_t *msg) {
       volvo_c1_relay_ts = microsecond_timer_get();
     }
   }
+  if ((msg->addr == VOLVO_C1_FSM_0) && (msg->bus == VOLVO_MAIN_BUS)) {
+    tx &= volvo_c1_brake_test && volvo_c1_long_allowed() &&
+          volvo_c1_recent(volvo_c1_op_braked, volvo_c1_op_brake_ts, VOLVO_C1_BRAKE_RELAY_WINDOW_US) && volvo_c1_fsm0_relay_ok(msg);
+    if (tx) {
+      volvo_c1_fsm0_relayed = true;
+      volvo_c1_fsm0_relay_ts = microsecond_timer_get();
+    }
+  }
   if (msg->addr == VOLVO_C1_ACC_MODE) {
     tx &= volvo_c1_long_allowed() && volvo_c1_acc_mode_tx_ok(msg);
   }
@@ -499,7 +548,9 @@ static bool volvo_c1_fwd_hook(int bus_num, int addr) {
   const bool acc_msg = ((unsigned int)addr == VOLVO_C1_ACC_REQUEST) || ((unsigned int)addr == VOLVO_C1_ACC_MODE);
   const bool relayed_brake = ((unsigned int)bus_num == VOLVO_MAIN_BUS) && ((unsigned int)addr == VOLVO_C1_BRAKE_MESSAGES) &&
                              volvo_c1_brake_test && volvo_c1_recent(volvo_c1_relayed, volvo_c1_relay_ts, VOLVO_C1_BRAKE_RELAY_HOLD_US);
-  return (((unsigned int)bus_num == VOLVO_PARTY_BUS) && acc_msg && volvo_c1_long_allowed()) || relayed_brake;
+  const bool relayed_fsm0 = ((unsigned int)bus_num == VOLVO_PARTY_BUS) && ((unsigned int)addr == VOLVO_C1_FSM_0) &&
+                            volvo_c1_brake_test && volvo_c1_recent(volvo_c1_fsm0_relayed, volvo_c1_fsm0_relay_ts, VOLVO_C1_BRAKE_RELAY_HOLD_US);
+  return (((unsigned int)bus_num == VOLVO_PARTY_BUS) && acc_msg && volvo_c1_long_allowed()) || relayed_brake || relayed_fsm0;
 }
 static safety_config volvo_c1_init(uint16_t param) {
   volvo_c1_long = GET_FLAG(param, VOLVO_C1_PARAM_LONG);
@@ -507,12 +558,15 @@ static safety_config volvo_c1_init(uint16_t param) {
   volvo_c1_cam_frames_clear(&volvo_c1_cam_request);
   volvo_c1_cam_frames_clear(&volvo_c1_cam_mode);
   volvo_c1_cam_frames_clear(&volvo_c1_brake_frames);
+  volvo_c1_cam_frames_clear(&volvo_c1_fsm0_frames);
+  volvo_c1_fsm0_relayed = false;
   volvo_c1_op_braked = false;
   volvo_c1_relayed = false;
   volvo_c1_pressure_bits = false;
   volvo_c1_brake_status = 0U;
   volvo_c1_brake_hold = false;
   volvo_c1_acc_active = false;
+  volvo_c1_acc_braked = false;
   volvo_c1_resume_budget = VOLVO_C1_RESUME_MAX_FRAMES;
   volvo_c1_buttons_stock_valid = false;
   volvo_c1_aol_reset();
@@ -546,6 +600,7 @@ static safety_config volvo_c1_init(uint16_t param) {
     {VOLVO_C1_ACC_REQUEST, VOLVO_MAIN_BUS, 8, .check_relay = false},
     {VOLVO_C1_ACC_MODE, VOLVO_MAIN_BUS, 8, .check_relay = false},
     {VOLVO_C1_BRAKE_MESSAGES, VOLVO_PARTY_BUS, 8, .check_relay = false},
+    {VOLVO_C1_FSM_0, VOLVO_MAIN_BUS, 8, .check_relay = false},
   };
   static RxCheck volvo_c1_rx_checks[] = {
     {.msg = {{VOLVO_C1_PSCM_1, VOLVO_MAIN_BUS, 8, 50U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},

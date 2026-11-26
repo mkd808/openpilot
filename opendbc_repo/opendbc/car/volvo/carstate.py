@@ -4,7 +4,7 @@ from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.dashboard_speed_limit import Tracker as LimitTracker, parser_expiry, volvo_sign
 from opendbc.car.interfaces import CarStateBase
 from opendbc.car.volvo.eucd_carstate import eucd_all_frames
-from opendbc.car.volvo.values import C1_BUTTON_STOCK_SIGNALS, DBC, volvo_c1_acc_owns_brake, volvo_c1_aol_allowed
+from opendbc.car.volvo.values import C1_ACC_BRAKE_GRACE_FRAMES, C1_BUTTON_STOCK_SIGNALS, DBC, volvo_c1_acc_owns_brake, volvo_c1_aol_allowed
 
 GearShifter = structs.CarState.GearShifter
 
@@ -22,6 +22,8 @@ class CarState(CarStateBase):
     self.c1_stock_acc_request_frames = []
     self.c1_stock_acc_mode_frames = []
     self.c1_brake_msg_frames = []  # every car 0x1B0 since the last update, for the brake test's relay to the camera
+    self.c1_fsm0_frames = []  # every camera FSM0 since the last update, for the brake test's relay to the car
+    self.c1_acc_brake_age = C1_ACC_BRAKE_GRACE_FRAMES + 1  # frames since ACC last owned the brake
     # The FSM's road-sign speed limit (RSI), the Speed Limit Controller's "Dashboard" source
     self.dashboard_limit = LimitTracker()
     self.c1_button_states = dict.fromkeys(
@@ -48,7 +50,10 @@ class CarState(CarStateBase):
     self.c1_brake_hold = bool(cp.vl["BrakeMessages"]["BrakeHold"])
     acc_active = bool(cp_cam.vl["FSM0"]["ACCStatusActive"])
     pressure_bits = bool(cp.vl["PedalandBrake"]["BrakePedalActive2"] or cp.vl["PedalandBrake"]["BrakePedalActive"])
-    ret.brakePressed = pressure_bits and not volvo_c1_acc_owns_brake(brake_status, self.c1_brake_hold, acc_active)
+    acc_owns_brake = volvo_c1_acc_owns_brake(brake_status, self.c1_brake_hold, acc_active)
+    self.c1_acc_brake_age = 0 if acc_owns_brake else min(self.c1_acc_brake_age + 1, C1_ACC_BRAKE_GRACE_FRAMES + 1)
+    grace = acc_active and self.c1_acc_brake_age <= C1_ACC_BRAKE_GRACE_FRAMES
+    ret.brakePressed = pressure_bits and not acc_owns_brake and not grace
     # 5 = ACC braking, 1 = ACC transition/hold (0xA1 / 0xE1)
     ret.brakeHoldActive = brake_status in (1, 5)
 
@@ -96,6 +101,7 @@ class CarState(CarStateBase):
       self.c1_stock_acc_request_frames = eucd_all_frames(cp_cam, "FSM2")
       self.c1_stock_acc_mode_frames = eucd_all_frames(cp_cam, "FSM4")
       self.c1_brake_msg_frames = eucd_all_frames(cp, "BrakeMessages")
+      self.c1_fsm0_frames = eucd_all_frames(cp_cam, "FSM0")
 
     self.c1_msg_pscm = cp.vl["PSCM1"]
     self.c1_lka_torque = int(cp.vl["PSCM1"]["LKATorque"])

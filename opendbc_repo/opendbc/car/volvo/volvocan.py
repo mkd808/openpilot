@@ -98,6 +98,15 @@ def create_c1_brake_relay(packer, stock: dict):
   return packer.make_can_msg("BrakeMessages", 2, values)
 
 
+def create_c1_fsm0_relay(packer, stock: dict, tracking: bool):
+  # The camera's FSM0 (0x30) for the car (bus 0): ACCStatusTracking set while OP brakes and ACC is active, as the
+  # camera sets it in every frame of its own braking; otherwise unchanged
+  values = {**stock}
+  if tracking and int(stock["ACCStatusActive"]):
+    values["ACCStatusTracking"] = 1
+  return packer.make_can_msg("FSM0", 0, values)
+
+
 def create_c1_acc_mode(packer, stock_fsm4: dict, accel: float | None = None, mode: LongMode | None = None):
   # 0x280 with OP's mode and its traction for accel; without a mode the stock frame is copied
   values = {**stock_fsm4}

@@ -8,6 +8,7 @@ from opendbc.car.interfaces import CarControllerBase
 from opendbc.car.lateral import apply_std_steer_angle_limits
 from opendbc.car.volvo.eucd_params import LongMode
 from opendbc.car.volvo.volvocan import (c1_next_long_mode, create_c1_acc_mode, create_c1_acc_request, create_c1_brake_relay, create_c1_cancel,
+                                        create_c1_fsm0_relay,
                                         create_c1_pscm_message, create_c1_resume, create_c1_steering_control)
 from opendbc.car.volvo.values import CarControllerParams, VolvoSafetyFlags
 
@@ -39,6 +40,8 @@ class CarController(CarControllerBase):
     self.c1_bt_start = 0
     self.c1_bt_v0 = 0.
     self.c1_bt_relay_until = -1  # last frame to relay 0x1B0 to the camera
+    self.c1_bt_release = False  # overshoot: flags dropped until the car is back near the request
+    self.c1_bt_flags = False  # OP's hydraulic flags went out this frame
 
   def update(self, CC, CS, now_nanos):
     can_sends = []
@@ -148,6 +151,7 @@ class CarController(CarControllerBase):
         carlog.warning(f"volvo_c1_brake_test end {reason} after {elapsed:.2f}s, {self.c1_bt_v0 * 3.6:.1f} -> {CS.out.vEgo * 3.6:.1f} km/h")
     elif flipped and clear and CS.out.vEgo >= CCP.C1_BRAKE_TEST_MIN_SPEED:
       self.c1_bt_active, self.c1_bt_start, self.c1_bt_v0 = True, self.frame, CS.out.vEgo
+      self.c1_bt_release = False
       carlog.warning(f"volvo_c1_brake_test start at {CS.out.vEgo * 3.6:.1f} km/h")
     return self.c1_bt_active
 
@@ -198,6 +202,13 @@ class CarController(CarControllerBase):
     if not cam_owns and brake_test:
       # fixed request, ramped in at the jerk limit, brake mode with the flags the way the camera brakes
       self.c1_accel = max(CCP.C1_BRAKE_TEST_ACCEL, self.c1_accel - CCP.C1_LONG_JERK_DOWN * DT_CTRL)
+      # overshoot limiter: drop the flags while the car brakes much harder than asked
+      if CS.out.aEgo < CCP.C1_BRAKE_TEST_ACCEL - CCP.C1_BRAKE_TEST_OVERSHOOT:
+        if not self.c1_bt_release:
+          carlog.warning(f"volvo_c1_brake_test overshoot release at {CS.out.aEgo:+.2f} m/s^2")
+        self.c1_bt_release = True
+      elif CS.out.aEgo > CCP.C1_BRAKE_TEST_ACCEL - CCP.C1_BRAKE_TEST_REAPPLY:
+        self.c1_bt_release = False
       self.c1_long_mode = LongMode.BRAKE if self.c1_accel < 0. else LongMode.COAST
     elif not cam_owns:
       accel = min(max(CC.actuators.accel, CCP.C1_LONG_ACCEL_MIN), CCP.C1_LONG_ACCEL_MAX)
@@ -215,7 +226,7 @@ class CarController(CarControllerBase):
       if cam_owns:
         sends.append(create_c1_acc_request(self.packer, frame, float(frame["ACC_AccelRequest"])))
       else:
-        brake = brake_test and self.c1_long_mode == LongMode.BRAKE and self.c1_accel < 0.
+        brake = brake_test and self.c1_long_mode == LongMode.BRAKE and self.c1_accel < 0. and not self.c1_bt_release
         sends.append(create_c1_acc_request(self.packer, frame, self.c1_accel, brake))
         if brake:
           # relay the car's 0x1B0 to the camera from OP's first braking frame on, as volvo_c1.h allows
@@ -223,9 +234,12 @@ class CarController(CarControllerBase):
     for frame in mode_frames:
       cam_frame = cam_owns or int(frame["ACC_Mode"]) == LongMode.BRAKE
       sends.append(create_c1_acc_mode(self.packer, frame) if cam_frame else create_c1_acc_mode(self.packer, frame, self.c1_accel, self.c1_long_mode))
+    self.c1_bt_flags = brake_test and not cam_owns and self.c1_long_mode == LongMode.BRAKE and self.c1_accel < 0. and not self.c1_bt_release
     if self.frame <= self.c1_bt_relay_until:
       for frame in getattr(CS, "c1_brake_msg_frames", []):
         sends.append(create_c1_brake_relay(self.packer, frame))
+      for frame in getattr(CS, "c1_fsm0_frames", []):
+        sends.append(create_c1_fsm0_relay(self.packer, frame, self.c1_bt_flags))
     if self.c1_handoff and (self.c1_handoff_frame is None or (self.frame - self.c1_handoff_frame) % 10 == 0):
       if self.c1_handoff_frame is None:
         self.c1_handoff_frame = self.frame

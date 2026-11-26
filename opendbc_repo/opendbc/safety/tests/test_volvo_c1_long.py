@@ -351,5 +351,93 @@ class TestVolvoC1BrakeRelay(unittest.TestCase):
     self.assertFalse(self._relay(BRAKE_ACC))
 
 
+# camera FSM0 (0x30) frames, routes 00000016/0000001b: ACC active, active + tracking, and ACC off (after the fault)
+FSM0_ACTIVE = bytes.fromhex("b1906f000000638e")
+FSM0_OFF = bytes.fromhex("b1906f102000638a")
+FSM0 = 0x30
+
+
+def tracking(dat: bytes) -> bytes:
+  return dat[:7] + bytes([dat[7] | 0x01])
+
+
+class TestVolvoC1Fsm0Relay(TestVolvoC1BrakeRelay):
+  """Test 3: while OP brakes, OP may relay the camera's FSM0 to the car with only ACCStatusTracking set."""
+  def _fsm0(self, dat):
+    lib.safety_rx_hook(packet((FSM0, dat, 2)))
+
+  def _relay0(self, dat):
+    return bool(lib.safety_tx_hook(packet((FSM0, dat, 0))))
+
+  def test_fsm0_only_after_op_braked(self):
+    self._fsm0(FSM0_ACTIVE)
+    self.assertFalse(self._relay0(tracking(FSM0_ACTIVE)))
+    self._op_brakes()
+    self._fsm0(FSM0_ACTIVE)
+    self.assertTrue(self._relay0(tracking(FSM0_ACTIVE)))
+    self.assertTrue(self._relay0(FSM0_ACTIVE))
+
+  def test_fsm0_tracking_only_while_acc_active(self):
+    self._op_brakes()
+    self._fsm0(FSM0_OFF)  # ACC off also ends controls, so nothing goes out, least of all a set tracking bit
+    self.assertFalse(self._relay0(tracking(FSM0_OFF)))
+
+  def test_fsm0_only_the_tracking_bit(self):
+    self._op_brakes()
+    self._fsm0(FSM0_ACTIVE)
+    for byte in range(8):
+      for bit in range(8):
+        if byte == 7 and bit == 0:
+          continue
+        dat = bytearray(tracking(FSM0_ACTIVE))
+        dat[byte] ^= 1 << bit
+        with self.subTest(byte=byte, bit=bit):
+          self.assertFalse(self._relay0(bytes(dat)))
+
+  def test_fsm0_forwarding_pauses_while_op_relays(self):
+    self.assertEqual(0, lib.safety_fwd_hook(2, FSM0))
+    self._op_brakes()
+    self._fsm0(FSM0_ACTIVE)
+    self.assertTrue(self._relay0(tracking(FSM0_ACTIVE)))
+    self.assertEqual(-1, lib.safety_fwd_hook(2, FSM0))
+    lib.set_timer(1_025_001)
+    self.assertEqual(0, lib.safety_fwd_hook(2, FSM0))
+
+  def test_fsm0_not_without_the_brake_test_flag(self):
+    self.setUp(C1_LONG)
+    self._fsm0(FSM0_ACTIVE)
+    self.assertFalse(self._relay0(FSM0_ACTIVE))
+
+
+class TestVolvoC1AccBrakeGrace(unittest.TestCase):
+  """ACC's brake pressure bleeds off after the status clears: while ACC stays active it isn't the driver's for 1 s."""
+  def setUp(self):
+    self.assertEqual(0, lib.set_safety_hooks(VOLVO, C1_LONG))
+    lib.init_tests()
+    lib.set_timer(1_000_000)
+
+  def _state(self, status, pressure, acc_active):
+    lib.safety_rx_hook(packet((FSM0, FSM0_ACTIVE if acc_active else FSM0_OFF, 2)))
+    lib.safety_rx_hook(packet(packer.make_can_msg('BrakeMessages', 0, {'BrakeStatus': status, 'BrakePress0': 60 if pressure else 0})))
+    lib.safety_rx_hook(packet(packer.make_can_msg('PedalandBrake', 0, {'BrakePedalActive': int(pressure)})))
+    return bool(lib.get_brake_pressed_prev())
+
+  def test_pressure_after_acc_braking_is_not_the_driver(self):
+    self.assertFalse(self._state(5, True, True))
+    lib.set_timer(1_500_000)
+    self.assertFalse(self._state(0, True, True))  # route 0000001b at 89.3 s: status 0, pressure still up
+    lib.set_timer(2_400_000)
+    self.assertFalse(self._state(0, True, True))  # 0.9 s after the last status 5 (seen at 1.5 s, before the status 0 frame)
+    lib.set_timer(2_500_001)
+    self.assertTrue(self._state(0, True, True))
+
+  def test_acc_off_ends_the_grace(self):
+    self.assertFalse(self._state(5, True, True))
+    self.assertTrue(self._state(0, True, False))  # the driver's tap cancels ACC
+
+  def test_no_grace_without_acc_braking_first(self):
+    self.assertTrue(self._state(0, True, True))
+
+
 if __name__ == "__main__":
   unittest.main()

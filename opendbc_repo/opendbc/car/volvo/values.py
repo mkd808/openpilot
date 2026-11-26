@@ -74,6 +74,11 @@ class CarControllerParams:
   # Test 2: while OP brakes (and this long after), OP relays the car's 0x1B0 to the camera with BrakeStatus and both
   # pressures zeroed whenever the car reports ACC braking (status 5); volvo_c1.h allows this 0.3 s after its last braking 0x160
   C1_BRAKE_TEST_RELAY_TAIL_FRAMES = 20
+  # Test 3: with the camera no longer faulting the brake module ramped past OP's request (route 0000001b: -0.96 asked,
+  # -2.4 reached). OP drops its hydraulic flags while the car brakes this much harder than asked, and brakes again
+  # once it's back within C1_BRAKE_TEST_REAPPLY of the request. Pressure released within ~0.6 s when the flags dropped.
+  C1_BRAKE_TEST_OVERSHOOT = 0.5  # m/s^2
+  C1_BRAKE_TEST_REAPPLY = 0.1  # m/s^2
 
 
 @dataclass
@@ -182,3 +187,8 @@ def volvo_c1_acc_owns_brake(brake_status: int, brake_hold: bool, acc_active: boo
   0x1B0 byte 2: 0xA5 = ACC braking (status 5, always ACC), 0xA1 = just before/after a braking event (status 1),
   0xE0/0xE1 = ACC holding at standstill (hold bit). 0xA1 and the hold bit only count while ACC is active (0x30 byte 7 bit 2)."""
   return brake_status == 5 or (acc_active and (brake_status == 1 or brake_hold))
+
+
+# After ACC braking ends its pressure bleeds off for up to ~0.7 s: while ACC stays active the pressure bits keep counting
+# as ACC's this long (100 Hz frames) after ACC last owned the brake. Mirrors VOLVO_C1_ACC_BRAKE_GRACE_US in volvo_c1.h.
+C1_ACC_BRAKE_GRACE_FRAMES = 100

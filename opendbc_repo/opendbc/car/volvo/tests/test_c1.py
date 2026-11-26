@@ -37,6 +37,29 @@ def feed(parsers, time=1000000000, torque=10, fsm5=FSM5_60):
 
 
 class TestVolvoC1Host(unittest.TestCase):
+  def test_c1_acc_brake_pressure_grace(self):
+    # route 0000001b at 89.3 s: ACC (or OP) braking ends, the status clears, the pressure bits stay up a moment
+    packer = CANPacker('volvo_v40_2017_pt')
+    cp = params()
+    cs = CarState(cp)
+    parsers = cs.get_can_parsers(cp)
+
+    def step(i, status, pressure, acc_active=True):
+      feed(parsers, 1000000000 + i * 10000000)
+      for parser in parsers.values():
+        parser.update([(1000000000 + i * 10000000 + 1, [
+          packer.make_can_msg('BrakeMessages', 0, {'BrakeStatus': status}),
+          packer.make_can_msg('PedalandBrake', 0, {'BrakePedalActive': int(pressure)}),
+          packer.make_can_msg('FSM0', 2, {'ACCStatusOnOff': 1, 'ACCStatusActive': int(acc_active)}),
+        ])])
+      return cs.update(parsers).brakePressed
+
+    assert not step(0, 5, True)
+    assert not any(step(i, 0, True) for i in range(1, 101))  # 1 s at 100 Hz
+    assert step(101, 0, True)
+    assert not step(102, 5, True)
+    assert step(103, 0, True, acc_active=False)  # the driver's tap cancels ACC: no grace
+
   def test_c1_fsm_road_sign_is_the_dashboard_speed_limit(self):
     from opendbc.car.dashboard_speed_limit import Status
     # route 00000016 FSM5 frames: 40, 50 and 60 km/h signs, and a frame with no sign
