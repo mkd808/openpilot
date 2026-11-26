@@ -155,6 +155,9 @@ static uint8_t volvo_c1_aol_permission(void) {
 // a request at or below zero, down to VOLVO_C1_BRAKE_TEST_REQUEST_MIN, and still only while the camera isn't braking.
 // -16 counts (-1.28) is about -1.0 m/s^2 actual on the camera's own braking (0.084/count + 0.28, routes 12/13/16)
 #define VOLVO_C1_BRAKE_TEST_REQUEST_MIN (-16)
+// OP's braking target (0x280 byte 5) is never below the current speed less this (the car code sends start speed - 15;
+// 2 km/h margin for speed jitter), so a bug can't send the camera's hard-stop target of 0-2
+#define VOLVO_C1_BRAKE_TARGET_MAX_DROP_KPH 17
 #define VOLVO_C1_LONG_TRACTION_MAX 186U  // drive traction for +2.0 m/s^2 (93 per m/s^2)
 typedef struct {
   uint8_t data[VOLVO_C1_CAM_FRAMES][8];
@@ -268,7 +271,8 @@ static bool volvo_c1_acc_mode_tx_ok(const CANPacket_t *msg) {
       const bool same = same_but_target && (msg->data[5] == cam[5]);
       // Test 5: in its brake mode OP may lower byte 5 (SpeedTarget), the speed the braking aims for, below the camera's:
       // the camera drops it to the lead's speed, or 0, while it brakes, and OP's copies kept its cruising value
-      const bool target_ok = brake_ok && (msg->data[5] <= cam[5]);
+      const bool target_floor_ok = (((int)msg->data[5] + VOLVO_C1_BRAKE_TARGET_MAX_DROP_KPH) * 10000) >= (vehicle_speed.max * 36);  // kph vs (m/s * 1000)
+      const bool target_ok = brake_ok && (msg->data[5] <= cam[5]) && target_floor_ok;
       const bool cam_brakes = (cam[6] & 0x3U) == 0U;
       const bool unchanged = same && (msg->data[6] == cam[6]) && (msg->data[7] == cam[7]);
       // the target may change also while the camera only engine-brakes (brake mode without its hydraulic flags)

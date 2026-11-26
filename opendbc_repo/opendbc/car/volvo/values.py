@@ -92,6 +92,7 @@ class CarControllerParams:
   C1_BRAKE_TEST_PRESSURE_SEEN = 10  # 0x1B0 BrakePress0 counts: pressure has started building
   # Test 5: while the camera brakes, 0x280 byte 5 (SpeedTarget) is the speed it brakes towards (about the lead's speed,
   # 0 when stopping hard; routes 13/16) instead of its cruising target. OP's brake frames send the test's end speed.
+  # volvo_c1.h never lets it go below the current speed - 17 km/h.
 
 
 @dataclass

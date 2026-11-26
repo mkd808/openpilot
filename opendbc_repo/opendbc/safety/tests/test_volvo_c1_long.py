@@ -269,6 +269,16 @@ class TestVolvoC1BrakeTarget(unittest.TestCase):
       with self.subTest(kph=kph):
         self.assertEqual(kph <= 29, self._tx(with_target(brake, kph)))
 
+  def test_target_floor_follows_the_current_speed(self):
+    # at 54 km/h OP may aim no lower than 54 - 17 = 37, never the camera's hard-stop 0-2
+    for _ in range(6):
+      lib.safety_rx_hook(packet(packer.make_can_msg('VehicleSpeed1', 0, {'VehicleSpeed': 54})))
+    lib.safety_rx_hook(packet((ACC_MODE, with_target(MODE_DRIVE, 60), 2)))
+    brake = with_mode(with_target(MODE_DRIVE, 60), 0, 0)
+    for kph in range(61):
+      with self.subTest(kph=kph):
+        self.assertEqual(kph >= 37, self._tx(with_target(brake, kph)))
+
   def test_target_only_in_brake_mode(self):
     lib.safety_rx_hook(packet((ACC_MODE, MODE_DRIVE, 2)))
     self.assertFalse(self._tx(with_target(with_mode(MODE_DRIVE, 1, -20), 10)))
