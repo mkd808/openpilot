@@ -48,8 +48,9 @@ class CarState(CarStateBase):
     acc_active = bool(cp_cam.vl["FSM0"]["ACCStatusActive"])
     pressure_bits = bool(cp.vl["PedalandBrake"]["BrakePedalActive2"] or cp.vl["PedalandBrake"]["BrakePedalActive"])
     ret.brakePressed = pressure_bits and not volvo_c1_acc_owns_brake(brake_status, self.c1_brake_hold, acc_active)
-    # 5 = ACC braking, 1 = ACC transition/hold (0xA1 / 0xE1)
-    ret.brakeHoldActive = brake_status in (1, 5)
+    # Only the hold flag (0x1B0 byte 2 bit 6, 0xE0/0xE1: ACC holding the car at standstill). Status 5 is ACC braking and
+    # 1 the transition around it, not a hold: counting them showed the "brake hold" warning whenever ACC braked.
+    ret.brakeHoldActive = self.c1_brake_hold
 
     ret.gearShifter = {
       0: GearShifter.park,
