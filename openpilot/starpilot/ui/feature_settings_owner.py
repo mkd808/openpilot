@@ -998,6 +998,10 @@ class FeatureSettingsOwner:
       volvo_resume_capability = volvo_resume.capability(self)
       if volvo_resume_capability is not None:
         rows.append(volvo_resume.row(self, parked, volvo_resume_capability))
+      from openpilot.starpilot.car.volvo import brake_test_settings as volvo_brake_test
+      volvo_brake_test_capability = volvo_brake_test.capability(self)
+      if volvo_brake_test_capability is not None:
+        rows.append(volvo_brake_test.row(self, parked, volvo_brake_test_capability))
       software_capability = self._subaru_software_capability()
       if software_capability is not None:
         row = self._bool_row("SubaruRedneckCruise", "Software Cruise Control", parked and self.authority("parked_preferences"),
@@ -1496,6 +1500,9 @@ class FeatureSettingsOwner:
       return apply(self, request)
     if key == "VolvoC1ResumeAssist":
       from openpilot.starpilot.car.volvo.resume_assist_settings import apply
+      return apply(self, request)
+    if key == "VolvoC1BrakeTest":
+      from openpilot.starpilot.car.volvo.brake_test_settings import apply
       return apply(self, request)
     if key in ("VoltSNG", "GMAutoHold", "VoltOnePedalMode"):
       return self._apply_gm_stop(request)
