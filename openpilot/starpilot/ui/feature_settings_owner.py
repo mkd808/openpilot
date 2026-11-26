@@ -998,10 +998,6 @@ class FeatureSettingsOwner:
       volvo_resume_capability = volvo_resume.capability(self)
       if volvo_resume_capability is not None:
         rows.append(volvo_resume.row(self, parked, volvo_resume_capability))
-      from openpilot.starpilot.car.volvo import brake_test_settings as volvo_brake_test
-      volvo_brake_test_capability = volvo_brake_test.capability(self)
-      if volvo_brake_test_capability is not None:
-        rows.append(volvo_brake_test.row(self, parked, volvo_brake_test_capability))
       from openpilot.starpilot.car.volvo import op_braking_settings as volvo_op_braking
       volvo_op_braking_capability = volvo_op_braking.capability(self)
       if volvo_op_braking_capability is not None:
@@ -1504,9 +1500,6 @@ class FeatureSettingsOwner:
       return apply(self, request)
     if key == "VolvoC1ResumeAssist":
       from openpilot.starpilot.car.volvo.resume_assist_settings import apply
-      return apply(self, request)
-    if key == "VolvoC1BrakeTest":
-      from openpilot.starpilot.car.volvo.brake_test_settings import apply
       return apply(self, request)
     if key == "VolvoC1OpBraking":
       from openpilot.starpilot.car.volvo.op_braking_settings import apply

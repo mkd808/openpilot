@@ -64,15 +64,9 @@ class CarControllerParams:
   # the camera rightly asking to go, OP's planner still lagging at -0.46. Stopping for something the camera ignores
   # (a stopped car, a red light) needs -1.5 or more at that speed.
   C1_LONG_HANDOFF_ACCEL = -0.8
-  # Brake test (test branch only): with the flag file on the device, flipping the LKA switch with OP long active, above
-  # C1_BRAKE_TEST_MIN_SPEED, no lead shown and the camera not braking sends a fixed brake request the way the camera
-  # brakes (brake mode, traction 0, both hydraulic flags) until the speed has dropped C1_BRAKE_TEST_DROP or
-  # C1_BRAKE_TEST_MAX_S has passed. Gas, brake, a lead, the camera braking or OP long ending stop it at once.
-  C1_BRAKE_TEST_FLAG = "/data/volvo_c1_brake_test"
-  C1_BRAKE_TEST_ACCEL = -1.0  # m/s^2; the camera's -1.0 gave about -0.8 and pressure ~35 (route 00000016)
-  C1_BRAKE_TEST_MIN_SPEED = 30 * CV.KPH_TO_MS
-  C1_BRAKE_TEST_DROP = 15 * CV.KPH_TO_MS
-  C1_BRAKE_TEST_MAX_S = 4.0
+  # OP's own braking, worked out with the LKA-button brake tests on v40op1-braketest (routes 18-1e; the C1_BRAKE_TEST
+  # names come from there). It brakes the way the camera does: brake mode, traction 0, both hydraulic flags.
+  C1_BRAKE_TEST_DROP = 15 * CV.KPH_TO_MS  # 0x280 byte 5 target: this far below the current speed
   C1_BRAKE_TEST_FLAG_CHECK_FRAMES = 100  # look for the flag file once a second
   # Test 2: while OP brakes (and this long after), OP relays the car's 0x1B0 to the camera with BrakeStatus and both
   # pressures zeroed whenever the car reports ACC braking (status 5); volvo_c1.h allows this 0.3 s after its last braking 0x160
@@ -101,16 +95,15 @@ class CarControllerParams:
   # flag file on the device, OP long active, a lead shown, above C1_OP_BRAKE_MIN_SPEED, no pedal and the camera not
   # braking, once the planner asks for less than C1_OP_BRAKE_ENTER. Never deeper than C1_OP_BRAKE_ACCEL_MIN actual.
   # When the need ends (or a condition fails) the request ramps back to coasting at C1_LONG_JERK_UP. Stops stay the
-  # camera's (and the stop handoff's); the panda rules are the brake test's (C1_BRAKE_TEST flag).
+  # camera's (and the stop handoff's); the panda rules are the brake tests' (C1_BRAKE_TEST flag).
   C1_OP_BRAKE_FLAG = "/data/volvo_c1_op_braking"
   C1_OP_BRAKE_ACCEL_MIN = -1.0  # m/s^2 actual
   C1_OP_BRAKE_ENTER = -0.55  # m/s^2: the planner wants more than coasting gives
   C1_OP_BRAKE_EXIT = -0.4  # m/s^2: the planner is back to coasting
   C1_OP_BRAKE_MIN_SPEED = 20 * CV.KPH_TO_MS
   C1_BRAKE_TEST_EASE = 0.5  # m/s^2
-  C1_BRAKE_TEST_PRESSURE_SEEN = 10  # 0x1B0 BrakePress0 counts: pressure has started building
   # Test 5: while the camera brakes, 0x280 byte 5 (SpeedTarget) is the speed it brakes towards (about the lead's speed,
-  # 0 when stopping hard; routes 13/16) instead of its cruising target. OP's brake frames send the test's end speed.
+  # 0 when stopping hard; routes 13/16) instead of its cruising target. OP's brake frames send C1_BRAKE_TEST_DROP below now.
   # volvo_c1.h never lets it go below the current speed - 17 km/h.
 
 

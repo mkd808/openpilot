@@ -298,201 +298,7 @@ def test_controller_takes_over_after_camera_braking_within_limits():
   assert out[FSM2][2] & 0x20 == 0 and out[FSM4][6] & 0x3 == LongMode.COAST
 
 
-# Brake test (brake-test branch): flag file + LKA switch flip -> fixed -1.0 brake request with the flags, panda param 50
-@pytest.fixture
-def flag_file(monkeypatch):
-  import opendbc.car.volvo.carcontroller as carcontroller
-  monkeypatch.setattr(carcontroller.os.path, "exists", lambda path: path == CarControllerParams.C1_BRAKE_TEST_FLAG)
-
-
-def brake_test(drive, frames, **kwargs):
-  for _ in range(5):
-    drive.step(0.3, v_ego=15.)
-  out = None
-  for _ in range(frames):
-    out = drive.step(0.3, v_ego=15., lka=True, **kwargs)
-  return out
-
-
-def braking(out) -> bool:
-  return bool(out[FSM2][2] & 0x20 and out[FSM2][5] & 0x20 and out[FSM4][6] & 0x3 == LongMode.BRAKE)
-
-
-def test_brake_test_param_on_this_branch():
-  assert long_params().safetyConfigs[0].safetyParam == 50
-
-
-def test_brake_test_runs_on_lka_flip(flag_file):
-  drive = Drive(param=50)
-  out = brake_test(drive, 60)
-  assert braking(out) and out[FSM4][7] == 0
-  counts = (out[FSM2][7] & 0x7F) - 64
-  assert -12 < counts < 0  # still ramping in at 1 m/s^3 from the camera's +0.4
-  out = brake_test(drive, 250)
-  assert (out[FSM2][7] & 0x7F) - 64 == -16  # -1.25 from the brake table for -1.0, OP's planner wanting +0.3 is ignored
-
-
-def test_brake_test_quick_onset(flag_file):
-  # fast through the engine-braking zone, then 1 m/s^3: from the camera's +0.4 the request is at -0.5 within ~0.26 s
-  drive = Drive(param=50)
-  for _ in range(5):
-    drive.step(0.3, v_ego=15.)
-  for _ in range(30):
-    out = drive.step(0.3, v_ego=15., lka=True)
-  assert (out[FSM2][7] & 0x7F) - 64 <= -6  # past -0.48 after 0.3 s (at 1 m/s^3 it would still be near +0.1)
-  for _ in range(45):
-    out = drive.step(0.3, v_ego=15., lka=True)
-  assert -16 < (out[FSM2][7] & 0x7F) - 64 <= -10  # then on the slow ramp
-
-
-def test_brake_test_eases_off_when_braking_too_hard(flag_file):
-  drive = Drive(param=50)
-  brake_test(drive, 250)
-  out = None
-  for _ in range(100):
-    out = drive.step(0.3, v_ego=15., lka=True, a_ego=-1.25)  # 0.25 harder than the target, under the limiter
-  counts = (out[FSM2][7] & 0x7F) - 64
-  assert braking(out) and -16 < counts <= -12  # eased by 1.0 * 0.25
-  assert drive.cc.c1_bt_active
-
-
-def test_brake_test_ends_after_max_time(flag_file):
-  drive = Drive(param=50)
-  out = brake_test(drive, round(CarControllerParams.C1_BRAKE_TEST_MAX_S / 0.01) + 20)
-  assert not drive.cc.c1_bt_active and not braking(out)
-
-
-@pytest.mark.parametrize("kwargs", [{"lead": True}, {"gas": True}])
-def test_brake_test_needs_a_clear_road(flag_file, kwargs):
-  drive = Drive(param=50)
-  out = brake_test(drive, 60, **kwargs) if "gas" not in kwargs else None
-  if "gas" in kwargs:
-    brake_test(drive, 20)
-    assert drive.cc.c1_bt_active
-    drive.step(0.3, v_ego=15., lka=True, gas=True, long_active=False)
-    assert not drive.cc.c1_bt_active
-  else:
-    assert not drive.cc.c1_bt_active and not braking(out)
-
-
-def test_brake_test_sends_its_end_speed_as_the_target(flag_file):
-  # 0x280 byte 5 (SpeedTarget): the camera drives with target 60, OP brakes from 54 km/h towards 54 - 15 = 39
-  fsm4_60 = FSM4_DRIVE_FRAME[:5] + bytes([60]) + FSM4_DRIVE_FRAME[6:]
-  drive = Drive(param=50)
-  for _ in range(5):
-    drive.step(0.3, v_ego=15., mode=fsm4_60)
-  out = None
-  for _ in range(60):
-    out = drive.step(0.3, v_ego=15., lka=True, mode=fsm4_60)
-  assert braking(out) and out[FSM4][5] == 39
-
-
-def test_brake_test_target_over_camera_engine_braking(flag_file):
-  # the camera's brake mode without flags (engine braking) mid-test: OP's brake frame with its target still goes out
-  engine_brake_60 = FSM4_BRAKE[0][:5] + bytes([60]) + FSM4_BRAKE[0][6:]  # brake mode, no flags, cruising target
-  drive = Drive(param=50)
-  brake_test(drive, 60)
-  out = drive.step(0.3, v_ego=15., lka=True, mode=engine_brake_60)
-  assert braking(out) and out[FSM4][5] == 39  # OP's end speed, not the camera's 60
-  out = drive.step(0.3, v_ego=15., lka=True, mode=FSM4_BRAKE[0])
-  assert out[FSM4][5] == FSM4_BRAKE[0][5]  # the camera's 21 is already lower: kept
-
-
-def test_brake_test_needs_the_flag_file():
-  drive = Drive(param=50)
-  out = brake_test(drive, 60)
-  assert not drive.cc.c1_bt_active and not braking(out)
-
-
-def test_brake_test_needs_speed(flag_file):
-  drive = Drive(param=50)
-  for _ in range(5):
-    drive.step(0.3, v_ego=7.)
-  out = None
-  for _ in range(60):
-    out = drive.step(0.3, v_ego=7., lka=True)
-  assert not drive.cc.c1_bt_active and not braking(out)
-
-
-# Test 2: the car's 0x1B0 relayed to the camera with the ACC braking status and pressures zeroed (route 00000019 frames)
-BRAKE_ACC = bytes.fromhex("fc33a5020024c000")
-BRAKE_NONE = bytes.fromhex("fc00a0000000c000")
-
-
-def test_brake_test_relays_0x1b0_masked_to_the_camera(flag_file):
-  drive = Drive(param=50)
-  for _ in range(5):
-    drive.step(0.3, v_ego=15., brake_msg=BRAKE_NONE)
-  for _ in range(60):
-    drive.step(0.3, v_ego=15., lka=True, brake_msg=BRAKE_ACC)
-  relays = [r for r in drive.relays if r[0] == BRAKE_MSGS]
-  assert drive.cc.c1_bt_active and len(relays) == 1
-  _, dat, bus = relays[0]
-  assert bus == 2 and dat[2] & 0x7 == 0 and dat[1] == 0 and dat[5] == 0 and dat[0] & 0x3 == 0
-  assert dat[0] & 0xFC == BRAKE_ACC[0] & 0xFC and dat[3] == BRAKE_ACC[3] and dat[6:] == BRAKE_ACC[6:]
-
-
-def test_relay_copies_frames_unchanged_when_not_acc_braking(flag_file):
-  drive = Drive(param=50)
-  brake_test(drive, 30)
-  drive.step(0.3, v_ego=15., lka=True, brake_msg=BRAKE_NONE)
-  assert [r[1] for r in drive.relays if r[0] == BRAKE_MSGS] == [BRAKE_NONE]
-
-
-def test_relay_stops_after_the_test(flag_file):
-  drive = Drive(param=50)
-  for _ in range(5):
-    drive.step(0.3, v_ego=15., brake_msg=BRAKE_NONE)
-  for _ in range(round(CarControllerParams.C1_BRAKE_TEST_MAX_S / 0.01) + 5):
-    drive.step(0.3, v_ego=15., lka=True, brake_msg=BRAKE_ACC)
-  assert not drive.cc.c1_bt_active
-  for _ in range(CarControllerParams.C1_BRAKE_TEST_RELAY_TAIL_FRAMES + 2):
-    drive.step(0.3, v_ego=15., lka=True, brake_msg=BRAKE_NONE)
-  assert not drive.relays
-
-
-def test_no_relay_without_the_test():
-  drive = Drive(param=50)
-  for _ in range(50):
-    drive.step(0.3, v_ego=15., brake_msg=BRAKE_ACC)
-    assert not drive.relays
-
-
-# Test 3: overshoot limiter and FSM0 ACCStatusTracking while OP brakes
-FSM0_ACTIVE = bytes.fromhex("b1906f000000638e")
-
-
-def test_overshoot_drops_and_reapplies_the_flags(flag_file):
-  drive = Drive(param=50)
-  out = brake_test(drive, 60, brake_msg=BRAKE_ACC, a_ego=-1.0)
-  assert braking(out)
-  out = drive.step(0.3, v_ego=15., lka=True, brake_msg=BRAKE_ACC, a_ego=-1.6)  # 0.6 harder than asked
-  assert drive.cc.c1_bt_active and drive.cc.c1_bt_release
-  assert out[FSM2][2] & 0x20 == 0 and out[FSM2][5] & 0x20 == 0  # flags off, pressure can release
-  out = drive.step(0.3, v_ego=15., lka=True, brake_msg=BRAKE_NONE, a_ego=-1.2)
-  assert drive.cc.c1_bt_release  # not yet back within 0.1 of the request
-  out = drive.step(0.3, v_ego=15., lka=True, brake_msg=BRAKE_NONE, a_ego=-1.05)
-  assert not drive.cc.c1_bt_release and braking(out)
-
-
-def test_fsm0_relayed_with_tracking_while_op_brakes(flag_file):
-  drive = Drive(param=50)
-  for _ in range(5):
-    drive.step(0.3, v_ego=15., fsm0=FSM0_ACTIVE)
-  for _ in range(60):
-    drive.step(0.3, v_ego=15., lka=True, brake_msg=BRAKE_ACC, fsm0=FSM0_ACTIVE)
-  fsm0 = [r for r in drive.relays if r[0] == FSM0_ID]
-  assert len(fsm0) == 1 and fsm0[0][2] == 0 and fsm0[0][1] == FSM0_ACTIVE[:7] + bytes([FSM0_ACTIVE[7] | 1])
-
-
-def test_no_fsm0_relay_without_the_test():
-  drive = Drive(param=50)
-  for _ in range(30):
-    drive.step(0.3, v_ego=15., fsm0=FSM0_ACTIVE)
-    assert not drive.relays
-
-
-# Step 2b: OP's planner braking behind a lead (flag file C1_OP_BRAKE_FLAG), same panda permission as the brake test
+# OP's own braking (step 2b): flag file C1_OP_BRAKE_FLAG, behind a lead, panda param 50 (C1_BRAKE_TEST flag)
 @pytest.fixture
 def op_flag(monkeypatch):
   import opendbc.car.volvo.carcontroller as carcontroller
@@ -504,6 +310,98 @@ def op_brake(drive, frames, accel=-1.5, **kwargs):
   for _ in range(frames):
     out = drive.step(accel, **{"v_ego": 15., "lead": True, **kwargs})
   return out
+
+
+def braking(out) -> bool:
+  return bool(out[FSM2][2] & 0x20 and out[FSM2][5] & 0x20 and out[FSM4][6] & 0x3 == LongMode.BRAKE)
+
+
+def test_brake_param_on_this_branch():
+  assert long_params().safetyConfigs[0].safetyParam == 50
+
+
+def test_lka_button_never_brakes(op_flag):
+  # the LKA button is only the AOL switch again: flipping it changes nothing for long
+  drive = Drive(param=50)
+  for i in range(200):
+    out = drive.step(0.3, v_ego=15., lka=bool(i // 20 % 2))
+    assert not braking(out)
+
+
+def test_op_brake_quick_onset(op_flag):
+  # fast through the engine-braking zone, then 1 m/s^3: from the camera's +0.4 the request is past -0.48 within 0.3 s
+  drive = Drive(param=50)
+  out = op_brake(drive, 30)
+  assert (out[FSM2][7] & 0x7F) - 64 <= -6
+  out = op_brake(drive, 45)
+  assert -16 < (out[FSM2][7] & 0x7F) - 64 <= -10
+
+
+def test_op_brake_eases_off_when_braking_too_hard(op_flag):
+  drive = Drive(param=50)
+  op_brake(drive, 250)
+  out = op_brake(drive, 100, a_ego=-1.25)  # 0.25 harder than the -1.0 target, under the limiter
+  assert braking(out) and -16 < (out[FSM2][7] & 0x7F) - 64 <= -12
+
+
+def test_op_brake_target_speed(op_flag):
+  # 0x280 byte 5: the camera drives with target 60, OP brakes at 54 km/h towards 54 - 15 = 39; over the camera's engine
+  # braking too, but the camera's own lower target (21) is kept
+  fsm4_60 = FSM4_DRIVE_FRAME[:5] + bytes([60]) + FSM4_DRIVE_FRAME[6:]
+  engine_brake_60 = FSM4_BRAKE[0][:5] + bytes([60]) + FSM4_BRAKE[0][6:]
+  drive = Drive(param=50)
+  out = op_brake(drive, 60, mode=fsm4_60)
+  assert braking(out) and out[FSM4][5] == 39
+  out = op_brake(drive, 1, mode=engine_brake_60)
+  assert braking(out) and out[FSM4][5] == 39
+  out = op_brake(drive, 1, mode=FSM4_BRAKE[0])
+  assert out[FSM4][5] == FSM4_BRAKE[0][5]
+
+
+# the car's 0x1B0 relayed to the camera with the ACC braking status and pressures zeroed (route 00000019 frames)
+BRAKE_ACC = bytes.fromhex("fc33a5020024c000")
+BRAKE_NONE = bytes.fromhex("fc00a0000000c000")
+FSM0_ACTIVE = bytes.fromhex("b1906f000000638e")
+
+
+def test_op_brake_relays_0x1b0_masked_to_the_camera(op_flag):
+  drive = Drive(param=50)
+  op_brake(drive, 60, brake_msg=BRAKE_ACC)
+  relays = [r for r in drive.relays if r[0] == BRAKE_MSGS]
+  assert len(relays) == 1
+  _, dat, bus = relays[0]
+  assert bus == 2 and dat[2] & 0x7 == 0 and dat[1] == 0 and dat[5] == 0 and dat[0] & 0x3 == 0
+  assert dat[0] & 0xFC == BRAKE_ACC[0] & 0xFC and dat[3] == BRAKE_ACC[3] and dat[6:] == BRAKE_ACC[6:]
+
+
+def test_relay_copies_frames_unchanged_when_not_acc_braking(op_flag):
+  drive = Drive(param=50)
+  op_brake(drive, 60)  # past brake-mode entry (-0.6): OP's braking frames, and so the relay, have started
+  op_brake(drive, 1, brake_msg=BRAKE_NONE)
+  assert [r[1] for r in drive.relays if r[0] == BRAKE_MSGS] == [BRAKE_NONE]
+
+
+def test_relay_stops_after_op_braking(op_flag):
+  drive = Drive(param=50)
+  op_brake(drive, 100, brake_msg=BRAKE_ACC)
+  op_brake(drive, 60, lead=False, brake_msg=BRAKE_NONE)  # ramps out, then the tail runs out
+  assert not drive.cc.c1_ob_active
+  op_brake(drive, CarControllerParams.C1_BRAKE_TEST_RELAY_TAIL_FRAMES + 2, lead=False, brake_msg=BRAKE_NONE)
+  assert not drive.relays
+
+
+def test_no_relay_without_op_braking():
+  drive = Drive(param=50)
+  for _ in range(50):
+    drive.step(0.3, v_ego=15., brake_msg=BRAKE_ACC, fsm0=FSM0_ACTIVE)
+    assert not drive.relays
+
+
+def test_fsm0_relayed_with_tracking_while_op_brakes(op_flag):
+  drive = Drive(param=50)
+  op_brake(drive, 60, brake_msg=BRAKE_ACC, fsm0=FSM0_ACTIVE)
+  fsm0 = [r for r in drive.relays if r[0] == FSM0_ID]
+  assert len(fsm0) == 1 and fsm0[0][2] == 0 and fsm0[0][1] == FSM0_ACTIVE[:7] + bytes([FSM0_ACTIVE[7] | 1])
 
 
 def test_op_brake_behind_a_lead(op_flag):
