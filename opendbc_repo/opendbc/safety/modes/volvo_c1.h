@@ -151,6 +151,20 @@ typedef struct {
 } VolvoC1CamFrames;
 static bool volvo_c1_long = false;
 static bool volvo_c1_brake_test = false;
+// Brake test: the stock ACC camera faults ~1.5 s after OP's own braking starts (routes 00000013/18/19), most likely on
+// the brake status it gets from the car (0x1B0 BrakeStatus 5, ACC braking) while it isn't braking itself. While OP
+// brakes, OP may relay 0x1B0 to the camera (bus 2) with the status and both pressures zeroed, as the V60 does with its
+// camera's brake messages. Each relayed frame must be one of the car's recent 0x1B0 frames, unchanged or with only
+// those fields zeroed, and zeroing only while the car reports ACC braking (status 5), so a driver's braking is never
+// hidden. Relaying is allowed only shortly after a braking 0x160 from OP; while OP relays, the car's own 0x1B0 isn't
+// forwarded to the camera.
+#define VOLVO_C1_BRAKE_RELAY_WINDOW_US 300000U  // after OP's last braking 0x160
+#define VOLVO_C1_BRAKE_RELAY_HOLD_US 25000U     // forwarding pauses this long after each relayed frame (0x1B0 is 50 Hz)
+static VolvoC1CamFrames volvo_c1_brake_frames;
+static bool volvo_c1_op_braked = false;
+static uint32_t volvo_c1_op_brake_ts = 0U;
+static bool volvo_c1_relayed = false;
+static uint32_t volvo_c1_relay_ts = 0U;
 static VolvoC1CamFrames volvo_c1_cam_request;
 static VolvoC1CamFrames volvo_c1_cam_mode;
 
@@ -231,6 +245,34 @@ static bool volvo_c1_acc_mode_tx_ok(const CANPacket_t *msg) {
   return ok;
 }
 
+static bool volvo_c1_recent(bool seen, uint32_t ts, uint32_t max_us) {
+  return seen && (safety_get_ts_elapsed(microsecond_timer_get(), ts) <= max_us);
+}
+
+static bool volvo_c1_brake_relay_ok(const CANPacket_t *msg) {
+  // Fields OP may zero: BrakePress0 (byte 0 bits 1-0, byte 1), BrakeStatus (byte 2 bits 2-0), BrakePress1 (byte 4 bits 1-0, byte 5)
+  static const uint8_t keep[8] = {0xFCU, 0x00U, 0xF8U, 0xFFU, 0xFCU, 0x00U, 0xFFU, 0xFFU};
+  bool zeroed = true;
+  for (uint8_t byte = 0U; byte < 8U; byte++) {
+    zeroed = zeroed && ((msg->data[byte] & (uint8_t)(~keep[byte])) == 0U);
+  }
+  bool ok = false;
+  for (uint8_t i = 0U; i < VOLVO_C1_CAM_FRAMES; i++) {
+    if (volvo_c1_cam_frame_fresh(&volvo_c1_brake_frames, i)) {
+      const uint8_t *car = volvo_c1_brake_frames.data[i];
+      bool unchanged = true;
+      bool same_kept = true;
+      for (uint8_t byte = 0U; byte < 8U; byte++) {
+        unchanged = unchanged && (msg->data[byte] == car[byte]);
+        same_kept = same_kept && ((msg->data[byte] & keep[byte]) == (car[byte] & keep[byte]));
+      }
+      const bool acc_braking = (car[2] & 0x7U) == 5U;
+      ok = ok || unchanged || (same_kept && zeroed && acc_braking);
+    }
+  }
+  return ok;
+}
+
 static void volvo_c1_rx_hook(const CANPacket_t *msg) {
   if (msg->bus == VOLVO_MAIN_BUS) {
     if (msg->addr == VOLVO_C1_PSCM_1) {
@@ -258,6 +300,9 @@ static void volvo_c1_rx_hook(const CANPacket_t *msg) {
     }
 
     if (msg->addr == VOLVO_C1_BRAKE_MESSAGES) {
+      if (volvo_c1_brake_test && (GET_LEN(msg) == 8U)) {
+        volvo_c1_cam_frames_store(&volvo_c1_brake_frames, msg);
+      }
       volvo_c1_brake_status = (unsigned int)msg->data[2] & 0x7U;
       volvo_c1_brake_hold = GET_BIT(msg, 22U);
       volvo_c1_update_brake_pressed();
@@ -431,6 +476,18 @@ static bool volvo_c1_tx_hook(const CANPacket_t *msg) {
 
   if (msg->addr == VOLVO_C1_ACC_REQUEST) {
     tx &= volvo_c1_long_allowed() && volvo_c1_acc_request_tx_ok(msg);
+    if (tx && volvo_c1_brake_test && ((msg->data[2] & 0x20U) != 0U)) {
+      volvo_c1_op_braked = true;
+      volvo_c1_op_brake_ts = microsecond_timer_get();
+    }
+  }
+  if ((msg->addr == VOLVO_C1_BRAKE_MESSAGES) && (msg->bus == VOLVO_PARTY_BUS)) {
+    tx &= volvo_c1_brake_test && volvo_c1_long_allowed() &&
+          volvo_c1_recent(volvo_c1_op_braked, volvo_c1_op_brake_ts, VOLVO_C1_BRAKE_RELAY_WINDOW_US) && volvo_c1_brake_relay_ok(msg);
+    if (tx) {
+      volvo_c1_relayed = true;
+      volvo_c1_relay_ts = microsecond_timer_get();
+    }
   }
   if (msg->addr == VOLVO_C1_ACC_MODE) {
     tx &= volvo_c1_long_allowed() && volvo_c1_acc_mode_tx_ok(msg);
@@ -440,13 +497,18 @@ static bool volvo_c1_tx_hook(const CANPacket_t *msg) {
 
 static bool volvo_c1_fwd_hook(int bus_num, int addr) {
   const bool acc_msg = ((unsigned int)addr == VOLVO_C1_ACC_REQUEST) || ((unsigned int)addr == VOLVO_C1_ACC_MODE);
-  return ((unsigned int)bus_num == VOLVO_PARTY_BUS) && acc_msg && volvo_c1_long_allowed();
+  const bool relayed_brake = ((unsigned int)bus_num == VOLVO_MAIN_BUS) && ((unsigned int)addr == VOLVO_C1_BRAKE_MESSAGES) &&
+                             volvo_c1_brake_test && volvo_c1_recent(volvo_c1_relayed, volvo_c1_relay_ts, VOLVO_C1_BRAKE_RELAY_HOLD_US);
+  return (((unsigned int)bus_num == VOLVO_PARTY_BUS) && acc_msg && volvo_c1_long_allowed()) || relayed_brake;
 }
 static safety_config volvo_c1_init(uint16_t param) {
   volvo_c1_long = GET_FLAG(param, VOLVO_C1_PARAM_LONG);
   volvo_c1_brake_test = volvo_c1_long && GET_FLAG(param, VOLVO_C1_PARAM_BRAKE_TEST);
   volvo_c1_cam_frames_clear(&volvo_c1_cam_request);
   volvo_c1_cam_frames_clear(&volvo_c1_cam_mode);
+  volvo_c1_cam_frames_clear(&volvo_c1_brake_frames);
+  volvo_c1_op_braked = false;
+  volvo_c1_relayed = false;
   volvo_c1_pressure_bits = false;
   volvo_c1_brake_status = 0U;
   volvo_c1_brake_hold = false;
@@ -477,6 +539,14 @@ static safety_config volvo_c1_init(uint16_t param) {
     {VOLVO_C1_ACC_REQUEST, VOLVO_MAIN_BUS, 8, .check_relay = false},
     {VOLVO_C1_ACC_MODE, VOLVO_MAIN_BUS, 8, .check_relay = false},
   };
+  static const CanMsg VOLVO_C1_BRAKE_TEST_TX_MSGS[] = {
+    {VOLVO_C1_FSM_1, VOLVO_MAIN_BUS, 8, .check_relay = true},
+    {VOLVO_C1_PSCM_1, VOLVO_PARTY_BUS, 8, .check_relay = true},
+    {VOLVO_C1_BUTTONS, VOLVO_MAIN_BUS, 8, .check_relay = false},
+    {VOLVO_C1_ACC_REQUEST, VOLVO_MAIN_BUS, 8, .check_relay = false},
+    {VOLVO_C1_ACC_MODE, VOLVO_MAIN_BUS, 8, .check_relay = false},
+    {VOLVO_C1_BRAKE_MESSAGES, VOLVO_PARTY_BUS, 8, .check_relay = false},
+  };
   static RxCheck volvo_c1_rx_checks[] = {
     {.msg = {{VOLVO_C1_PSCM_1, VOLVO_MAIN_BUS, 8, 50U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
     {.msg = {{VOLVO_C1_FSM_0, VOLVO_PARTY_BUS, 8, 100U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
@@ -486,8 +556,12 @@ static safety_config volvo_c1_init(uint16_t param) {
     {.msg = {{VOLVO_C1_CEM_0, VOLVO_MAIN_BUS, 8, 40U, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},
   };
   safety_config ret = BUILD_SAFETY_CFG(volvo_c1_rx_checks, VOLVO_C1_TX_MSGS);
-  if (volvo_c1_long) {
+  if (volvo_c1_brake_test) {
+    ret = BUILD_SAFETY_CFG(volvo_c1_rx_checks, VOLVO_C1_BRAKE_TEST_TX_MSGS);
+  } else if (volvo_c1_long) {
     ret = BUILD_SAFETY_CFG(volvo_c1_rx_checks, VOLVO_C1_LONG_TX_MSGS);
+  } else {
+    // lateral only: steering, the relayed PSCM frame and cancel/resume
   }
   return ret;
 }

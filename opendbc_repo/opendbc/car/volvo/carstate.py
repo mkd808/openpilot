@@ -21,6 +21,7 @@ class CarState(CarStateBase):
     self.c1_aol_allowed = False
     self.c1_stock_acc_request_frames = []
     self.c1_stock_acc_mode_frames = []
+    self.c1_brake_msg_frames = []  # every car 0x1B0 since the last update, for the brake test's relay to the camera
     # The FSM's road-sign speed limit (RSI), the Speed Limit Controller's "Dashboard" source
     self.dashboard_limit = LimitTracker()
     self.c1_button_states = dict.fromkeys(
@@ -94,6 +95,7 @@ class CarState(CarStateBase):
       # every camera 0x160/0x280 frame since the last update; OP sends one frame for each
       self.c1_stock_acc_request_frames = eucd_all_frames(cp_cam, "FSM2")
       self.c1_stock_acc_mode_frames = eucd_all_frames(cp_cam, "FSM4")
+      self.c1_brake_msg_frames = eucd_all_frames(cp, "BrakeMessages")
 
     self.c1_msg_pscm = cp.vl["PSCM1"]
     self.c1_lka_torque = int(cp.vl["PSCM1"]["LKATorque"])

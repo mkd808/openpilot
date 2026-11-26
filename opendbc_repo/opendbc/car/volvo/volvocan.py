@@ -89,6 +89,15 @@ def create_c1_acc_request(packer, stock_fsm2: dict, accel: float, brake: bool | 
   return packer.make_can_msg("FSM2", 0, values)
 
 
+def create_c1_brake_relay(packer, stock: dict):
+  # The car's 0x1B0 for the camera (bus 2): while the car reports ACC braking (status 5), with the status and both
+  # pressures zeroed so the camera doesn't see braking it didn't ask for; otherwise unchanged
+  values = {**stock}
+  if int(stock["BrakeStatus"]) == 5:
+    values.update({"BrakeStatus": 0, "BrakePress0": 0, "BrakePress1": 0})
+  return packer.make_can_msg("BrakeMessages", 2, values)
+
+
 def create_c1_acc_mode(packer, stock_fsm4: dict, accel: float | None = None, mode: LongMode | None = None):
   # 0x280 with OP's mode and its traction for accel; without a mode the stock frame is copied
   values = {**stock_fsm4}

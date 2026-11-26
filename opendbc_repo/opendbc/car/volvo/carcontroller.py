@@ -7,8 +7,8 @@ from opendbc.car.carlog import carlog
 from opendbc.car.interfaces import CarControllerBase
 from opendbc.car.lateral import apply_std_steer_angle_limits
 from opendbc.car.volvo.eucd_params import LongMode
-from opendbc.car.volvo.volvocan import (c1_next_long_mode, create_c1_acc_mode, create_c1_acc_request, create_c1_cancel, create_c1_pscm_message,
-                                        create_c1_resume, create_c1_steering_control)
+from opendbc.car.volvo.volvocan import (c1_next_long_mode, create_c1_acc_mode, create_c1_acc_request, create_c1_brake_relay, create_c1_cancel,
+                                        create_c1_pscm_message, create_c1_resume, create_c1_steering_control)
 from opendbc.car.volvo.values import CarControllerParams, VolvoSafetyFlags
 
 
@@ -38,6 +38,7 @@ class CarController(CarControllerBase):
     self.c1_bt_active = False
     self.c1_bt_start = 0
     self.c1_bt_v0 = 0.
+    self.c1_bt_relay_until = -1  # last frame to relay 0x1B0 to the camera
 
   def update(self, CC, CS, now_nanos):
     can_sends = []
@@ -216,9 +217,15 @@ class CarController(CarControllerBase):
       else:
         brake = brake_test and self.c1_long_mode == LongMode.BRAKE and self.c1_accel < 0.
         sends.append(create_c1_acc_request(self.packer, frame, self.c1_accel, brake))
+        if brake:
+          # relay the car's 0x1B0 to the camera from OP's first braking frame on, as volvo_c1.h allows
+          self.c1_bt_relay_until = self.frame + CCP.C1_BRAKE_TEST_RELAY_TAIL_FRAMES
     for frame in mode_frames:
       cam_frame = cam_owns or int(frame["ACC_Mode"]) == LongMode.BRAKE
       sends.append(create_c1_acc_mode(self.packer, frame) if cam_frame else create_c1_acc_mode(self.packer, frame, self.c1_accel, self.c1_long_mode))
+    if self.frame <= self.c1_bt_relay_until:
+      for frame in getattr(CS, "c1_brake_msg_frames", []):
+        sends.append(create_c1_brake_relay(self.packer, frame))
     if self.c1_handoff and (self.c1_handoff_frame is None or (self.frame - self.c1_handoff_frame) % 10 == 0):
       if self.c1_handoff_frame is None:
         self.c1_handoff_frame = self.frame

@@ -71,6 +71,9 @@ class CarControllerParams:
   C1_BRAKE_TEST_DROP = 15 * CV.KPH_TO_MS
   C1_BRAKE_TEST_MAX_S = 4.0
   C1_BRAKE_TEST_FLAG_CHECK_FRAMES = 100  # look for the flag file once a second
+  # Test 2: while OP brakes (and this long after), OP relays the car's 0x1B0 to the camera with BrakeStatus and both
+  # pressures zeroed whenever the car reports ACC braking (status 5); volvo_c1.h allows this 0.3 s after its last braking 0x160
+  C1_BRAKE_TEST_RELAY_TAIL_FRAMES = 20
 
 
 @dataclass

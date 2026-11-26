@@ -16,6 +16,7 @@ from opendbc.safety.tests.test_volvo_c1 import packet
 DBC = "volvo_v40_2017_pt"
 FSM2, FSM4 = 0x160, 0x280
 BUTTONS = 0x10
+BRAKE_MSGS = 0x1B0
 
 # stock camera frames, route 7c7d3d5e5ff31d51/0000000d (ACC stop and go); tools/volvo_c1/replay_encode.py checks every frame
 FSM2_ACC_OFF = bytes.fromhex("9000df5408d001bf")
@@ -138,14 +139,17 @@ class Drive:
     lib.set_controls_allowed(True)
 
   def step(self, accel, request=FSM2_DRIVE, mode=FSM4_DRIVE_FRAME, long_active=True, enabled=True, standstill=False, v_ego=20.,
-           lka=False, lead=False, gas=False):
+           lka=False, lead=False, gas=False, brake_msg=None):
     for addr, dat in ((FSM2, request), (FSM4, mode)):
       lib.safety_rx_hook(packet((addr, dat, 2)))
+    if brake_msg is not None:
+      lib.safety_rx_hook(packet((BRAKE_MSGS, brake_msg, 0)))
     out = structs.CarState.new_message(standstill=standstill, vEgo=0. if standstill else v_ego, gasPressed=gas).as_reader()
     cs = SimpleNamespace(out=out, c1_lka_torque=0, c1_brake_hold=False, c1_buttons_stock=None, c1_lka_on=lka,
                          c1_msg_pscm={'SteeringAngleServo': 0, 'byte0': 0, 'byte3': 0, 'byte4': 0, 'byte7': 0, 'LKAActive': 0},
                          c1_stock_acc_request_frames=[parse("FSM2", FSM2, 50, request)],
-                         c1_stock_acc_mode_frames=[parse("FSM4", FSM4, 40, mode)])
+                         c1_stock_acc_mode_frames=[parse("FSM4", FSM4, 40, mode)],
+                         c1_brake_msg_frames=[] if brake_msg is None else [parse("BrakeMessages", BRAKE_MSGS, 50, brake_msg)])
     cc = structs.CarControl.new_message(longActive=long_active, enabled=enabled)
     cc.actuators.accel = accel
     cc.hudControl.leadVisible = lead
@@ -155,6 +159,9 @@ class Drive:
       assert lib.safety_tx_hook(packet(msg)), msg
     self.cancels = [(a, d, b) for a, d, b in sends if a == BUTTONS]
     for msg in self.cancels:
+      assert lib.safety_tx_hook(packet(msg)), msg
+    self.relays = [(a, d, b) for a, d, b in sends if a == BRAKE_MSGS]
+    for msg in self.relays:
       assert lib.safety_tx_hook(packet(msg)), msg
     return {a: d for a, d, _ in long_sends}
 
@@ -351,3 +358,46 @@ def test_brake_test_needs_speed(flag_file):
   for _ in range(60):
     out = drive.step(0.3, v_ego=7., lka=True)
   assert not drive.cc.c1_bt_active and not braking(out)
+
+
+# Test 2: the car's 0x1B0 relayed to the camera with the ACC braking status and pressures zeroed (route 00000019 frames)
+BRAKE_ACC = bytes.fromhex("fc33a5020024c000")
+BRAKE_NONE = bytes.fromhex("fc00a0000000c000")
+
+
+def test_brake_test_relays_0x1b0_masked_to_the_camera(flag_file):
+  drive = Drive(param=50)
+  for _ in range(5):
+    drive.step(0.3, v_ego=15., brake_msg=BRAKE_NONE)
+  for _ in range(60):
+    drive.step(0.3, v_ego=15., lka=True, brake_msg=BRAKE_ACC)
+  assert drive.cc.c1_bt_active and len(drive.relays) == 1
+  _, dat, bus = drive.relays[0]
+  assert bus == 2 and dat[2] & 0x7 == 0 and dat[1] == 0 and dat[5] == 0 and dat[0] & 0x3 == 0
+  assert dat[0] & 0xFC == BRAKE_ACC[0] & 0xFC and dat[3] == BRAKE_ACC[3] and dat[6:] == BRAKE_ACC[6:]
+
+
+def test_relay_copies_frames_unchanged_when_not_acc_braking(flag_file):
+  drive = Drive(param=50)
+  brake_test(drive, 30)
+  drive.step(0.3, v_ego=15., lka=True, brake_msg=BRAKE_NONE)
+  assert drive.relays and drive.relays[0][1] == BRAKE_NONE
+
+
+def test_relay_stops_after_the_test(flag_file):
+  drive = Drive(param=50)
+  for _ in range(5):
+    drive.step(0.3, v_ego=15., brake_msg=BRAKE_NONE)
+  for _ in range(round(CarControllerParams.C1_BRAKE_TEST_MAX_S / 0.01) + 5):
+    drive.step(0.3, v_ego=15., lka=True, brake_msg=BRAKE_ACC)
+  assert not drive.cc.c1_bt_active
+  for _ in range(CarControllerParams.C1_BRAKE_TEST_RELAY_TAIL_FRAMES + 2):
+    drive.step(0.3, v_ego=15., lka=True, brake_msg=BRAKE_NONE)
+  assert not drive.relays
+
+
+def test_no_relay_without_the_test():
+  drive = Drive(param=50)
+  for _ in range(50):
+    drive.step(0.3, v_ego=15., brake_msg=BRAKE_ACC)
+    assert not drive.relays

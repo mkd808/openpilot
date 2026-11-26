@@ -246,5 +246,110 @@ class TestVolvoC1BrakeTest(TestVolvoC1Long):
         self.assertFalse(self._tx(ACC_MODE, with_mode(MODE_DRIVE, 3, traction)))
 
 
+# car 0x1B0 frames, route 00000019: ACC braking (status 5, pressure 51/36), driving, and a driver's braking (status 0, pressure)
+BRAKE_ACC = bytes.fromhex("fc33a5020024c000")
+BRAKE_NONE = bytes.fromhex("fc00a0000000c000")
+BRAKE_DRIVER = bytes.fromhex("fc3ba003002ac000")
+BRAKE_MSGS = 0x1B0
+
+
+def masked(dat: bytes) -> bytes:
+  out = bytearray(dat)
+  out[0] &= 0xFC
+  out[1] = 0
+  out[2] &= 0xF8
+  out[4] &= 0xFC
+  out[5] = 0
+  return bytes(out)
+
+
+class TestVolvoC1BrakeRelay(unittest.TestCase):
+  """Test 2: while OP brakes, OP may relay the car's 0x1B0 to the camera with the ACC braking status and pressures zeroed."""
+  def setUp(self, param=C1_BRAKE_TEST):
+    lib.set_alternative_experience(0)
+    self.assertEqual(0, lib.set_safety_hooks(VOLVO, param))
+    lib.init_tests()
+    lib.set_timer(1_000_000)
+    lib.set_controls_allowed(True)
+    lib.safety_rx_hook(packet((ACC_REQUEST, REQUEST, 2)))
+
+  def _car(self, dat):
+    lib.safety_rx_hook(packet((BRAKE_MSGS, dat, 0)))
+
+  def _relay(self, dat):
+    return bool(lib.safety_tx_hook(packet((BRAKE_MSGS, dat, 2))))
+
+  def _op_brakes(self):
+    self.assertTrue(lib.safety_tx_hook(packet((ACC_REQUEST, with_flags(with_request(REQUEST, -12), 1, 1), 0))))
+
+  def test_only_after_op_braked(self):
+    self._car(BRAKE_ACC)
+    self.assertFalse(self._relay(masked(BRAKE_ACC)))
+    self._op_brakes()
+    self.assertTrue(self._relay(masked(BRAKE_ACC)))
+    self.assertTrue(self._relay(BRAKE_ACC))  # unchanged is fine too
+
+  def test_window_after_op_braking(self):
+    self._op_brakes()
+    lib.set_timer(1_300_000)
+    self._car(BRAKE_ACC)
+    self.assertTrue(self._relay(masked(BRAKE_ACC)))
+    lib.set_timer(1_300_001)
+    self._car(BRAKE_ACC)
+    self.assertFalse(self._relay(masked(BRAKE_ACC)))
+
+  def test_never_hides_a_drivers_braking(self):
+    self._op_brakes()
+    self._car(BRAKE_DRIVER)
+    self.assertTrue(self._relay(BRAKE_DRIVER))
+    self.assertFalse(self._relay(masked(BRAKE_DRIVER)))
+
+  def test_only_the_braking_fields_change(self):
+    self._op_brakes()
+    self._car(BRAKE_ACC)
+    keep = (0xFC, 0x00, 0xF8, 0xFF, 0xFC, 0x00, 0xFF, 0xFF)
+    for byte in range(8):
+      for bit in range(8):
+        if not keep[byte] >> bit & 1:
+          continue
+        dat = bytearray(masked(BRAKE_ACC))
+        dat[byte] ^= 1 << bit
+        with self.subTest(byte=byte, bit=bit):
+          self.assertFalse(self._relay(bytes(dat)))
+    partly = bytearray(masked(BRAKE_ACC))
+    partly[1] = BRAKE_ACC[1]  # one pressure left in: all three fields zero together or none
+    self.assertFalse(self._relay(bytes(partly)))
+
+  def test_car_frames_expire(self):
+    self._op_brakes()
+    self._car(BRAKE_ACC)
+    lib.set_timer(1_100_001)
+    lib.safety_rx_hook(packet((ACC_REQUEST, REQUEST, 2)))  # a fresh camera frame, but the car's 0x1B0 is now stale
+    self._op_brakes()
+    self.assertFalse(self._relay(masked(BRAKE_ACC)))
+
+  def test_not_without_controls_or_on_the_wrong_bus(self):
+    self._op_brakes()
+    self._car(BRAKE_ACC)
+    self.assertFalse(bool(lib.safety_tx_hook(packet((BRAKE_MSGS, masked(BRAKE_ACC), 0)))))
+    lib.set_controls_allowed(False)
+    self.assertFalse(self._relay(masked(BRAKE_ACC)))
+
+  def test_forwarding_pauses_while_op_relays(self):
+    self.assertEqual(2, lib.safety_fwd_hook(0, BRAKE_MSGS))
+    self._op_brakes()
+    self._car(BRAKE_ACC)
+    self.assertTrue(self._relay(masked(BRAKE_ACC)))
+    self.assertEqual(-1, lib.safety_fwd_hook(0, BRAKE_MSGS))
+    lib.set_timer(1_025_001)
+    self.assertEqual(2, lib.safety_fwd_hook(0, BRAKE_MSGS))
+
+  def test_not_without_the_brake_test_flag(self):
+    self.setUp(C1_LONG)
+    self._car(BRAKE_ACC)
+    self.assertFalse(self._relay(masked(BRAKE_ACC)))
+    self.assertFalse(self._relay(BRAKE_ACC))
+
+
 if __name__ == "__main__":
   unittest.main()

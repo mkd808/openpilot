@@ -187,6 +187,13 @@ BO_ 432 BrakeMessages: 8 BCM
  SG_ BrakePress1 : 33|10@0+ (1,0) [0|1023] "" XXX
  SG_ BrakeStatus : 18|3@0+ (1,0) [0|7] "" XXX
  SG_ BrakeHold : 22|1@0+ (1,0) [0|1] "" XXX
+ SG_ Byte_0_b7_2 : 7|6@0+ (1,0) [0|63] "" XXX
+ SG_ Byte_2_b7 : 23|1@0+ (1,0) [0|1] "" XXX
+ SG_ Byte_2_b5_3 : 21|3@0+ (1,0) [0|7] "" XXX
+ SG_ Byte_3 : 31|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_4_b7_2 : 39|6@0+ (1,0) [0|63] "" XXX
+ SG_ Byte_6 : 55|8@0+ (1,0) [0|255] "" XXX
+ SG_ Byte_7 : 63|8@0+ (1,0) [0|255] "" XXX
 
 BO_ 437 BrakeInfo: 8 XXX
  SG_ Byte_0 : 7|8@0+ (1,0) [0|255] "" XXX
