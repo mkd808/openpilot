@@ -325,7 +325,20 @@ def test_brake_test_runs_on_lka_flip(flag_file):
   drive = Drive(param=50)
   out = brake_test(drive, 60)
   assert braking(out) and out[FSM4][7] == 0
-  assert (out[FSM2][7] & 0x7F) - 64 in (-12, -13)  # held at -1.0, OP's planner wanting +0.3 is ignored
+  counts = (out[FSM2][7] & 0x7F) - 64
+  assert -12 < counts < 0  # still ramping in at 1 m/s^3 from the camera's +0.4
+  out = brake_test(drive, 250)
+  assert (out[FSM2][7] & 0x7F) - 64 == -16  # -1.25 from the brake table for -1.0, OP's planner wanting +0.3 is ignored
+
+
+def test_brake_test_eases_off_when_braking_too_hard(flag_file):
+  drive = Drive(param=50)
+  brake_test(drive, 250)
+  out = None
+  for _ in range(100):
+    out = drive.step(0.3, v_ego=15., lka=True, a_ego=-1.25)  # 0.25 harder than the target, under the limiter
+  counts = (out[FSM2][7] & 0x7F) - 64
+  assert braking(out) and -16 < counts <= -13  # eased by 0.6 * 0.25 = 0.15
   assert drive.cc.c1_bt_active
 
 

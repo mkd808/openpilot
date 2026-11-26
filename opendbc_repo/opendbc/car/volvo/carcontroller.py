@@ -42,6 +42,7 @@ class CarController(CarControllerBase):
     self.c1_bt_relay_until = -1  # last frame to relay 0x1B0 to the camera
     self.c1_bt_release = False  # overshoot: flags dropped until the car is back near the request
     self.c1_bt_flags = False  # OP's hydraulic flags went out this frame
+    self.c1_bt_pressure_logged = False
 
   def update(self, CC, CS, now_nanos):
     can_sends = []
@@ -152,6 +153,7 @@ class CarController(CarControllerBase):
     elif flipped and clear and CS.out.vEgo >= CCP.C1_BRAKE_TEST_MIN_SPEED:
       self.c1_bt_active, self.c1_bt_start, self.c1_bt_v0 = True, self.frame, CS.out.vEgo
       self.c1_bt_release = False
+      self.c1_bt_pressure_logged = False
       carlog.warning(f"volvo_c1_brake_test start at {CS.out.vEgo * 3.6:.1f} km/h")
     return self.c1_bt_active
 
@@ -200,8 +202,15 @@ class CarController(CarControllerBase):
       self.c1_long_was_active = True
 
     if not cam_owns and brake_test:
-      # fixed request, ramped in at the jerk limit, brake mode with the flags the way the camera brakes
-      self.c1_accel = max(CCP.C1_BRAKE_TEST_ACCEL, self.c1_accel - CCP.C1_LONG_JERK_DOWN * DT_CTRL)
+      # request from the brake table for the target, eased off while the car brakes harder than the target, ramped in
+      # at C1_BRAKE_TEST_RAMP the way the camera does (out of braking it may rise at the normal jerk limit)
+      target = CCP.C1_BRAKE_TEST_ACCEL
+      ease = float(np.clip(CCP.C1_BRAKE_TEST_EASE_GAIN * (target - CS.out.aEgo), 0., CCP.C1_BRAKE_TEST_EASE))
+      request = float(np.interp(target, CCP.C1_BRAKE_ACCEL_BP, CCP.C1_BRAKE_REQUEST_V)) + ease
+      self.c1_accel = min(max(request, self.c1_accel - CCP.C1_BRAKE_TEST_RAMP * DT_CTRL), self.c1_accel + CCP.C1_LONG_JERK_DOWN * DT_CTRL)
+      if not self.c1_bt_pressure_logged and getattr(CS, "c1_brake_pressure", 0) > CCP.C1_BRAKE_TEST_PRESSURE_SEEN:
+        self.c1_bt_pressure_logged = True
+        carlog.warning(f"volvo_c1_brake_test pressure after {(self.frame - self.c1_bt_start) * DT_CTRL:.2f}s, request {self.c1_accel:+.2f}")
       # overshoot limiter: drop the flags while the car brakes much harder than asked
       if CS.out.aEgo < CCP.C1_BRAKE_TEST_ACCEL - CCP.C1_BRAKE_TEST_OVERSHOOT:
         if not self.c1_bt_release:

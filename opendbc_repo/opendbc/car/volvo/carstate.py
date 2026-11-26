@@ -24,6 +24,7 @@ class CarState(CarStateBase):
     self.c1_brake_msg_frames = []  # every car 0x1B0 since the last update, for the brake test's relay to the camera
     self.c1_fsm0_frames = []  # every camera FSM0 since the last update, for the brake test's relay to the car
     self.c1_acc_brake_age = C1_ACC_BRAKE_GRACE_FRAMES + 1  # frames since ACC last owned the brake
+    self.c1_brake_pressure = 0  # 0x1B0 BrakePress0
     # The FSM's road-sign speed limit (RSI), the Speed Limit Controller's "Dashboard" source
     self.dashboard_limit = LimitTracker()
     self.c1_button_states = dict.fromkeys(
@@ -48,6 +49,7 @@ class CarState(CarStateBase):
     # volvo_c1.h. A pedal tap makes ACC cancel, which clears the ACC-owned state. See volvo_c1_acc_owns_brake.
     brake_status = int(cp.vl["BrakeMessages"]["BrakeStatus"])
     self.c1_brake_hold = bool(cp.vl["BrakeMessages"]["BrakeHold"])
+    self.c1_brake_pressure = int(cp.vl["BrakeMessages"]["BrakePress0"])
     acc_active = bool(cp_cam.vl["FSM0"]["ACCStatusActive"])
     pressure_bits = bool(cp.vl["PedalandBrake"]["BrakePedalActive2"] or cp.vl["PedalandBrake"]["BrakePedalActive"])
     acc_owns_brake = volvo_c1_acc_owns_brake(brake_status, self.c1_brake_hold, acc_active)

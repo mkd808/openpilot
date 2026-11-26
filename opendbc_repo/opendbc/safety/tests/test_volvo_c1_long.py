@@ -202,7 +202,7 @@ class TestVolvoC1BrakeTest(TestVolvoC1Long):
     for counts in range(-64, 64):
       with self.subTest(counts=counts):
         unchanged = counts == -17
-        self.assertEqual(-13 <= counts <= 25 or unchanged, bool(self._tx(ACC_REQUEST, with_request(REQUEST, counts))))
+        self.assertEqual(-16 <= counts <= 25 or unchanged, bool(self._tx(ACC_REQUEST, with_request(REQUEST, counts))))
 
   def test_request_only_replaces_the_request_bits(self):
     # as in step 1, except that the two flags may now change together
@@ -223,7 +223,7 @@ class TestVolvoC1BrakeTest(TestVolvoC1Long):
     for counts in range(-20, 10):
       for a, b in ((0, 0), (1, 1), (1, 0), (0, 1)):
         unchanged = counts == -17 and (a, b) == (0, 0)  # the camera's own frame (raw 47)
-        expected = unchanged or (-13 <= counts <= 25 and ((a, b) == (0, 0) or ((a, b) == (1, 1) and counts <= 0)))
+        expected = unchanged or (-16 <= counts <= 25 and ((a, b) == (0, 0) or ((a, b) == (1, 1) and counts <= 0)))
         with self.subTest(counts=counts, flags=(a, b)):
           self.assertEqual(expected, bool(self._tx(ACC_REQUEST, with_flags(with_request(REQUEST, counts), a, b))))
 

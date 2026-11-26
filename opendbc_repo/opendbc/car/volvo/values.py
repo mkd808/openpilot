@@ -77,8 +77,19 @@ class CarControllerParams:
   # Test 3: with the camera no longer faulting the brake module ramped past OP's request (route 0000001b: -0.96 asked,
   # -2.4 reached). OP drops its hydraulic flags while the car brakes this much harder than asked, and brakes again
   # once it's back within C1_BRAKE_TEST_REAPPLY of the request. Pressure released within ~0.6 s when the flags dropped.
-  C1_BRAKE_TEST_OVERSHOOT = 0.5  # m/s^2
+  C1_BRAKE_TEST_OVERSHOOT = 0.3  # m/s^2
   C1_BRAKE_TEST_REAPPLY = 0.1  # m/s^2
+  # Test 4: on the camera's own braking the car decelerates ~0.25-0.3 m/s^2 less than the 0x160 request (actual =
+  # 0.084 * count + 0.28, routes 00000012/13/16), so the request comes from this table of actual decel -> request,
+  # like the V60's FSM4 brake target table. Ramped in like the camera does rather than stepped (a step wound the brake
+  # module up: pressure 1.5-3 s late, then -1.5 for -0.96 asked), and eased off by up to C1_BRAKE_TEST_EASE when the
+  # car brakes harder than the target. It never asks for more than the table.
+  C1_BRAKE_ACCEL_BP = [-2.0, -1.5, -1.0, -0.75, -0.45, -0.1, 0.0]
+  C1_BRAKE_REQUEST_V = [-2.2, -1.75, -1.25, -0.96, -0.76, -0.40, -0.32]
+  C1_BRAKE_TEST_RAMP = 1.0  # m/s^3 into the brake request
+  C1_BRAKE_TEST_EASE_GAIN = 0.6
+  C1_BRAKE_TEST_EASE = 0.5  # m/s^2
+  C1_BRAKE_TEST_PRESSURE_SEEN = 10  # 0x1B0 BrakePress0 counts: pressure has started building
 
 
 @dataclass

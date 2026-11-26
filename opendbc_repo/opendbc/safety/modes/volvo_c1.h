@@ -152,8 +152,9 @@ static uint8_t volvo_c1_aol_permission(void) {
 #define VOLVO_C1_LONG_REQUEST_MIN (-7)  // counts from 64 at ~0.08 m/s^2: -0.56, short of the camera's brake mode
 #define VOLVO_C1_LONG_REQUEST_MAX 25    // +2.0 m/s^2
 // Brake test (param flag 32): OP may also send brake mode (traction 0) and both hydraulic flags, together and only with
-// a request at or below zero, down to -13 counts (-1.04), and still only while the camera isn't braking.
-#define VOLVO_C1_BRAKE_TEST_REQUEST_MIN (-13)
+// a request at or below zero, down to VOLVO_C1_BRAKE_TEST_REQUEST_MIN, and still only while the camera isn't braking.
+// -16 counts (-1.28) is about -1.0 m/s^2 actual on the camera's own braking (0.084/count + 0.28, routes 12/13/16)
+#define VOLVO_C1_BRAKE_TEST_REQUEST_MIN (-16)
 #define VOLVO_C1_LONG_TRACTION_MAX 186U  // drive traction for +2.0 m/s^2 (93 per m/s^2)
 typedef struct {
   uint8_t data[VOLVO_C1_CAM_FRAMES][8];
