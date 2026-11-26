@@ -176,5 +176,75 @@ class TestVolvoC1Long(unittest.TestCase):
     self.assertFalse(lib.safety_tx_hook(packet((ACC_REQUEST, REQUEST[:7], 0))))
 
 
+C1_BRAKE_TEST = C1_LONG | 32
+
+
+def with_flags(dat: bytes, a: int, b: int) -> bytes:
+  out = bytearray(dat)
+  out[2] = (out[2] & 0xDF) | (0x20 * a)
+  out[5] = (out[5] & 0xDF) | (0x20 * b)
+  return bytes(out)
+
+
+class TestVolvoC1BrakeTest(TestVolvoC1Long):
+  """Brake-test branch (flag 32 with 16): OP may also brake lightly the way the camera does, never while it brakes.
+  Inherits the long tests that hold with the flag; the ones that change are overridden below."""
+  def setUp(self, param=C1_BRAKE_TEST):
+    super().setUp(param)
+
+  def test_param_admitted_and_stock_profile_unchanged(self):
+    self.assertEqual(0, lib.set_safety_hooks(VOLVO, C1_BRAKE_TEST))
+    self.assertEqual(-1, lib.set_safety_hooks(VOLVO, C1 | 32))  # the brake test needs long
+
+  def test_request_limits(self):
+    self._engage()
+    self._cam(ACC_REQUEST, REQUEST)
+    for counts in range(-64, 64):
+      with self.subTest(counts=counts):
+        unchanged = counts == -17
+        self.assertEqual(-13 <= counts <= 25 or unchanged, bool(self._tx(ACC_REQUEST, with_request(REQUEST, counts))))
+
+  def test_request_only_replaces_the_request_bits(self):
+    # as in step 1, except that the two flags may now change together
+    self._engage()
+    self._cam(ACC_REQUEST, REQUEST)
+    for byte in range(8):
+      for bit in range(8):
+        if (byte == 7 and bit < 7) or (byte in (2, 5) and bit == 5):
+          continue
+        dat = bytearray(with_request(REQUEST, -5))
+        dat[byte] ^= 1 << bit
+        with self.subTest(byte=byte, bit=bit):
+          self.assertFalse(self._tx(ACC_REQUEST, bytes(dat)))
+
+  def test_op_brake_flags(self):
+    self._engage()
+    self._cam(ACC_REQUEST, REQUEST)
+    for counts in range(-20, 10):
+      for a, b in ((0, 0), (1, 1), (1, 0), (0, 1)):
+        unchanged = counts == -17 and (a, b) == (0, 0)  # the camera's own frame (raw 47)
+        expected = unchanged or (-13 <= counts <= 25 and ((a, b) == (0, 0) or ((a, b) == (1, 1) and counts <= 0)))
+        with self.subTest(counts=counts, flags=(a, b)):
+          self.assertEqual(expected, bool(self._tx(ACC_REQUEST, with_flags(with_request(REQUEST, counts), a, b))))
+
+  def test_no_op_braking_while_the_camera_brakes(self):
+    self._engage()
+    self._cam(ACC_REQUEST, REQUEST_BRAKE)
+    for counts in (-13, -7, 0):
+      self.assertFalse(self._tx(ACC_REQUEST, with_request(REQUEST_BRAKE, counts)))
+    self._cam(ACC_MODE, MODE_BRAKE)
+    self.assertFalse(self._tx(ACC_MODE, with_mode(MODE_BRAKE, 1, -20)))
+
+  def test_mode_and_traction(self):
+    self._engage()
+    self._cam(ACC_MODE, MODE_DRIVE)
+    for traction in range(256):
+      with self.subTest(traction=traction):
+        self.assertEqual(traction <= 186, bool(self._tx(ACC_MODE, with_mode(MODE_DRIVE, 2, traction))))
+        self.assertEqual(traction >= 0x81, bool(self._tx(ACC_MODE, with_mode(MODE_DRIVE, 1, traction))))
+        self.assertEqual(traction == 0, bool(self._tx(ACC_MODE, with_mode(MODE_DRIVE, 0, traction))))  # OP brake mode
+        self.assertFalse(self._tx(ACC_MODE, with_mode(MODE_DRIVE, 3, traction)))
+
+
 if __name__ == "__main__":
   unittest.main()

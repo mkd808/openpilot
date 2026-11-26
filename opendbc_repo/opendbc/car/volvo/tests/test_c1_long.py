@@ -130,23 +130,25 @@ def long_params():
 
 
 class Drive:
-  def __init__(self):
+  def __init__(self, param=18):
     self.cc = CarController(DBCS[CAR.VOLVO_V40], long_params())
-    assert lib.set_safety_hooks(36, 18) == 0
+    assert lib.set_safety_hooks(36, param) == 0
     lib.init_tests()
     lib.set_timer(1_000_000)
     lib.set_controls_allowed(True)
 
-  def step(self, accel, request=FSM2_DRIVE, mode=FSM4_DRIVE_FRAME, long_active=True, enabled=True, standstill=False, v_ego=20.):
+  def step(self, accel, request=FSM2_DRIVE, mode=FSM4_DRIVE_FRAME, long_active=True, enabled=True, standstill=False, v_ego=20.,
+           lka=False, lead=False, gas=False):
     for addr, dat in ((FSM2, request), (FSM4, mode)):
       lib.safety_rx_hook(packet((addr, dat, 2)))
-    out = structs.CarState.new_message(standstill=standstill, vEgo=0. if standstill else v_ego).as_reader()
-    cs = SimpleNamespace(out=out, c1_lka_torque=0, c1_brake_hold=False, c1_buttons_stock=None,
+    out = structs.CarState.new_message(standstill=standstill, vEgo=0. if standstill else v_ego, gasPressed=gas).as_reader()
+    cs = SimpleNamespace(out=out, c1_lka_torque=0, c1_brake_hold=False, c1_buttons_stock=None, c1_lka_on=lka,
                          c1_msg_pscm={'SteeringAngleServo': 0, 'byte0': 0, 'byte3': 0, 'byte4': 0, 'byte7': 0, 'LKAActive': 0},
                          c1_stock_acc_request_frames=[parse("FSM2", FSM2, 50, request)],
                          c1_stock_acc_mode_frames=[parse("FSM4", FSM4, 40, mode)])
     cc = structs.CarControl.new_message(longActive=long_active, enabled=enabled)
     cc.actuators.accel = accel
+    cc.hudControl.leadVisible = lead
     _, sends = self.cc.update(cc.as_reader(), cs, 0)
     long_sends = [(a, d, b) for a, d, b in sends if a in (FSM2, FSM4)]
     for msg in long_sends:
@@ -282,3 +284,70 @@ def test_controller_takes_over_after_camera_braking_within_limits():
   out = drive.step(0.5)  # the camera drives again: OP ramps from its own floor, not the camera's -2.4
   assert (out[FSM2][7] & 0x7F) - 64 == -6
   assert out[FSM2][2] & 0x20 == 0 and out[FSM4][6] & 0x3 == LongMode.COAST
+
+
+# Brake test (brake-test branch): flag file + LKA switch flip -> fixed -1.0 brake request with the flags, panda param 50
+@pytest.fixture
+def flag_file(monkeypatch):
+  import opendbc.car.volvo.carcontroller as carcontroller
+  monkeypatch.setattr(carcontroller.os.path, "exists", lambda path: path == CarControllerParams.C1_BRAKE_TEST_FLAG)
+
+
+def brake_test(drive, frames, **kwargs):
+  for _ in range(5):
+    drive.step(0.3, v_ego=15.)
+  out = None
+  for _ in range(frames):
+    out = drive.step(0.3, v_ego=15., lka=True, **kwargs)
+  return out
+
+
+def braking(out) -> bool:
+  return bool(out[FSM2][2] & 0x20 and out[FSM2][5] & 0x20 and out[FSM4][6] & 0x3 == LongMode.BRAKE)
+
+
+def test_brake_test_param_on_this_branch():
+  assert long_params().safetyConfigs[0].safetyParam == 50
+
+
+def test_brake_test_runs_on_lka_flip(flag_file):
+  drive = Drive(param=50)
+  out = brake_test(drive, 60)
+  assert braking(out) and out[FSM4][7] == 0
+  assert (out[FSM2][7] & 0x7F) - 64 in (-12, -13)  # held at -1.0, OP's planner wanting +0.3 is ignored
+  assert drive.cc.c1_bt_active
+
+
+def test_brake_test_ends_after_max_time(flag_file):
+  drive = Drive(param=50)
+  out = brake_test(drive, round(CarControllerParams.C1_BRAKE_TEST_MAX_S / 0.01) + 20)
+  assert not drive.cc.c1_bt_active and not braking(out)
+
+
+@pytest.mark.parametrize("kwargs", [{"lead": True}, {"gas": True}])
+def test_brake_test_needs_a_clear_road(flag_file, kwargs):
+  drive = Drive(param=50)
+  out = brake_test(drive, 60, **kwargs) if "gas" not in kwargs else None
+  if "gas" in kwargs:
+    brake_test(drive, 20)
+    assert drive.cc.c1_bt_active
+    drive.step(0.3, v_ego=15., lka=True, gas=True, long_active=False)
+    assert not drive.cc.c1_bt_active
+  else:
+    assert not drive.cc.c1_bt_active and not braking(out)
+
+
+def test_brake_test_needs_the_flag_file():
+  drive = Drive(param=50)
+  out = brake_test(drive, 60)
+  assert not drive.cc.c1_bt_active and not braking(out)
+
+
+def test_brake_test_needs_speed(flag_file):
+  drive = Drive(param=50)
+  for _ in range(5):
+    drive.step(0.3, v_ego=7.)
+  out = None
+  for _ in range(60):
+    out = drive.step(0.3, v_ego=7., lka=True)
+  assert not drive.cc.c1_bt_active and not braking(out)

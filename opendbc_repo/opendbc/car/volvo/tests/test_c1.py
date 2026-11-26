@@ -58,7 +58,8 @@ class TestVolvoC1Host(unittest.TestCase):
       for release in [False, True]:
         with self.subTest(alpha=alpha, release=release):
           cp = params(alpha, release)
-          assert (cp.safetyConfigs[0].safetyModel, cp.safetyConfigs[0].safetyParam) == (structs.CarParams.SafetyModel.volvo, 18 if alpha else 2)
+          # brake-test branch: C1 | LONG | BRAKE_TEST
+          assert (cp.safetyConfigs[0].safetyModel, cp.safetyConfigs[0].safetyParam) == (structs.CarParams.SafetyModel.volvo, 50 if alpha else 2)
           assert cp.openpilotLongitudinalControl == alpha and cp.alphaLongitudinalAvailable
           assert cp.pcmCruise and not cp.radarUnavailable  # Delphi ESR on bus 1
           assert cp.steerControlType == structs.CarParams.SteerControlType.angle

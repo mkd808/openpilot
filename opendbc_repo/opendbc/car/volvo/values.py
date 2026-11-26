@@ -19,6 +19,7 @@ class VolvoSafetyFlags(IntFlag):
   LCA2_MOD15 = 4
   EUCD = 8
   C1_LONG = 16  # V40 experimental OP longitudinal, with C1
+  C1_BRAKE_TEST = 32  # test branch only, with C1_LONG: OP's own braking for the button-triggered brake test
 
 
 class CarControllerParams:
@@ -60,6 +61,16 @@ class CarControllerParams:
   # is off, OP's own frames keep going out, also at a standstill.
   C1_LONG_HANDOFF_SPEED = 14 * CV.KPH_TO_MS
   C1_LONG_HANDOFF_ACCEL = -0.3  # m/s^2; OP asks for more than gentle coasting
+  # Brake test (test branch only): with the flag file on the device, flipping the LKA switch with OP long active, above
+  # C1_BRAKE_TEST_MIN_SPEED, no lead shown and the camera not braking sends a fixed brake request the way the camera
+  # brakes (brake mode, traction 0, both hydraulic flags) until the speed has dropped C1_BRAKE_TEST_DROP or
+  # C1_BRAKE_TEST_MAX_S has passed. Gas, brake, a lead, the camera braking or OP long ending stop it at once.
+  C1_BRAKE_TEST_FLAG = "/data/volvo_c1_brake_test"
+  C1_BRAKE_TEST_ACCEL = -1.0  # m/s^2; the camera's -1.0 gave about -0.8 and pressure ~35 (route 00000016)
+  C1_BRAKE_TEST_MIN_SPEED = 30 * CV.KPH_TO_MS
+  C1_BRAKE_TEST_DROP = 15 * CV.KPH_TO_MS
+  C1_BRAKE_TEST_MAX_S = 4.0
+  C1_BRAKE_TEST_FLAG_CHECK_FRAMES = 100  # look for the flag file once a second
 
 
 @dataclass

@@ -1,13 +1,15 @@
+import os
 from collections import deque
 import numpy as np
 from opendbc.can import CANPacker
 from opendbc.car import DT_CTRL, Bus
+from opendbc.car.carlog import carlog
 from opendbc.car.interfaces import CarControllerBase
 from opendbc.car.lateral import apply_std_steer_angle_limits
 from opendbc.car.volvo.eucd_params import LongMode
 from opendbc.car.volvo.volvocan import (c1_next_long_mode, create_c1_acc_mode, create_c1_acc_request, create_c1_cancel, create_c1_pscm_message,
                                         create_c1_resume, create_c1_steering_control)
-from opendbc.car.volvo.values import CarControllerParams
+from opendbc.car.volvo.values import CarControllerParams, VolvoSafetyFlags
 
 
 class CarController(CarControllerBase):
@@ -28,6 +30,14 @@ class CarController(CarControllerBase):
     self.c1_long_was_active = False
     self.c1_handoff = False  # OP is cancelling stock ACC to hand a stop it can't finish to the driver
     self.c1_handoff_frame = None  # frame the handoff's first cancel went out
+    # brake test (test branch): panda allows it only with the C1_BRAKE_TEST safety flag
+    self.c1_bt_capable = any(cfg.safetyParam & VolvoSafetyFlags.C1_BRAKE_TEST for cfg in CP.safetyConfigs)
+    self.c1_bt_armed = False  # the flag file is on the device
+    self.c1_bt_check_frame = None
+    self.c1_bt_lka = None  # LKA switch state last frame; a change is the trigger
+    self.c1_bt_active = False
+    self.c1_bt_start = 0
+    self.c1_bt_v0 = 0.
 
   def update(self, CC, CS, now_nanos):
     can_sends = []
@@ -115,6 +125,31 @@ class CarController(CarControllerBase):
       can_sends.append(create_c1_resume(self.packer, stock))
       self.c1_resume_frames -= 1
 
+  def _c1_brake_test(self, CC, CS, cam_brakes) -> bool:
+    """Button-triggered brake test (see C1_BRAKE_TEST_FLAG): True while OP sends its fixed brake request."""
+    CCP = CarControllerParams
+    if not self.c1_bt_capable:
+      return False
+    if self.c1_bt_check_frame is None or self.frame - self.c1_bt_check_frame >= CCP.C1_BRAKE_TEST_FLAG_CHECK_FRAMES:
+      self.c1_bt_armed = os.path.exists(CCP.C1_BRAKE_TEST_FLAG)
+      self.c1_bt_check_frame = self.frame
+    lka = bool(getattr(CS, "c1_lka_on", False))
+    flipped = self.c1_bt_lka is not None and lka != self.c1_bt_lka
+    self.c1_bt_lka = lka
+    clear = (CC.longActive and not CS.out.gasPressed and not CS.out.brakePressed and not cam_brakes and
+             not CC.hudControl.leadVisible and self.c1_bt_armed)
+    if self.c1_bt_active:
+      elapsed = (self.frame - self.c1_bt_start) * DT_CTRL
+      reason = ("speed drop" if CS.out.vEgo <= self.c1_bt_v0 - CCP.C1_BRAKE_TEST_DROP else
+                "time" if elapsed >= CCP.C1_BRAKE_TEST_MAX_S else None if clear else "aborted")
+      if reason is not None:
+        self.c1_bt_active = False
+        carlog.warning(f"volvo_c1_brake_test end {reason} after {elapsed:.2f}s, {self.c1_bt_v0 * 3.6:.1f} -> {CS.out.vEgo * 3.6:.1f} km/h")
+    elif flipped and clear and CS.out.vEgo >= CCP.C1_BRAKE_TEST_MIN_SPEED:
+      self.c1_bt_active, self.c1_bt_start, self.c1_bt_v0 = True, self.frame, CS.out.vEgo
+      carlog.warning(f"volvo_c1_brake_test start at {CS.out.vEgo * 3.6:.1f} km/h")
+    return self.c1_bt_active
+
   def _c1_longitudinal(self, CC, CS):
     """V40 OP long: drive and coast, stock ACC engaged and keeping all braking (see C1_LONG_ACCEL_MIN).
 
@@ -142,6 +177,7 @@ class CarController(CarControllerBase):
           not cam_brakes and self.c1_cam_accel > 0.):
       self.c1_handoff = True
     cam_owns = cam_brakes or (CS.out.standstill and not self.c1_handoff)
+    brake_test = self._c1_brake_test(CC, CS, cam_brakes)
 
     if not CC.longActive:
       self.c1_long_was_active = False
@@ -158,7 +194,11 @@ class CarController(CarControllerBase):
         self.c1_long_mode = LongMode.COAST if self.c1_cam_mode == LongMode.BRAKE and not cam_hydraulic else self.c1_cam_mode
       self.c1_long_was_active = True
 
-    if not cam_owns:
+    if not cam_owns and brake_test:
+      # fixed request, ramped in at the jerk limit, brake mode with the flags the way the camera brakes
+      self.c1_accel = max(CCP.C1_BRAKE_TEST_ACCEL, self.c1_accel - CCP.C1_LONG_JERK_DOWN * DT_CTRL)
+      self.c1_long_mode = LongMode.BRAKE if self.c1_accel < 0. else LongMode.COAST
+    elif not cam_owns:
       accel = min(max(CC.actuators.accel, CCP.C1_LONG_ACCEL_MIN), CCP.C1_LONG_ACCEL_MAX)
       if CCP.C1_LONG_CAMERA_CAP:
         accel = min(accel, max(self.c1_cam_accel, CCP.C1_LONG_ACCEL_MIN))
@@ -174,7 +214,8 @@ class CarController(CarControllerBase):
       if cam_owns:
         sends.append(create_c1_acc_request(self.packer, frame, float(frame["ACC_AccelRequest"])))
       else:
-        sends.append(create_c1_acc_request(self.packer, frame, self.c1_accel))
+        brake = brake_test and self.c1_long_mode == LongMode.BRAKE and self.c1_accel < 0.
+        sends.append(create_c1_acc_request(self.packer, frame, self.c1_accel, brake))
     for frame in mode_frames:
       cam_frame = cam_owns or int(frame["ACC_Mode"]) == LongMode.BRAKE
       sends.append(create_c1_acc_mode(self.packer, frame) if cam_frame else create_c1_acc_mode(self.packer, frame, self.c1_accel, self.c1_long_mode))

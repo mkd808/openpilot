@@ -9,7 +9,8 @@
 static bool volvo_dispatch_c1;
 static bool volvo_dispatch_eucd;
 static safety_config volvo_dispatch_init(uint16_t param) {
-  volvo_dispatch_c1 = (param == VOLVO_PARAM_C1) || (param == (VOLVO_PARAM_C1 | VOLVO_C1_PARAM_LONG));
+  volvo_dispatch_c1 = (param == VOLVO_PARAM_C1) || (param == (VOLVO_PARAM_C1 | VOLVO_C1_PARAM_LONG)) ||
+                      (param == (VOLVO_PARAM_C1 | VOLVO_C1_PARAM_LONG | VOLVO_C1_PARAM_BRAKE_TEST));
   volvo_dispatch_eucd = param == VOLVO_PARAM_EUCD;
   safety_config ret;
   if (volvo_dispatch_eucd) {

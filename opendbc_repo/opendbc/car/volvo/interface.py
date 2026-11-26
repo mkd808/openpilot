@@ -57,7 +57,8 @@ class CarInterface(CarInterfaceBase):
     if eucd:
       safety_param = VolvoSafetyFlags.EUCD.value
     if c1 and alpha_long:
-      safety_param |= VolvoSafetyFlags.C1_LONG.value
+      # brake-test branch: panda also allows OP's own light braking, used only by the button-triggered test
+      safety_param |= VolvoSafetyFlags.C1_LONG.value | VolvoSafetyFlags.C1_BRAKE_TEST.value
     if candidate == CAR.POLESTAR_2:
       safety_param |= VolvoSafetyFlags.LCA2_MOD15.value
     ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.volvo, safety_param)]

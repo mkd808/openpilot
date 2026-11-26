@@ -77,7 +77,7 @@ def test_all_final_params_and_angle_factory(identity, alpha, release):
   expected_geometry = struct.unpack('<3f', struct.pack('<3f', wheelbase, ratio, delay))
   assert (cp.wheelbase, cp.steerRatio, cp.steerActuatorDelay) == expected_geometry
   long_capable = identity in ('VOLVO_V60', 'VOLVO_V40')
-  assert cp.safetyConfigs[0].safetyParam == param | (16 if alpha and identity == 'VOLVO_V40' else 0)  # C1_LONG
+  assert cp.safetyConfigs[0].safetyParam == param | (48 if alpha and identity == 'VOLVO_V40' else 0)  # C1_LONG | C1_BRAKE_TEST (brake-test branch)
   assert cp.steerControlType == structs.CarParams.SteerControlType.angle
   assert cp.pcmCruise and not cp.dashcamOnly
   assert cp.radarUnavailable == (identity not in ('VOLVO_V60', 'VOLVO_V40'))  # the V60's and the V40's Delphi ESR
