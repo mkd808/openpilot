@@ -331,6 +331,19 @@ def test_brake_test_runs_on_lka_flip(flag_file):
   assert (out[FSM2][7] & 0x7F) - 64 == -16  # -1.25 from the brake table for -1.0, OP's planner wanting +0.3 is ignored
 
 
+def test_brake_test_quick_onset(flag_file):
+  # fast through the engine-braking zone, then 1 m/s^3: from the camera's +0.4 the request is at -0.5 within ~0.26 s
+  drive = Drive(param=50)
+  for _ in range(5):
+    drive.step(0.3, v_ego=15.)
+  for _ in range(30):
+    out = drive.step(0.3, v_ego=15., lka=True)
+  assert (out[FSM2][7] & 0x7F) - 64 <= -6  # past -0.48 after 0.3 s (at 1 m/s^3 it would still be near +0.1)
+  for _ in range(45):
+    out = drive.step(0.3, v_ego=15., lka=True)
+  assert -16 < (out[FSM2][7] & 0x7F) - 64 <= -10  # then on the slow ramp
+
+
 def test_brake_test_eases_off_when_braking_too_hard(flag_file):
   drive = Drive(param=50)
   brake_test(drive, 250)
@@ -338,7 +351,7 @@ def test_brake_test_eases_off_when_braking_too_hard(flag_file):
   for _ in range(100):
     out = drive.step(0.3, v_ego=15., lka=True, a_ego=-1.25)  # 0.25 harder than the target, under the limiter
   counts = (out[FSM2][7] & 0x7F) - 64
-  assert braking(out) and -16 < counts <= -13  # eased by 0.6 * 0.25 = 0.15
+  assert braking(out) and -16 < counts <= -12  # eased by 1.0 * 0.25
   assert drive.cc.c1_bt_active
 
 

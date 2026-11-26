@@ -207,7 +207,8 @@ class CarController(CarControllerBase):
       target = CCP.C1_BRAKE_TEST_ACCEL
       ease = float(np.clip(CCP.C1_BRAKE_TEST_EASE_GAIN * (target - CS.out.aEgo), 0., CCP.C1_BRAKE_TEST_EASE))
       request = float(np.interp(target, CCP.C1_BRAKE_ACCEL_BP, CCP.C1_BRAKE_REQUEST_V)) + ease
-      self.c1_accel = min(max(request, self.c1_accel - CCP.C1_BRAKE_TEST_RAMP * DT_CTRL), self.c1_accel + CCP.C1_LONG_JERK_DOWN * DT_CTRL)
+      ramp = CCP.C1_BRAKE_TEST_FAST_RAMP if self.c1_accel > CCP.C1_BRAKE_TEST_FAST_UNTIL else CCP.C1_BRAKE_TEST_RAMP
+      self.c1_accel = min(max(request, self.c1_accel - ramp * DT_CTRL), self.c1_accel + CCP.C1_LONG_JERK_DOWN * DT_CTRL)
       if not self.c1_bt_pressure_logged and getattr(CS, "c1_brake_pressure", 0) > CCP.C1_BRAKE_TEST_PRESSURE_SEEN:
         self.c1_bt_pressure_logged = True
         carlog.warning(f"volvo_c1_brake_test pressure after {(self.frame - self.c1_bt_start) * DT_CTRL:.2f}s, request {self.c1_accel:+.2f}")

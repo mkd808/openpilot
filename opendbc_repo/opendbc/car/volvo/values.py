@@ -87,7 +87,13 @@ class CarControllerParams:
   C1_BRAKE_ACCEL_BP = [-2.0, -1.5, -1.0, -0.75, -0.45, -0.1, 0.0]
   C1_BRAKE_REQUEST_V = [-2.2, -1.75, -1.25, -0.96, -0.76, -0.40, -0.32]
   C1_BRAKE_TEST_RAMP = 1.0  # m/s^3 into the brake request
-  C1_BRAKE_TEST_EASE_GAIN = 0.6
+  # Test 6 (route 0000001d): pressure only starts ~0.4-0.5 s after the request passes ~-1.1, so most of the ~1.9 s
+  # onset was the 1 m/s^3 ramp from cruising. Down to C1_BRAKE_TEST_FAST_UNTIL, where the car only engine-brakes
+  # anyway, the request ramps at C1_BRAKE_TEST_FAST_RAMP; below it at C1_BRAKE_TEST_RAMP. Easing harder (gain 1.0, was
+  # 0.6) keeps the overshoot under the limiter so the flags rarely drop.
+  C1_BRAKE_TEST_FAST_UNTIL = -0.5  # m/s^2
+  C1_BRAKE_TEST_FAST_RAMP = 3.5  # m/s^3
+  C1_BRAKE_TEST_EASE_GAIN = 1.0
   C1_BRAKE_TEST_EASE = 0.5  # m/s^2
   C1_BRAKE_TEST_PRESSURE_SEEN = 10  # 0x1B0 BrakePress0 counts: pressure has started building
   # Test 5: while the camera brakes, 0x280 byte 5 (SpeedTarget) is the speed it brakes towards (about the lead's speed,
