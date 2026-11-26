@@ -60,7 +60,10 @@ class CarControllerParams:
   # OP cancels stock ACC: the driver gets openpilot's disengage alert, the car coasts and the driver brakes. Until ACC
   # is off, OP's own frames keep going out, also at a standstill.
   C1_LONG_HANDOFF_SPEED = 14 * CV.KPH_TO_MS
-  C1_LONG_HANDOFF_ACCEL = -0.3  # m/s^2; OP asks for more than gentle coasting
+  # m/s^2: OP really wants to stop. -0.3 cancelled ACC on route 00000020 at 109.6 s: 6 km/h behind a lead pulling away,
+  # the camera rightly asking to go, OP's planner still lagging at -0.46. Stopping for something the camera ignores
+  # (a stopped car, a red light) needs -1.5 or more at that speed.
+  C1_LONG_HANDOFF_ACCEL = -0.8
   # Brake test (test branch only): with the flag file on the device, flipping the LKA switch with OP long active, above
   # C1_BRAKE_TEST_MIN_SPEED, no lead shown and the camera not braking sends a fixed brake request the way the camera
   # brakes (brake mode, traction 0, both hydraulic flags) until the speed has dropped C1_BRAKE_TEST_DROP or
