@@ -56,8 +56,9 @@ class CarState(CarStateBase):
     self.c1_acc_brake_age = 0 if acc_owns_brake else min(self.c1_acc_brake_age + 1, C1_ACC_BRAKE_GRACE_FRAMES + 1)
     grace = acc_active and self.c1_acc_brake_age <= C1_ACC_BRAKE_GRACE_FRAMES
     ret.brakePressed = pressure_bits and not acc_owns_brake and not grace
-    # 5 = ACC braking, 1 = ACC transition/hold (0xA1 / 0xE1)
-    ret.brakeHoldActive = brake_status in (1, 5)
+    # Only the hold flag (0x1B0 byte 2 bit 6, 0xE0/0xE1: ACC holding the car at standstill). Status 5 is ACC braking and
+    # 1 the transition around it, not a hold: counting them showed the "brake hold" warning whenever ACC braked.
+    ret.brakeHoldActive = self.c1_brake_hold
 
     ret.gearShifter = {
       0: GearShifter.park,
