@@ -140,7 +140,7 @@ class Drive:
     lib.set_controls_allowed(True)
 
   def step(self, accel, request=FSM2_DRIVE, mode=FSM4_DRIVE_FRAME, long_active=True, enabled=True, standstill=False, v_ego=20.,
-           lka=False, lead=False, gas=False, brake_msg=None, fsm0=None, a_ego=0.):
+           lka=False, lead=False, gas=False, brake_msg=None, fsm0=None, a_ego=0., lead_braking=None):
     for addr, dat in ((FSM2, request), (FSM4, mode)):
       lib.safety_rx_hook(packet((addr, dat, 2)))
     if brake_msg is not None:
@@ -157,6 +157,7 @@ class Drive:
     cc = structs.CarControl.new_message(longActive=long_active, enabled=enabled)
     cc.actuators.accel = accel
     cc.hudControl.leadVisible = lead
+    cc.hudControl.leadBraking = lead if lead_braking is None else lead_braking
     _, sends = self.cc.update(cc.as_reader(), cs, 0)
     long_sends = [(a, d, b) for a, d, b in sends if a in (FSM2, FSM4)]
     for msg in long_sends:
@@ -422,6 +423,21 @@ def test_op_brake_follows_a_milder_planner(op_flag):
 def test_no_op_brake(op_flag, kwargs):
   drive = Drive(param=50)
   out = op_brake(drive, 200, **kwargs)
+  assert not drive.cc.c1_ob_active and not braking(out)
+
+
+def test_no_op_brake_slowing_for_the_set_speed(op_flag):
+  # route 00000021 at 198 s: lead steady 42 m ahead, the planner slowing for the FSM's 40 km/h sign (source cruise)
+  drive = Drive(param=50)
+  out = op_brake(drive, 200, lead_braking=False)
+  assert not drive.cc.c1_ob_active and not braking(out)
+
+
+def test_op_brake_ramps_out_when_the_planner_stops_following_the_lead(op_flag):
+  drive = Drive(param=50)
+  op_brake(drive, 200)
+  op_brake(drive, 60, lead_braking=False)
+  out = op_brake(drive, 1, lead_braking=False)
   assert not drive.cc.c1_ob_active and not braking(out)
 
 

@@ -92,7 +92,8 @@ class CarControllerParams:
   C1_BRAKE_TEST_FAST_RAMP = 3.5  # m/s^3
   C1_BRAKE_TEST_EASE_GAIN = 1.0
   # Step 2b: OP's own planner brakes with the brake test's path (table, ramps, easing, limiter, relays), only with the
-  # flag file on the device, OP long active, a lead shown, above C1_OP_BRAKE_MIN_SPEED, no pedal and the camera not
+  # flag file on the device, OP long active, a lead shown and the planner slowing for it (route 00000021: not for the
+  # set speed or the FSM's speed sign), above C1_OP_BRAKE_MIN_SPEED, no pedal and the camera not
   # braking, once the planner asks for less than C1_OP_BRAKE_ENTER. Never deeper than C1_OP_BRAKE_ACCEL_MIN actual.
   # When the need ends (or a condition fails) the request ramps back to coasting at C1_LONG_JERK_UP. Stops stay the
   # camera's (and the stop handoff's); the panda rules are the brake tests' (C1_BRAKE_TEST flag).

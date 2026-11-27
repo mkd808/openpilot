@@ -135,7 +135,8 @@ class CarController(CarControllerBase):
     if self.c1_ob_check_frame is None or self.frame - self.c1_ob_check_frame >= CCP.C1_BRAKE_TEST_FLAG_CHECK_FRAMES:
       self.c1_ob_armed = os.path.exists(CCP.C1_OP_BRAKE_FLAG)
       self.c1_ob_check_frame = self.frame
-    return bool(self.c1_ob_armed and CC.longActive and CC.hudControl.leadVisible and CS.out.vEgo >= CCP.C1_OP_BRAKE_MIN_SPEED and
+    return bool(self.c1_ob_armed and CC.longActive and CC.hudControl.leadVisible and CC.hudControl.leadBraking and
+                CS.out.vEgo >= CCP.C1_OP_BRAKE_MIN_SPEED and
                 not CS.out.gasPressed and not CS.out.brakePressed and not cam_brakes)
 
   def _c1_longitudinal(self, CC, CS):
