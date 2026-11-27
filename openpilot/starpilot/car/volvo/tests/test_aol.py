@@ -33,11 +33,29 @@ def test_profile_must_match_the_platform():
     assert not aol.qualified(cp)
 
 
+def test_v40_keeps_aol_with_op_long():
+  # route 7c7d3d5e5ff31d51/00000021: OP long's profile (50) dropped AOL, so no steering without ACC engaged
+  model = int(structs.CarParams.SafetyModel.volvo)
+  cp = CarInterface.get_params(CAR.VOLVO_V40, {i: {} for i in range(8)}, [], True, False, False)
+  cp.alternativeExperience = 32
+  assert cp.openpilotLongitudinalControl and cp.safetyConfigs[0].safetyParam == 50
+  assert aol.qualified(cp, marked_only=True) and aol.policy_for(cp).intent_supported
+  for param in (18, 50):
+    assert aol.native_profile_supported(model, param)
+  assert aol.native_accepts_cp(cp, model, 50) and not aol.native_accepts_cp(cp, model, 2)
+  for wrong in (16, 34, 48, 24):
+    cp.safetyConfigs[0].safetyParam = wrong
+    assert not aol.qualified(cp)
+  v60 = params()
+  v60.safetyConfigs[0].safetyParam = 8 | 16
+  assert not aol.qualified(v60)
+
+
 def test_exact_native_profile():
   model = int(structs.CarParams.SafetyModel.volvo)
   assert aol.native_profile_supported(model, 8)
   assert aol.native_profile_supported(model, 2)
-  for param in (0, 1, 4, 5):
+  for param in (0, 1, 4, 5, 16, 24, 34):
     assert not aol.native_profile_supported(model, param)
   assert not aol.native_profile_supported(model + 1, 8)
   assert aol.native_accepts_cp(params(), model, 8)

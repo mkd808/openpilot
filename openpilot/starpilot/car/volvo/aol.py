@@ -10,7 +10,10 @@ from openpilot.starpilot.aol.policy import AolVehiclePolicy
 
 VOLVO_EUCD = VolvoSafetyFlags.EUCD.value
 VOLVO_C1 = VolvoSafetyFlags.C1.value
-_PROFILES = {CAR.VOLVO_V60: VOLVO_EUCD, CAR.VOLVO_V40: VOLVO_C1}
+# the V40 keeps AOL with OP long (C1_LONG) and the step 2b braking (C1_BRAKE_TEST) profiles
+VOLVO_C1_LONG = VOLVO_C1 | VolvoSafetyFlags.C1_LONG.value
+VOLVO_C1_OP_BRAKING = VOLVO_C1_LONG | VolvoSafetyFlags.C1_BRAKE_TEST.value
+_PROFILES = {CAR.VOLVO_V60: (VOLVO_EUCD,), CAR.VOLVO_V40: (VOLVO_C1, VOLVO_C1_LONG, VOLVO_C1_OP_BRAKING)}
 _DRIVE = (structs.CarState.GearShifter.drive,)
 
 
@@ -30,7 +33,7 @@ def qualified(cp, *, marked_only=False):
     ):
       return False
     config = cp.safetyConfigs[0]
-    return config.safetyModel == structs.CarParams.SafetyModel.volvo and config.safetyParam == _PROFILES[cp.carFingerprint]
+    return config.safetyModel == structs.CarParams.SafetyModel.volvo and config.safetyParam in _PROFILES[cp.carFingerprint]
   except (AttributeError, TypeError, ValueError, IndexError):
     return False
 
@@ -49,7 +52,7 @@ def policy_for(cp):
 
 
 def native_profile_supported(model, param):
-  return model == int(structs.CarParams.SafetyModel.volvo) and param in (VOLVO_EUCD, VOLVO_C1)
+  return model == int(structs.CarParams.SafetyModel.volvo) and param in (VOLVO_EUCD, VOLVO_C1, VOLVO_C1_LONG, VOLVO_C1_OP_BRAKING)
 
 
 def native_accepts_cp(cp, model, param):
