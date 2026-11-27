@@ -27,6 +27,7 @@ class CarState(CarStateBase):
     self.c1_brake_pressure = 0  # 0x1B0 BrakePress0
     # The FSM's road-sign speed limit (RSI), the Speed Limit Controller's "Dashboard" source
     self.dashboard_limit = LimitTracker()
+    self.c1_set_button_type = ButtonType.setCruise
     self.c1_button_states = dict.fromkeys(
       ("ACCOnOffBtn", "ACCStopBtn", "ACCSetBtn", "ACCResumeBtn", "ACCMinusBtn", "TimeGapIncreaseBtn", "TimeGapDecreaseBtn"), False
     )
@@ -81,13 +82,18 @@ class CarState(CarStateBase):
     button_types = {
       "ACCOnOffBtn": ButtonType.mainCruise,
       "ACCStopBtn": ButtonType.cancel,
-      "ACCSetBtn": ButtonType.setCruise,
+      # "+" is the Set button: while ACC is active it raises the set speed, so it is accelCruise, which also accepts a
+      # pending Speed Limit Controller limit (route 00000021: as setCruise it was ignored). Chosen at the press.
+      "ACCSetBtn": self.c1_set_button_type,
       "ACCResumeBtn": ButtonType.resumeCruise,
       "ACCMinusBtn": ButtonType.decelCruise,
       "TimeGapIncreaseBtn": ButtonType.gapAdjustCruise,
       "TimeGapDecreaseBtn": ButtonType.gapAdjustCruise,
     }
     button_events = []
+    if cp.vl["CCButtons"]["ACCSetBtn"] and not self.c1_button_states["ACCSetBtn"]:
+      self.c1_set_button_type = ButtonType.accelCruise if ret.cruiseState.enabled else ButtonType.setCruise
+      button_types["ACCSetBtn"] = self.c1_set_button_type
     for signal, button_type in button_types.items():
       pressed = bool(cp.vl["CCButtons"][signal])
       button_events.extend(create_button_events(pressed, self.c1_button_states[signal], {True: button_type}))

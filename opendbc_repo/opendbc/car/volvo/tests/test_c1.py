@@ -16,11 +16,11 @@ def params(alpha=False, release=False):
 FSM5_60 = bytes.fromhex("cb2f00080caa2000")
 
 
-def feed(parsers, time=1000000000, torque=10, fsm5=FSM5_60):
+def feed(parsers, time=1000000000, torque=10, fsm5=FSM5_60, buttons=None, acc_active=1):
   packer = CANPacker('volvo_v40_2017_pt')
   messages = [
     packer.make_can_msg('VehicleSpeed1', 0, {'VehicleSpeed': 72}),
-    packer.make_can_msg('CCButtons', 0, {'ACCResumeBtn': 1}),
+    packer.make_can_msg('CCButtons', 0, {'ACCResumeBtn': 1} if buttons is None else buttons),
     packer.make_can_msg('PSCM1', 0, {'SteeringAngleServo': 12.5, 'LKATorque': torque}),
     packer.make_can_msg('PedalandBrake', 0, {'AccPedal': 5.1, 'BrakePedalActive': 1}),
     packer.make_can_msg('TCM0', 0, {'GearShifter': 3}),
@@ -28,7 +28,7 @@ def feed(parsers, time=1000000000, torque=10, fsm5=FSM5_60):
     packer.make_can_msg('MiscCarInfo', 0, {'TurnSignal': 1}),
     packer.make_can_msg('BrakeMessages', 0, {'BrakeStatus': 0, 'BrakeHold': 0}),
     packer.make_can_msg('CEM0', 0, {'LKA_State': 1}),
-    packer.make_can_msg('FSM0', 2, {'ACCStatusOnOff': 1, 'ACCStatusActive': 1}),
+    packer.make_can_msg('FSM0', 2, {'ACCStatusOnOff': 1, 'ACCStatusActive': acc_active}),
     packer.make_can_msg('FSM1', 2, {}),
     (0x355, fsm5, 2),  # FSM5 as the camera sent it (route 00000016): SpeedSign 12 x 5 = 60 km/h
   ]
@@ -126,6 +126,25 @@ class TestVolvoC1Host(unittest.TestCase):
         parser.update([(3000000000 + index * 10000000, [])])
         _ = parser.can_valid
     assert not all(parser.can_valid for parser in parsers.values())
+
+  def test_c1_plus_is_accel_while_acc_is_active(self):
+    # "+" (ACCSetBtn) raises the set speed while ACC is active and accepts a pending SLC limit, which needs accelCruise
+    ButtonType = structs.CarState.ButtonEvent.Type
+    for acc_active, expected in ((1, ButtonType.accelCruise), (0, ButtonType.setCruise)):
+      cs = CarState(params())
+      parsers = cs.get_can_parsers(params())
+      t = 1000000000
+      events = []
+      for buttons, active in (({}, acc_active), ({'ACCSetBtn': 1}, acc_active), ({'ACCSetBtn': 1}, 1), ({}, 1)):
+        t += 20000000
+        feed(parsers, time=t, buttons=buttons, acc_active=active)
+        events += [(be.type, be.pressed) for be in cs.update(parsers).buttonEvents]
+      # press and release keep the type chosen at the press, even when ACC engages on it
+      assert events == [(expected, True), (expected, False)], (acc_active, events)
+    minus = CarState(params())
+    parsers = minus.get_can_parsers(params())
+    feed(parsers, buttons={'ACCMinusBtn': 1})
+    assert [(be.type, be.pressed) for be in minus.update(parsers).buttonEvents] == [(ButtonType.decelCruise, True)]
 
   def test_c1_recovery_and_cancel_cadence_are_distinct(self):
     cp = params()
